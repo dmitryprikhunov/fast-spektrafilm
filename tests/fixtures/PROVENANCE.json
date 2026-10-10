@@ -1,0 +1,10 @@
+{
+  "baseline_commit": "28bf883e1672e884307edc75852549376e13644e",
+  "numpy_version": "2.5.3",
+  "generated_by": "tools/generate_fixtures.py",
+  "seed": 8321,
+  "atol": 1e-09,
+  "rtol": 1e-08,
+  "controlled_stochastic_seed": 12345,
+  "controlled_stochastic_threads": 1
+}

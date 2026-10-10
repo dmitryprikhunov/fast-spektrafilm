@@ -1,0 +1,17 @@
+{
+  "film_profile": "kodak_portra_400",
+  "print_profile": "kodak_portra_endura",
+  "debug": {
+    "deactivate_spatial_effects": true,
+    "deactivate_stochastic_effects": true
+  },
+  "camera": {
+    "auto_exposure": false,
+    "film_format_mm": 35.0,
+    "auto_exposure_method": "center_weighted"
+  },
+  "settings": {
+    "apply_hanatos2025_adaptation_surface": true,
+    "spectral_gaussian_blur": 1.3
+  }
+}

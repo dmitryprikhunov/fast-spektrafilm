@@ -1,0 +1,1182 @@
+{
+  "repository": "../spektrafilm",
+  "ref": "origin/experimental",
+  "commit": "28bf883e1672e884307edc75852549376e13644e",
+  "data_files": [
+    {
+      "path": "data/filters/colored/hoya/r1.csv",
+      "bytes": 3417,
+      "sha256": "211fec78a84573b769372bbfffa9ceed70813386e4aedb25d230189943c3e4d5"
+    },
+    {
+      "path": "data/filters/colored/hoya/x0.csv",
+      "bytes": 4447,
+      "sha256": "fc9a2fbe5b79b5e7689483345263fd3a4d17e1490cd41de1657dca78705ce6f2"
+    },
+    {
+      "path": "data/filters/colored/hoya/x1.csv",
+      "bytes": 4216,
+      "sha256": "ab98aa320f521861550316b34e05b99ebe3452ebaec0b4bab7e76dd3f121f3a8"
+    },
+    {
+      "path": "data/filters/colored/hoya/y2.csv",
+      "bytes": 4695,
+      "sha256": "e96cb228d81f4a258e8ae61fe0515c5bd7845c724429ce089d0c68a1143976f2"
+    },
+    {
+      "path": "data/filters/colored/hoya/ya3.csv",
+      "bytes": 5460,
+      "sha256": "b8a93c1372b88acbf357b7edd8e4f819fd08d1d5167d998bb17c6c316017e177"
+    },
+    {
+      "path": "data/filters/dichroics/durst_digital_light/filter_c.csv",
+      "bytes": 6447,
+      "sha256": "d462d257d1345248f6d134cb00254a713b54cc9125d822f191942c577f15f070"
+    },
+    {
+      "path": "data/filters/dichroics/durst_digital_light/filter_m.csv",
+      "bytes": 6768,
+      "sha256": "891f2fcad2df32a1d7b3ddc222cae1c61f005126ef6656d01463f3022b9c2b66"
+    },
+    {
+      "path": "data/filters/dichroics/durst_digital_light/filter_y.csv",
+      "bytes": 4004,
+      "sha256": "f8631b4868630db366d1b7d52473d371419d250101d8ffab94878cc8862c593f"
+    },
+    {
+      "path": "data/filters/dichroics/edmund_optics/filter_c.csv",
+      "bytes": 6663,
+      "sha256": "f72dc5b7ae571d8f5539756ac7951036639ed77f135fdf21e8a18d48f41b2ad2"
+    },
+    {
+      "path": "data/filters/dichroics/edmund_optics/filter_m.csv",
+      "bytes": 6787,
+      "sha256": "40c42c1feed00cf0cb76781f83ab5de0e8c0d90cca9ba7670bb8dbda05cc5612"
+    },
+    {
+      "path": "data/filters/dichroics/edmund_optics/filter_y.csv",
+      "bytes": 5318,
+      "sha256": "21607355113717a854f8e61e78dd9784a7a1e91bfbd79dd1704293b9f58d9da9"
+    },
+    {
+      "path": "data/filters/dichroics/edmund_optics/info.txt",
+      "bytes": 116,
+      "sha256": "b77f383a39ebd1f034ef6cc89e1e87ecbeaf499c9a8b3bb71f2b78b3ccea846d"
+    },
+    {
+      "path": "data/filters/dichroics/thorlabs/filter_c.csv",
+      "bytes": 5604,
+      "sha256": "114a7afdc772b7ab2561c9ca54872dcac04c71bd8c20295774f45325c44b200b"
+    },
+    {
+      "path": "data/filters/dichroics/thorlabs/filter_m.csv",
+      "bytes": 5692,
+      "sha256": "6bbb5491980138d0a3b3e691da552497363e483ca10a87b5b03a2684734d2f24"
+    },
+    {
+      "path": "data/filters/dichroics/thorlabs/filter_y.csv",
+      "bytes": 5688,
+      "sha256": "ba50c8d55b94a8ea98b406a34f45783dd5719d6dcb220c0c3528fdb825a60ad0"
+    },
+    {
+      "path": "data/filters/heat_absorbing/schott/KG1.csv",
+      "bytes": 5784,
+      "sha256": "211761b6203796b091c09a597bea110bb4c3687551c9ff03fe2221478bbe9555"
+    },
+    {
+      "path": "data/filters/heat_absorbing/schott/KG3.csv",
+      "bytes": 5609,
+      "sha256": "7654aa57fa8e42ae280e8d679ae9ebf8cef48ed5cbe6c2ab43eba1c6608f3d1f"
+    },
+    {
+      "path": "data/filters/heat_absorbing/schott/KG5.csv",
+      "bytes": 5351,
+      "sha256": "254ab420a9f296adca669f6130b1b7512d402c945c25542b420d3ecf32fc8665"
+    },
+    {
+      "path": "data/filters/heat_absorbing/schott/info.txt",
+      "bytes": 88,
+      "sha256": "cd9ae1fa3694cf0d6c422cfafd06e80250520023479294d628f4d678a1ba58db"
+    },
+    {
+      "path": "data/filters/lens_transmission/canon/canon_24_f28_is.csv",
+      "bytes": 3969,
+      "sha256": "6edc1be37bc22ef4e36b98981c09c45ff0e9b3a3ce80e00c62906d8ec941df3a"
+    },
+    {
+      "path": "data/filters/lens_transmission/canon/canon_24_f28_is_info.txt",
+      "bytes": 90,
+      "sha256": "3f776692ad77f102afa228ad87498050e09681cc296ab83f717215e21f6ed04e"
+    },
+    {
+      "path": "data/filters/neutral_print_filters.json",
+      "bytes": 24053,
+      "sha256": "22ae6cca433cfbeab87df7f17cd58a2f65e88cab845818819195e6f1a80db67c"
+    },
+    {
+      "path": "data/icc/README.md",
+      "bytes": 3406,
+      "sha256": "34208d3c6956b0803dc5c2218685c4e35082ac3d11dc6addec693eea788b6bf0"
+    },
+    {
+      "path": "data/icc/ellelstone/ACES-elle-V2-g10.icc",
+      "bytes": 1132,
+      "sha256": "89be09b88effe06a0e6d37fb50089db75272c97762a47b9419b8a21d7386c52f"
+    },
+    {
+      "path": "data/icc/ellelstone/ACES-elle-V2-g18.icc",
+      "bytes": 1132,
+      "sha256": "8087eec18eebb9fab2a1506428a937d93a0a0095f05fff143e18649b2667cdc8"
+    },
+    {
+      "path": "data/icc/ellelstone/ACES-elle-V2-g22.icc",
+      "bytes": 1132,
+      "sha256": "7dd496202876482401132b1157c4f5769fb5862d995f62369c9897f0cd0bc952"
+    },
+    {
+      "path": "data/icc/ellelstone/ACES-elle-V2-labl.icc",
+      "bytes": 9288,
+      "sha256": "273ac7c1a8229ff041d858c9312ce02db6337356555ac5b9e126a4544a202448"
+    },
+    {
+      "path": "data/icc/ellelstone/ACES-elle-V2-srgbtrc.icc",
+      "bytes": 9300,
+      "sha256": "2c064cb8787c9dd79df24637971b3f100cbc2ff69816999500681b0b39c66227"
+    },
+    {
+      "path": "data/icc/ellelstone/ACES-elle-V4-g10.icc",
+      "bytes": 1072,
+      "sha256": "444b80fc482c2c1ab532496c6343ebc8b5696616022e27fe803f04ef78f94237"
+    },
+    {
+      "path": "data/icc/ellelstone/ACES-elle-V4-g18.icc",
+      "bytes": 1072,
+      "sha256": "a7d0a33060d12e79ef8b1bd7edff4d77af715ca7e1cd43976c4ea686187fc3b4"
+    },
+    {
+      "path": "data/icc/ellelstone/ACES-elle-V4-g22.icc",
+      "bytes": 1072,
+      "sha256": "bbfeee58adb33d5cd198adb3fee0d1af8b40378d68d00683d207142bb3fe09e1"
+    },
+    {
+      "path": "data/icc/ellelstone/ACES-elle-V4-labl.icc",
+      "bytes": 1088,
+      "sha256": "64f5f8d746338fe7daa1ea59bc4b486d77b0c02bd651f075a617661acc002f9a"
+    },
+    {
+      "path": "data/icc/ellelstone/ACES-elle-V4-srgbtrc.icc",
+      "bytes": 1096,
+      "sha256": "f6205f7eaf46aef4c3c6553d957c3501325374b338c3375f40f6a8e7c2f0858e"
+    },
+    {
+      "path": "data/icc/ellelstone/ACEScg-elle-V2-g10.icc",
+      "bytes": 1156,
+      "sha256": "05a55e2b23c01d6c71e279d3643e284c4909b9a220581c6d0e54aaba7e2ff17c"
+    },
+    {
+      "path": "data/icc/ellelstone/ACEScg-elle-V2-g18.icc",
+      "bytes": 1156,
+      "sha256": "824fc4257d473b6a5a1415f813c5bdc63695fd133d02b598c25d106edf646370"
+    },
+    {
+      "path": "data/icc/ellelstone/ACEScg-elle-V2-g22.icc",
+      "bytes": 1156,
+      "sha256": "9caca9e714507a9c95a58ed944294ea6af614d9447ef1a251e1a82330fcd7578"
+    },
+    {
+      "path": "data/icc/ellelstone/ACEScg-elle-V2-labl.icc",
+      "bytes": 9324,
+      "sha256": "792e0eeed56db8c729f0f93d416b340fc43b34e000d86196ad9d6fec261df499"
+    },
+    {
+      "path": "data/icc/ellelstone/ACEScg-elle-V2-rec709.icc",
+      "bytes": 9324,
+      "sha256": "3811802caf4c74f6fa33baa13b4296375e8acfad1cee5cbbe82aa8d2d42e38da"
+    },
+    {
+      "path": "data/icc/ellelstone/ACEScg-elle-V2-srgbtrc.icc",
+      "bytes": 9324,
+      "sha256": "e28a734a40bdde9176ebfb93cdd25e1abbc6a8a36a23c165bf81e94ae60ffa89"
+    },
+    {
+      "path": "data/icc/ellelstone/ACEScg-elle-V4-g10.icc",
+      "bytes": 1092,
+      "sha256": "edd2c26ccf3af80b6cd5a502f2d00293bb1f624a5e7d57e990aabe50af6ad2d0"
+    },
+    {
+      "path": "data/icc/ellelstone/ACEScg-elle-V4-g18.icc",
+      "bytes": 1092,
+      "sha256": "f1456c01f15b23363d32d77c3c61ac296ec5c6d78dcb25a0f9cde05246c35c33"
+    },
+    {
+      "path": "data/icc/ellelstone/ACEScg-elle-V4-g22.icc",
+      "bytes": 1092,
+      "sha256": "17329a337960b9b92092844fd686e2bd59ee3dc4de9f8070109e8f4decc38259"
+    },
+    {
+      "path": "data/icc/ellelstone/ACEScg-elle-V4-labl.icc",
+      "bytes": 1108,
+      "sha256": "0d6600c858d9dab2ec68e1523f93375106ca9a40a4a3aba853cfdd35f18ef4da"
+    },
+    {
+      "path": "data/icc/ellelstone/ACEScg-elle-V4-rec709.icc",
+      "bytes": 1112,
+      "sha256": "2abfcf7a865f2cf8b13ff90a5f0b30c8ca312d8f775eb2a832826fcdd5cf9b2e"
+    },
+    {
+      "path": "data/icc/ellelstone/ACEScg-elle-V4-srgbtrc.icc",
+      "bytes": 1116,
+      "sha256": "428ac134557eb93bb17fcf3200109d4745e94a2d0e2fad52897c65f5de030837"
+    },
+    {
+      "path": "data/icc/ellelstone/AllColorsRGB-elle-V2-g10.icc",
+      "bytes": 1192,
+      "sha256": "7b1c9390f8c44b9dbac811767135a3b02210b89e00d2ea7fd72d4b522c36a4a5"
+    },
+    {
+      "path": "data/icc/ellelstone/AllColorsRGB-elle-V2-g18.icc",
+      "bytes": 1192,
+      "sha256": "e2c69d582a6c6c528316e74be6bf287e9c72294caba43571dd7a03c3e74ebb26"
+    },
+    {
+      "path": "data/icc/ellelstone/AllColorsRGB-elle-V2-g22.icc",
+      "bytes": 1192,
+      "sha256": "29e9dc0ad7319522011208a4ab5e45dfa560f3e2098f47358c6d4aea822bf886"
+    },
+    {
+      "path": "data/icc/ellelstone/AllColorsRGB-elle-V2-labl.icc",
+      "bytes": 9348,
+      "sha256": "66225b9187450a6b7a7a4cde2a901d8c4961c7a7e27fe2e2b315ff22081aa0eb"
+    },
+    {
+      "path": "data/icc/ellelstone/AllColorsRGB-elle-V2-rec709.icc",
+      "bytes": 9360,
+      "sha256": "24989ab213d7ba06e75e0b3e23770db1369d35ec21049d74b619f9e77b2c9f03"
+    },
+    {
+      "path": "data/icc/ellelstone/AllColorsRGB-elle-V2-srgbtrc.icc",
+      "bytes": 9360,
+      "sha256": "849b537e82ed54355c209856e282332a12610873c1cffe6eb2d69d103dba5686"
+    },
+    {
+      "path": "data/icc/ellelstone/AllColorsRGB-elle-V4-g10.icc",
+      "bytes": 1108,
+      "sha256": "eec2547149272e153bdea44256de58d96ecf89231b6688e2b656b1f017690341"
+    },
+    {
+      "path": "data/icc/ellelstone/AllColorsRGB-elle-V4-g18.icc",
+      "bytes": 1108,
+      "sha256": "d53ff7eda3cfc1f3f34745842023357007045afc3e74cfa404d26515f1c0eb9c"
+    },
+    {
+      "path": "data/icc/ellelstone/AllColorsRGB-elle-V4-g22.icc",
+      "bytes": 1108,
+      "sha256": "da2484b5ee19161cf2d74e40fa61541c94b179f1e5a17a52256ee4bce3ed70be"
+    },
+    {
+      "path": "data/icc/ellelstone/AllColorsRGB-elle-V4-labl.icc",
+      "bytes": 1124,
+      "sha256": "c169dcedd8e8616b73150bbbf5fde7d5a24f3055a4e655ca3570e256e851af50"
+    },
+    {
+      "path": "data/icc/ellelstone/AllColorsRGB-elle-V4-rec709.icc",
+      "bytes": 1128,
+      "sha256": "f0b28163bf1a8049888a0dcc11a1d98276dd272a6cc8eb3aaabd629349628fb4"
+    },
+    {
+      "path": "data/icc/ellelstone/AllColorsRGB-elle-V4-srgbtrc.icc",
+      "bytes": 1132,
+      "sha256": "a9308ad12d95748fbef6b45516433c1e7d7764a36becdae03acf6bda19461ca3"
+    },
+    {
+      "path": "data/icc/ellelstone/CIERGB-elle-V2-g10.icc",
+      "bytes": 1228,
+      "sha256": "45d126b094738e790b48fd92682bed35152ec4a61dee402532c9828801627355"
+    },
+    {
+      "path": "data/icc/ellelstone/CIERGB-elle-V2-g18.icc",
+      "bytes": 1228,
+      "sha256": "767655ebe320b0d33189be7369edbc78d215a414c17f83a800eee4ef939f6edb"
+    },
+    {
+      "path": "data/icc/ellelstone/CIERGB-elle-V2-g22.icc",
+      "bytes": 1228,
+      "sha256": "31b7be285fc005fdc718a1d52b54835ffe4c23596a2a7bf56a78b8df357d79b8"
+    },
+    {
+      "path": "data/icc/ellelstone/CIERGB-elle-V2-labl.icc",
+      "bytes": 9396,
+      "sha256": "cc156d3c3e9f24e35dd9d70937d965329bb5cf827b3300715b28a6d101661539"
+    },
+    {
+      "path": "data/icc/ellelstone/CIERGB-elle-V2-rec709.icc",
+      "bytes": 9396,
+      "sha256": "fa943ce395093b0313bd1dfcc7546ca657e25c29f98d951f429430eaed2f9a9a"
+    },
+    {
+      "path": "data/icc/ellelstone/CIERGB-elle-V2-srgbtrc.icc",
+      "bytes": 9396,
+      "sha256": "058b13d08ee2380cee9ea7883d5f1418b0de4a9fb0dc87184b736d4a91c121d0"
+    },
+    {
+      "path": "data/icc/ellelstone/CIERGB-elle-V4-g10.icc",
+      "bytes": 1136,
+      "sha256": "30c0273da78eddcf50c3b7e7c7ed70c73a095a206cc717f623d2a5ac596bb0eb"
+    },
+    {
+      "path": "data/icc/ellelstone/CIERGB-elle-V4-g18.icc",
+      "bytes": 1136,
+      "sha256": "d28ff6c1442defbfc6edc2afdf1e19c91a2a120a7fbb5dacfcb80e2976e9a308"
+    },
+    {
+      "path": "data/icc/ellelstone/CIERGB-elle-V4-g22.icc",
+      "bytes": 1136,
+      "sha256": "179b9aa355609babf901a95e7090cb0748ee69e459fc24b8476be3fe4d976a62"
+    },
+    {
+      "path": "data/icc/ellelstone/CIERGB-elle-V4-labl.icc",
+      "bytes": 1152,
+      "sha256": "06ccff774b0f9c1e0f91fffbd60b29fa555d8306ec45ebe1d0c77e7cd63b7ad1"
+    },
+    {
+      "path": "data/icc/ellelstone/CIERGB-elle-V4-rec709.icc",
+      "bytes": 1156,
+      "sha256": "e7eac274b511ba29acf695e54054088f4419a64e87360cf3da97f023c2e5737e"
+    },
+    {
+      "path": "data/icc/ellelstone/CIERGB-elle-V4-srgbtrc.icc",
+      "bytes": 1160,
+      "sha256": "bc41b7d779972cdf8619848f8be15ed3936b09dd44244f9094c92478fabd664d"
+    },
+    {
+      "path": "data/icc/ellelstone/ClayRGB-elle-V2-g10.icc",
+      "bytes": 1276,
+      "sha256": "45deb34b8a7e1cd9f4d29bf753021b12b82bc6ae4b700262140385b43b6f200a"
+    },
+    {
+      "path": "data/icc/ellelstone/ClayRGB-elle-V2-g18.icc",
+      "bytes": 1276,
+      "sha256": "f63ba05454d6657b8fb5d6a906d7ef450fd43c02bb25d0f35cf2a9e07319139d"
+    },
+    {
+      "path": "data/icc/ellelstone/ClayRGB-elle-V2-g22.icc",
+      "bytes": 1276,
+      "sha256": "471415ea7ba97274f34782701f0c0ae8864ffaa045caf937aaa2b0b8935af7ad"
+    },
+    {
+      "path": "data/icc/ellelstone/ClayRGB-elle-V2-labl.icc",
+      "bytes": 9432,
+      "sha256": "3ba873bad1b6dea49fca36f4ded9ccdc4d7e9eba5e766b3b58f564b57e77ac57"
+    },
+    {
+      "path": "data/icc/ellelstone/ClayRGB-elle-V2-rec709.icc",
+      "bytes": 9432,
+      "sha256": "634ba7d5c977cea8ac7c1d8dac2d86f9d65db6d62c241834e06fa4c618780f30"
+    },
+    {
+      "path": "data/icc/ellelstone/ClayRGB-elle-V2-srgbtrc.icc",
+      "bytes": 9444,
+      "sha256": "811e64e0681a203b7f8158419755844bdd1817cc69cbc9efa52eecdd8ed18a22"
+    },
+    {
+      "path": "data/icc/ellelstone/ClayRGB-elle-V4-g10.icc",
+      "bytes": 1164,
+      "sha256": "9614d19f3a1f599ac9dab8d9832978a01a91a91f43c4bfb0cefb2d4e6433cdc7"
+    },
+    {
+      "path": "data/icc/ellelstone/ClayRGB-elle-V4-g18.icc",
+      "bytes": 1164,
+      "sha256": "c4fd7d6f3aaeac6a162cafd84e44de663e824b22c5928e4b686212208f02d1e4"
+    },
+    {
+      "path": "data/icc/ellelstone/ClayRGB-elle-V4-g22.icc",
+      "bytes": 1164,
+      "sha256": "b5da634c8dc9f53ebbd3140b4a84f5905a99095f7f35d5ff70bbc1a369550619"
+    },
+    {
+      "path": "data/icc/ellelstone/ClayRGB-elle-V4-labl.icc",
+      "bytes": 1184,
+      "sha256": "370964bb608c394629c9d49c1eef278571bc52d9f7a2a6ed6116326ac65e3684"
+    },
+    {
+      "path": "data/icc/ellelstone/ClayRGB-elle-V4-rec709.icc",
+      "bytes": 1188,
+      "sha256": "285b2f032f1c0b81d7a7514226f6f2e415d570b16b117c9f394150ba04df8442"
+    },
+    {
+      "path": "data/icc/ellelstone/ClayRGB-elle-V4-srgbtrc.icc",
+      "bytes": 1188,
+      "sha256": "e088e6e6517e8c18ec68fb3028450c14ef9d79a14d5c86f902ddfc4d7f8140b3"
+    },
+    {
+      "path": "data/icc/ellelstone/Gray-elle-V2-g10.icc",
+      "bytes": 564,
+      "sha256": "592f0a27b5d35b6943952a96253d5fbf7677ba629865e1c6f69f2a13d35e2546"
+    },
+    {
+      "path": "data/icc/ellelstone/Gray-elle-V2-g18.icc",
+      "bytes": 564,
+      "sha256": "5d6149e30645a4b1e402777c706378d30a05dd09aa5cbcc299cbfc2209096381"
+    },
+    {
+      "path": "data/icc/ellelstone/Gray-elle-V2-g22.icc",
+      "bytes": 564,
+      "sha256": "84420f57c27697d43078c14c9d42b75a153bf4a2cad166a7ce566ca057df009b"
+    },
+    {
+      "path": "data/icc/ellelstone/Gray-elle-V2-labl.icc",
+      "bytes": 8752,
+      "sha256": "dfe33c48877fb9a1f513ff739ca042141db8428a52710601af1b5de0f8cca3a0"
+    },
+    {
+      "path": "data/icc/ellelstone/Gray-elle-V2-rec709.icc",
+      "bytes": 8764,
+      "sha256": "bfd68c13ba377e63884d9d37347c2f17309aae580522dc1b29cec754ada15720"
+    },
+    {
+      "path": "data/icc/ellelstone/Gray-elle-V2-srgbtrc.icc",
+      "bytes": 8764,
+      "sha256": "2b0cc901d4b7bfcf99644a013dad0555c82ea4d03a7e86bc3a1b6c576659c380"
+    },
+    {
+      "path": "data/icc/ellelstone/Gray-elle-V4-g10.icc",
+      "bytes": 600,
+      "sha256": "ddd504dc358852c2cd9bff2ff83bf2226491048af116a96bd9f50bc181314eec"
+    },
+    {
+      "path": "data/icc/ellelstone/Gray-elle-V4-g18.icc",
+      "bytes": 600,
+      "sha256": "36aa070fdbde2a049180f8202464cbe89506b235df858fec3823dee7afb2f62a"
+    },
+    {
+      "path": "data/icc/ellelstone/Gray-elle-V4-g22.icc",
+      "bytes": 600,
+      "sha256": "9ad1d258a0bf04f7427e23ccf987028c8acee7eadb5613818c9701b5fde74623"
+    },
+    {
+      "path": "data/icc/ellelstone/Gray-elle-V4-labl.icc",
+      "bytes": 616,
+      "sha256": "54c5be04ee0bcb1a477074cbe7e421d163e4f6e16a8b2b834ceea2fd0c8986d6"
+    },
+    {
+      "path": "data/icc/ellelstone/Gray-elle-V4-rec709.icc",
+      "bytes": 620,
+      "sha256": "f26659ecc45059f61c4a0cec1136186684a05250c5ac9e2587a00e3836af7e85"
+    },
+    {
+      "path": "data/icc/ellelstone/Gray-elle-V4-srgbtrc.icc",
+      "bytes": 624,
+      "sha256": "577657981be711e3e284262c038fce7dd415386bbacca73209e01f0fb8be97ac"
+    },
+    {
+      "path": "data/icc/ellelstone/IdentityRGB-elle-V2-g10.icc",
+      "bytes": 1216,
+      "sha256": "c2e3798921985ebd403cfe1a85f3d79f19ac7b45753fb0e4e68954b3145c74ba"
+    },
+    {
+      "path": "data/icc/ellelstone/IdentityRGB-elle-V2-g18.icc",
+      "bytes": 1216,
+      "sha256": "e49bd8591a88ecf2820078713b05f5746846ee2acf186c9c1c2068a0886274e8"
+    },
+    {
+      "path": "data/icc/ellelstone/IdentityRGB-elle-V2-g22.icc",
+      "bytes": 1216,
+      "sha256": "3ec3f13f6a49c7ba237b5d2db97b6ac99acf168c035a3ea12dc01d6ab4bde1bd"
+    },
+    {
+      "path": "data/icc/ellelstone/IdentityRGB-elle-V2-labl.icc",
+      "bytes": 9372,
+      "sha256": "6f6d611bbc20d8adb89c62c416dabdb7855bccab09451cae9559620d3bda7bbb"
+    },
+    {
+      "path": "data/icc/ellelstone/IdentityRGB-elle-V2-rec709.icc",
+      "bytes": 9372,
+      "sha256": "0f44709efb3cfaa2f5af939d2931a32cff2a6d23709c1816fedaf5800f6e44d1"
+    },
+    {
+      "path": "data/icc/ellelstone/IdentityRGB-elle-V2-srgbtrc.icc",
+      "bytes": 9384,
+      "sha256": "6e98da948feed4d391c7cc8e7d9d38325402fbe6b8d059e02292721f0d0360c3"
+    },
+    {
+      "path": "data/icc/ellelstone/IdentityRGB-elle-V4-g10.icc",
+      "bytes": 1124,
+      "sha256": "95b829c5ce69a27bd0ae2ca65689963c76159a026de199d707f85d335d760ed4"
+    },
+    {
+      "path": "data/icc/ellelstone/IdentityRGB-elle-V4-g18.icc",
+      "bytes": 1124,
+      "sha256": "41fc5e2213e74c92166e36fdc9bb120a8b3ee0d5516c75e77d0051ada0f8d0a0"
+    },
+    {
+      "path": "data/icc/ellelstone/IdentityRGB-elle-V4-g22.icc",
+      "bytes": 1124,
+      "sha256": "e010edb9758e1eebf74fb6d090716718e2fd1433403b5b4528dda8d16c609662"
+    },
+    {
+      "path": "data/icc/ellelstone/IdentityRGB-elle-V4-labl.icc",
+      "bytes": 1144,
+      "sha256": "db09b4817aa05c57be7b3cc84953a0a98383dc6f3bac2d9e4c900961e5c3d9ff"
+    },
+    {
+      "path": "data/icc/ellelstone/IdentityRGB-elle-V4-rec709.icc",
+      "bytes": 1148,
+      "sha256": "1255984716e49a615863fa0baac2ff9a23a64b68d2b90202e2eb6b38e4e0dccb"
+    },
+    {
+      "path": "data/icc/ellelstone/IdentityRGB-elle-V4-srgbtrc.icc",
+      "bytes": 1148,
+      "sha256": "2fd7d01001b3ae6163718ff8b6b6abf47603a1326a4f2a1cce6707c784443974"
+    },
+    {
+      "path": "data/icc/ellelstone/Lab-D50-Identity-elle-V2.icc",
+      "bytes": 696,
+      "sha256": "76e2a8abdbc481a4fbf4427587c7331b8bfdbb5fcc4139cad5dc32752458596c"
+    },
+    {
+      "path": "data/icc/ellelstone/Lab-D50-Identity-elle-V4.icc",
+      "bytes": 720,
+      "sha256": "d04739c2a5f1c52e3818bf8a62807cfa00abf49b25e3e9d3cd288b60b165c18e"
+    },
+    {
+      "path": "data/icc/ellelstone/LargeRGB-elle-V2-g10.icc",
+      "bytes": 1276,
+      "sha256": "df7b2c677645f1ca5364b52e62f8db04ca61f80163792942f3e409a84a6b12ed"
+    },
+    {
+      "path": "data/icc/ellelstone/LargeRGB-elle-V2-g18.icc",
+      "bytes": 1276,
+      "sha256": "cbb4f91217dee4e8ad1a2bbfb6271f401f7747a530076c99a5f6fb8316dc105a"
+    },
+    {
+      "path": "data/icc/ellelstone/LargeRGB-elle-V2-g22.icc",
+      "bytes": 1276,
+      "sha256": "3076e4ad83dd42af698a3e20f870b66901c51d5f3e41c1be166f09670a3f01c0"
+    },
+    {
+      "path": "data/icc/ellelstone/LargeRGB-elle-V2-labl.icc",
+      "bytes": 9432,
+      "sha256": "7c4bef41caa18f80835081b9167c6b90af2277827e2bbcfb1a8ad576076e0fdf"
+    },
+    {
+      "path": "data/icc/ellelstone/LargeRGB-elle-V2-rec709.icc",
+      "bytes": 9444,
+      "sha256": "ef0f1debe573658086720a55ab55befac7eaacbc42131d6ff4bb7427f196e3a7"
+    },
+    {
+      "path": "data/icc/ellelstone/LargeRGB-elle-V2-srgbtrc.icc",
+      "bytes": 9444,
+      "sha256": "520a8c923e55fb99c40b2e00ae8ac71d008fbd3e345919bb1c74e32e0990ab45"
+    },
+    {
+      "path": "data/icc/ellelstone/LargeRGB-elle-V4-g10.icc",
+      "bytes": 1164,
+      "sha256": "fbbeb4d066b28e04201aee094735c7c0a717f480fd4d354f189bb578cd6c103f"
+    },
+    {
+      "path": "data/icc/ellelstone/LargeRGB-elle-V4-g18.icc",
+      "bytes": 1164,
+      "sha256": "09b479329b6bbff278b1ecc6ced9c118179c88efc411851ccb168ebc8ea6fcd8"
+    },
+    {
+      "path": "data/icc/ellelstone/LargeRGB-elle-V4-g22.icc",
+      "bytes": 1164,
+      "sha256": "5a2dd91fba1d7e4877f6ad0843794333ddb9d2094e07cb6f5cb297330ecfb13d"
+    },
+    {
+      "path": "data/icc/ellelstone/LargeRGB-elle-V4-labl.icc",
+      "bytes": 1180,
+      "sha256": "c568d6a0f77ceb47dd9f220db78371ee08ce1398772e2d7b2e5d7eac7b2aec02"
+    },
+    {
+      "path": "data/icc/ellelstone/LargeRGB-elle-V4-rec709.icc",
+      "bytes": 1184,
+      "sha256": "a9238c05ee26c6fa55fcb22c2777215a6947d01a4746bb309bd813c0b7168ceb"
+    },
+    {
+      "path": "data/icc/ellelstone/LargeRGB-elle-V4-srgbtrc.icc",
+      "bytes": 1188,
+      "sha256": "c9f07725376b8b27471a18392e53fe6206178d591b5079aeb3ffbfa9a0197ab8"
+    },
+    {
+      "path": "data/icc/ellelstone/Rec2020-elle-V2-g10.icc",
+      "bytes": 1384,
+      "sha256": "c5b979332271226a62e24c0b90d75a3e17d677b6531a38f60e5574fba2fe3cc2"
+    },
+    {
+      "path": "data/icc/ellelstone/Rec2020-elle-V2-g18.icc",
+      "bytes": 1384,
+      "sha256": "0edef00630c5c534ca746cfda5625dbfc8e0f579dc8f2b2753203eb959099efb"
+    },
+    {
+      "path": "data/icc/ellelstone/Rec2020-elle-V2-g22.icc",
+      "bytes": 1384,
+      "sha256": "49dcb45172c20204413bbae33624ab5fa7bddb062e2c2cfe2fdc9cfeade989f3"
+    },
+    {
+      "path": "data/icc/ellelstone/Rec2020-elle-V2-labl.icc",
+      "bytes": 9540,
+      "sha256": "34ecdaae0eb84719e56f931bd8a4333e414d7c0f3562e2f696e54d90077db07b"
+    },
+    {
+      "path": "data/icc/ellelstone/Rec2020-elle-V2-rec709.icc",
+      "bytes": 9540,
+      "sha256": "b10d5b0ebdefb8d36c1e540d4a6259747b39e7199afbbbbee090215e45262e88"
+    },
+    {
+      "path": "data/icc/ellelstone/Rec2020-elle-V2-srgbtrc.icc",
+      "bytes": 9552,
+      "sha256": "922d074a261a012c158a36eb8f5072c8d7396c888e3f901e449ba8db2f41ed5c"
+    },
+    {
+      "path": "data/icc/ellelstone/Rec2020-elle-V4-g10.icc",
+      "bytes": 1232,
+      "sha256": "efd92a1577672223b8b27cbb4c82a3aa19a53b49d3e99aad17ba226b7df5f66a"
+    },
+    {
+      "path": "data/icc/ellelstone/Rec2020-elle-V4-g18.icc",
+      "bytes": 1232,
+      "sha256": "c29aeeb1491076742083253d3d86187e6fc75242a9123dd49ddee34a1ca38128"
+    },
+    {
+      "path": "data/icc/ellelstone/Rec2020-elle-V4-g22.icc",
+      "bytes": 1232,
+      "sha256": "19cbda45895d6ab3f844c536c24b890ebb9560e10d739d6b4cdf9caf3aa45d85"
+    },
+    {
+      "path": "data/icc/ellelstone/Rec2020-elle-V4-labl.icc",
+      "bytes": 1252,
+      "sha256": "a969a932f585a2ffa2f5b174fadfae3648756cd7dcd42fe218654f9bc286a5f3"
+    },
+    {
+      "path": "data/icc/ellelstone/Rec2020-elle-V4-rec709.icc",
+      "bytes": 1256,
+      "sha256": "7afda267d188c4b34212d14cd389abfb83501f2134e3c55838d94e696370439b"
+    },
+    {
+      "path": "data/icc/ellelstone/Rec2020-elle-V4-srgbtrc.icc",
+      "bytes": 1256,
+      "sha256": "b21ccbbe8e3fed077b5d87385d8b76e170d5472405b0b33300d23307035124b2"
+    },
+    {
+      "path": "data/icc/ellelstone/Rec709-elle-V2-rec709.icc",
+      "bytes": 9432,
+      "sha256": "c9116735415cc793b0bb36304135de32bd7a76e489378f95da134fa1a3958657"
+    },
+    {
+      "path": "data/icc/ellelstone/Rec709-elle-V4-rec709.icc",
+      "bytes": 1180,
+      "sha256": "ad82412676b71e66a5103fe7a2bd22f27593e1fbab34dda882cac8e51bf88fb5"
+    },
+    {
+      "path": "data/icc/ellelstone/XYZ-D50-Identity-elle-V4.icc",
+      "bytes": 720,
+      "sha256": "f19692da41201f42bc428efc3f35b97862e4e47ac55dcfe50bf18bb466af1c45"
+    },
+    {
+      "path": "data/icc/ellelstone/sRGB-elle-V2-g10.icc",
+      "bytes": 1384,
+      "sha256": "d1524a6eeb085346eb6e69ca236d8e078ab1c72cb33bd3c5758ffe561bdcf58f"
+    },
+    {
+      "path": "data/icc/ellelstone/sRGB-elle-V2-g18.icc",
+      "bytes": 1384,
+      "sha256": "6d485cfd2c85f4c9f110e56ed7a537cd6c78006552b27bc0b55c6218db0c66b0"
+    },
+    {
+      "path": "data/icc/ellelstone/sRGB-elle-V2-g22.icc",
+      "bytes": 1384,
+      "sha256": "6d49e9991a4e00112796c05f99195bd6a2bfafcc5f2792cc8be19cc1e3b40856"
+    },
+    {
+      "path": "data/icc/ellelstone/sRGB-elle-V2-labl.icc",
+      "bytes": 9540,
+      "sha256": "34b0c9b575782d89c5d34b193c505359de0ae4e3fbfba8d2c50d460cd20d96cd"
+    },
+    {
+      "path": "data/icc/ellelstone/sRGB-elle-V2-srgbtrc.icc",
+      "bytes": 9552,
+      "sha256": "b44e86e44d44993a3a9a880626f9832e9c37e2234caba501548f9114bada6d21"
+    },
+    {
+      "path": "data/icc/ellelstone/sRGB-elle-V4-g10.icc",
+      "bytes": 1232,
+      "sha256": "ab15ef17a250742e900aab7b870288ac31729e0b09efcdf10c9c0108b2f93f32"
+    },
+    {
+      "path": "data/icc/ellelstone/sRGB-elle-V4-g18.icc",
+      "bytes": 1232,
+      "sha256": "fdf791605cd9997168943660855375a8eb76c109c8d1b5d010696d8a58ea73a4"
+    },
+    {
+      "path": "data/icc/ellelstone/sRGB-elle-V4-g22.icc",
+      "bytes": 1232,
+      "sha256": "430f8d998abdb6dd3681041dae75217eb657fd184e2f96a5b3a4dbd67c6b58c5"
+    },
+    {
+      "path": "data/icc/ellelstone/sRGB-elle-V4-labl.icc",
+      "bytes": 1248,
+      "sha256": "580e66cc2f1f85116bbc9b484af9c83ee6d2ccaecab2c97e7682e419895b39f3"
+    },
+    {
+      "path": "data/icc/ellelstone/sRGB-elle-V4-srgbtrc.icc",
+      "bytes": 1256,
+      "sha256": "a12dbc11c5cb83757133e3249b906ba26021c73084b76740d7c58130a901347c"
+    },
+    {
+      "path": "data/icc/saucecontrol/AdobeCompat-v2.icc",
+      "bytes": 374,
+      "sha256": "60fb2adecacf82132db0b1c09b303316f3bbd9e2823e7ba096d01627d12d57c9"
+    },
+    {
+      "path": "data/icc/saucecontrol/AdobeCompat-v4.icc",
+      "bytes": 480,
+      "sha256": "1e35b53d118eba6835a7bac06137ea87cd5ad6eee97b20a88b29ab6356b00e43"
+    },
+    {
+      "path": "data/icc/saucecontrol/AppleCompat-v2.icc",
+      "bytes": 374,
+      "sha256": "5109111a394a7c4dd6fde725718d88af47e8d7336ff3adda67307825c561cb7b"
+    },
+    {
+      "path": "data/icc/saucecontrol/AppleCompat-v4.icc",
+      "bytes": 480,
+      "sha256": "d7b8fa8fa9c1a804fdc62ff166adfa49fa714b219463f11b3486190a8ad7b137"
+    },
+    {
+      "path": "data/icc/saucecontrol/CGATS001Compat-v2-micro.icc",
+      "bytes": 8464,
+      "sha256": "73e1ba37d2bad5bab2a964f40a9eed96209666efc067c3322626214bbef234a0"
+    },
+    {
+      "path": "data/icc/saucecontrol/ColorMatchCompat-v2.icc",
+      "bytes": 374,
+      "sha256": "26281f1e1afca151a4fcd0731e83a9d139f8bf5ae17f5a34f0dab49daa6c8e35"
+    },
+    {
+      "path": "data/icc/saucecontrol/ColorMatchCompat-v4.icc",
+      "bytes": 480,
+      "sha256": "f65c9a6e2ec5595f9961570b7f6f779e88150d3a308353fc04b2e3889a45b200"
+    },
+    {
+      "path": "data/icc/saucecontrol/DCI-P3-v4.icc",
+      "bytes": 464,
+      "sha256": "58ac463ea778e9b70692971dd4ba9071363a03aba77043894162b1ad6c051da7"
+    },
+    {
+      "path": "data/icc/saucecontrol/DisplayP3-v2-magic.icc",
+      "bytes": 736,
+      "sha256": "fa7905dea9d49e775f4e367966e6fc3411e843b44ea91fd7908104b7943a1446"
+    },
+    {
+      "path": "data/icc/saucecontrol/DisplayP3-v2-micro.icc",
+      "bytes": 456,
+      "sha256": "cdb9ed06df5cc3be0c24f097407a490daee8ffce764fa8ff1dd66c8b5a591eb7"
+    },
+    {
+      "path": "data/icc/saucecontrol/DisplayP3-v4.icc",
+      "bytes": 480,
+      "sha256": "cb51de38e482ee974c0c76b9689e16aad04bad16e226fed2f30c842d15ff3a3d"
+    },
+    {
+      "path": "data/icc/saucecontrol/DisplayP3Compat-v2-magic.icc",
+      "bytes": 736,
+      "sha256": "4564e3575b10133dfe34097696ce54eb0c4bb7ad5278d999f7ef68938ba8d372"
+    },
+    {
+      "path": "data/icc/saucecontrol/DisplayP3Compat-v2-micro.icc",
+      "bytes": 456,
+      "sha256": "a917f04df365b7331e614a32ea309975006e851b5a39ecb9ace8f07172e9ef6e"
+    },
+    {
+      "path": "data/icc/saucecontrol/DisplayP3Compat-v4.icc",
+      "bytes": 480,
+      "sha256": "231752984cd4a5278e1b8d2390fe496767d4511fc81f54e1a5c69ae9ab4c42b5"
+    },
+    {
+      "path": "data/icc/saucecontrol/ProPhoto-v2-magic.icc",
+      "bytes": 756,
+      "sha256": "59d1ef4f6b882d0d923bdaed86268f55dd30a8d102f4882aad9c2bbe9fb340c9"
+    },
+    {
+      "path": "data/icc/saucecontrol/ProPhoto-v2-micro.icc",
+      "bytes": 496,
+      "sha256": "00b0ac58f99189b071bfca63b5434fd9f48ad08c92b17e6ce525e54b9d1a8319"
+    },
+    {
+      "path": "data/icc/saucecontrol/ProPhoto-v4.icc",
+      "bytes": 480,
+      "sha256": "090daf740c136b4a63bf979d64f034b4a65aa5abbb04a0917729222afe2bb5c2"
+    },
+    {
+      "path": "data/icc/saucecontrol/Rec2020-g24-v4.icc",
+      "bytes": 464,
+      "sha256": "b03c9218e82ab12fc4fcac7f5a0fb10ff53ebc7ad8387ae68a6d8cf5d4dfbaa3"
+    },
+    {
+      "path": "data/icc/saucecontrol/Rec2020-v2-magic.icc",
+      "bytes": 790,
+      "sha256": "aefd0745fc9267d7387e6f10c6e739a354664b179194b02effc880c63f74ec8c"
+    },
+    {
+      "path": "data/icc/saucecontrol/Rec2020-v2-micro.icc",
+      "bytes": 460,
+      "sha256": "5fa064e6456b9b719e445f07038442fac6e9c5153e187f36e1ba4bcf23fb975b"
+    },
+    {
+      "path": "data/icc/saucecontrol/Rec2020-v4.icc",
+      "bytes": 480,
+      "sha256": "135ebd418b668c0ca56a8dea6d262c4deccae8166e0ca8264b7d7f35863ccb4b"
+    },
+    {
+      "path": "data/icc/saucecontrol/Rec2020Compat-v2-magic.icc",
+      "bytes": 790,
+      "sha256": "9b4e2cbd2bcd0b55b30cf660e6ee79775f714565bf055f1545081ce17a7d592a"
+    },
+    {
+      "path": "data/icc/saucecontrol/Rec2020Compat-v2-micro.icc",
+      "bytes": 460,
+      "sha256": "9e8ca28a47dc1b00d0ce54ee603fe1972bdfdf1ca10a9a3a329cd2f69de52296"
+    },
+    {
+      "path": "data/icc/saucecontrol/Rec2020Compat-v4.icc",
+      "bytes": 480,
+      "sha256": "a141684281e5c90a3d49e1eb415ae105b1f68144d32828281d77bf782a625600"
+    },
+    {
+      "path": "data/icc/saucecontrol/Rec601NTSC-v2-magic.icc",
+      "bytes": 738,
+      "sha256": "04a6d6e440afca339b07f3299e5bba5e287f5a50e86be8cc24913715d4482d5c"
+    },
+    {
+      "path": "data/icc/saucecontrol/Rec601NTSC-v2-micro.icc",
+      "bytes": 460,
+      "sha256": "ef7effc339d96ea821281d29e384eecf712228508d14181a91aedbcb6c811d79"
+    },
+    {
+      "path": "data/icc/saucecontrol/Rec601NTSC-v4.icc",
+      "bytes": 480,
+      "sha256": "b6b9331eb72e6f4e4d0409b84097ffac73956e335ac204f9431e89e7b9f5a28a"
+    },
+    {
+      "path": "data/icc/saucecontrol/Rec601PAL-v2-magic.icc",
+      "bytes": 738,
+      "sha256": "7d8958f9d5c20e6638f576e5e765bc6d84e50d74e0ad9e5a7df8ccef05b481db"
+    },
+    {
+      "path": "data/icc/saucecontrol/Rec601PAL-v2-micro.icc",
+      "bytes": 460,
+      "sha256": "b73d6b86c9eb2db0a7ae0c8610d2b7dedd7dea87a1ce416e31c5add1ac771aac"
+    },
+    {
+      "path": "data/icc/saucecontrol/Rec601PAL-v4.icc",
+      "bytes": 480,
+      "sha256": "08b294eb3cac434e7bd2e5e36e5eca383674a29c096d0cbd85f849e127b0f2ce"
+    },
+    {
+      "path": "data/icc/saucecontrol/Rec709-v2-magic.icc",
+      "bytes": 738,
+      "sha256": "e56de34050a2e31a76688a85381e834bfbdb486d2a972cbfd9eeee600f9a2e7b"
+    },
+    {
+      "path": "data/icc/saucecontrol/Rec709-v2-micro.icc",
+      "bytes": 460,
+      "sha256": "c7e7388df3307495b97ba9985cd285b4c09426a0c365427176ae45e709ef49ec"
+    },
+    {
+      "path": "data/icc/saucecontrol/Rec709-v4.icc",
+      "bytes": 480,
+      "sha256": "cf2a17aedc5fab20b207ee7bc42cea1d0bbf6f9f089a93973e370b2d45f7e700"
+    },
+    {
+      "path": "data/icc/saucecontrol/WideGamutCompat-v2.icc",
+      "bytes": 374,
+      "sha256": "61ab00ecf840cd97125df967d598b7870d1fe47ffcd4e9b90ba0d597df091e36"
+    },
+    {
+      "path": "data/icc/saucecontrol/WideGamutCompat-v4.icc",
+      "bytes": 480,
+      "sha256": "518f6ef4d919c6f812ab84738c59afa4edb3e96de7cabc40d02006fa83d33f92"
+    },
+    {
+      "path": "data/icc/saucecontrol/sGrey-v2-magic.icc",
+      "bytes": 616,
+      "sha256": "4110169287e5f1b5149ca9f1da1814d32943905bba8030e849d1a3b729a19481"
+    },
+    {
+      "path": "data/icc/saucecontrol/sGrey-v2-micro.icc",
+      "bytes": 336,
+      "sha256": "010676406dbfc641776154fd3603adef7bace317a26027a33066891975621820"
+    },
+    {
+      "path": "data/icc/saucecontrol/sGrey-v2-nano.icc",
+      "bytes": 290,
+      "sha256": "ac2805b9e07b6fa3ba7406aa48e84d87041097da66220cc2a385e17bb2893cc1"
+    },
+    {
+      "path": "data/icc/saucecontrol/sGrey-v4.icc",
+      "bytes": 360,
+      "sha256": "00c0f94e09127520a17dc0e1d9264b5702081d96dbdb1549ee88e3631ce42a9d"
+    },
+    {
+      "path": "data/icc/saucecontrol/sRGB-v2-magic.icc",
+      "bytes": 736,
+      "sha256": "af4efe28f6d311799865f325ba39184a2e978b113ca74124d60af7de22b105f4"
+    },
+    {
+      "path": "data/icc/saucecontrol/sRGB-v2-micro.icc",
+      "bytes": 456,
+      "sha256": "0a8a33aea66a6f154a5642ebe168ef287e73265d9f7b51c42a45e6eedbacda7a"
+    },
+    {
+      "path": "data/icc/saucecontrol/sRGB-v2-nano.icc",
+      "bytes": 410,
+      "sha256": "72c1355ac9fa7c7e626e1faa30bd4ef89e57a3d039df249f9ca3f0aed98b3c58"
+    },
+    {
+      "path": "data/icc/saucecontrol/sRGB-v4.icc",
+      "bytes": 480,
+      "sha256": "c56e1685d888f5edb92fe07f2750f387f8fe8e91b32ff8fb0b56bfbbb9458353"
+    },
+    {
+      "path": "data/icc/saucecontrol/scRGB-v2.icc",
+      "bytes": 372,
+      "sha256": "8ae25bd986ea0dc396540762a6aa8c7fbeab7ac777cfdf242fa7c35874f4b383"
+    },
+    {
+      "path": "data/license/SPEKTRAFILM_LICENSE.txt",
+      "bytes": 23677,
+      "sha256": "76d629501783ae52e8d63aee1e054c1e1a9713b9fe7d36fb306e25b1d14b24e9"
+    },
+    {
+      "path": "data/luts/spectral_upsampling/arctic2026beta04_reflectance_xy_tc.npy",
+      "bytes": 5972096,
+      "sha256": "cf5b3dafad6470cdd3981038149374c967820654b94142332808681d364083a6"
+    },
+    {
+      "path": "data/luts/spectral_upsampling/arctic2026beta04_reflectance_xy_tc.toml",
+      "bytes": 1222,
+      "sha256": "4bbc5183fb86a767d53c3851bffb02500a494f77bc9a8c1f447fbd2c05371d0e"
+    },
+    {
+      "path": "data/luts/spectral_upsampling/gauss_lasers_reflectance_xy_tc.npy",
+      "bytes": 5972096,
+      "sha256": "085f26aa57752bf3ef3df33d1cc2943d99f37ec2c8b5ae3905a2f77a5d2a5a82"
+    },
+    {
+      "path": "data/luts/spectral_upsampling/gauss_lasers_reflectance_xy_tc.toml",
+      "bytes": 2075,
+      "sha256": "cc9438817cbf6a813603b2d89f65ecadbc9a9bf13d93cc8ccc2330e88aad6273"
+    },
+    {
+      "path": "data/luts/spectral_upsampling/hanatos2025_irradiance_xy_tc.npy",
+      "bytes": 5972096,
+      "sha256": "52f90c724811f5fab80769f8548bf24d08a521eb09e65ab6e016893258d2a783"
+    },
+    {
+      "path": "data/luts/spectral_upsampling/hanatos2025_irradiance_xy_tc.toml",
+      "bytes": 1722,
+      "sha256": "a228a265eba9ef7ed593105140d005718dfffc55f9fd61addb8e982f4cc7dd30"
+    },
+    {
+      "path": "data/luts/spectral_upsampling/hanatos_irradiance_xy_coeffs_250304.lut",
+      "bytes": 4194741,
+      "sha256": "6bfb031761bd5a68975030d61426351a58bd15a3254ff42f384e09d7d3d1e40f"
+    },
+    {
+      "path": "data/luts/spectral_upsampling/jakob2019_reflectance_xy_tc.npy",
+      "bytes": 5972096,
+      "sha256": "c83235c8d569d44b7190b2e8abbe4dfddb3a726d9fbade8839fc03bcb9e75d1b"
+    },
+    {
+      "path": "data/luts/spectral_upsampling/jakob2019_reflectance_xy_tc.toml",
+      "bytes": 1665,
+      "sha256": "9fc254a83eb92aa85a445a9ddb2236a97f0af5b9538c88296f9378404cd968b7"
+    },
+    {
+      "path": "data/luts/spectral_upsampling/mallett2019_reflectance_xy_tc.npy",
+      "bytes": 5972096,
+      "sha256": "c1ea8a0c3e164a56736748300caf2c262c606e0d93fc047dd5615228dc5fc71e"
+    },
+    {
+      "path": "data/luts/spectral_upsampling/mallett2019_reflectance_xy_tc.toml",
+      "bytes": 1842,
+      "sha256": "814fd0d85595baefdd1224181da46d6c2befea7b5167ec8433fa67fd482672d2"
+    },
+    {
+      "path": "data/luts/spectral_upsampling/otsu2018_reflectance_xy_tc.npy",
+      "bytes": 5972096,
+      "sha256": "fc53d74160dadd1866e4915e5416944f6f4988429489ed6eb498bfc58d0f724c"
+    },
+    {
+      "path": "data/luts/spectral_upsampling/otsu2018_reflectance_xy_tc.toml",
+      "bytes": 1726,
+      "sha256": "d75c2de851c3b59f1c1f5396fb2877d9b0bbf5f53025c406987be63605226f15"
+    },
+    {
+      "path": "data/presets/couplers.toml",
+      "bytes": 2815,
+      "sha256": "c155474dbab62674bd52540c3a5b6f72d57d36453c3b99cc551780dd0b514531"
+    },
+    {
+      "path": "data/presets/grain.toml",
+      "bytes": 2267,
+      "sha256": "e3537e9c987b3d9e5f916d697c3726014da4f6387d3f5aae57edc88ba54c9de6"
+    },
+    {
+      "path": "data/profiles/fujifilm_c200.json",
+      "bytes": 163084,
+      "sha256": "aa32ce52ea414fdd408c20f09cc3924a50801b58de5f0c7ec76a5ffcb06f28b3"
+    },
+    {
+      "path": "data/profiles/fujifilm_crystal_archive_typeii.json",
+      "bytes": 158851,
+      "sha256": "983ab9015bc7b4726b64a5bb937596cc215d7e411bb78bc63b431548cb25b42b"
+    },
+    {
+      "path": "data/profiles/fujifilm_pro_400h.json",
+      "bytes": 162408,
+      "sha256": "d57fe6becc8e418385d92344de1588b3b70d7e145f320ab4f89a83265a5b8c19"
+    },
+    {
+      "path": "data/profiles/fujifilm_provia_100f.json",
+      "bytes": 159325,
+      "sha256": "fed3f45ae581996b2a5b826b8b5d19ccd1a6f7854fff475aa64d2755940b9c20"
+    },
+    {
+      "path": "data/profiles/fujifilm_velvia_100.json",
+      "bytes": 158844,
+      "sha256": "fd572ea29e139145c19e21c47abd7a264c5b858b993dc463799b299b69b3731f"
+    },
+    {
+      "path": "data/profiles/fujifilm_xtra_400.json",
+      "bytes": 162882,
+      "sha256": "7cf468b0d056262436f12ecdbdf03def3a14bbc76600551bda8f004d9b8700a1"
+    },
+    {
+      "path": "data/profiles/kodak_2302.json",
+      "bytes": 218242,
+      "sha256": "145d7ec07f070c2985d8c5f5845206903e00a6c2a5fed39d402368acbc8252b4"
+    },
+    {
+      "path": "data/profiles/kodak_2383.json",
+      "bytes": 159239,
+      "sha256": "f61d0dbf2eb2479102add4b16c838b003742be631a32cbbe2b28c0086d339607"
+    },
+    {
+      "path": "data/profiles/kodak_2393.json",
+      "bytes": 159187,
+      "sha256": "c2f13feaaeca751a55dad689756e9110f42b306c3f741e37e1581d280ee00ebc"
+    },
+    {
+      "path": "data/profiles/kodak_doublex.json",
+      "bytes": 219914,
+      "sha256": "4c36da545d10463b6249074bf644501082a11853aa08e8fbc1a8282b3d6709e5"
+    },
+    {
+      "path": "data/profiles/kodak_ektachrome_100.json",
+      "bytes": 159483,
+      "sha256": "dc7c5589d109f7944c0615a366368951768fb5560327379cc9d78b587866c765"
+    },
+    {
+      "path": "data/profiles/kodak_ektacolor_edge.json",
+      "bytes": 159010,
+      "sha256": "d6f9f8cdfef19e50139e90e5b800f38851de92c65e9cee1d681c6a7f1dc3918f"
+    },
+    {
+      "path": "data/profiles/kodak_ektar_100.json",
+      "bytes": 161574,
+      "sha256": "ec772dd4424c0b4e468697a8a64b37e73af765b1e6cbf050497155e80e72750f"
+    },
+    {
+      "path": "data/profiles/kodak_endura_premier.json",
+      "bytes": 158520,
+      "sha256": "bf5af37f1ee657f93e54367a212ae9f7dfa65dfea8b0bcfcc2b087b0cfb3a028"
+    },
+    {
+      "path": "data/profiles/kodak_gold_200.json",
+      "bytes": 162655,
+      "sha256": "e1fb1fb3b728c67be42524cfca77e03ebded2d53d81ca89f5f8d58bf5ab3291e"
+    },
+    {
+      "path": "data/profiles/kodak_kodachrome_64.json",
+      "bytes": 159372,
+      "sha256": "eada9c17da095730b348970513d3333bc972494e92d9e16e671d252dab61ad48"
+    },
+    {
+      "path": "data/profiles/kodak_portra_160.json",
+      "bytes": 161939,
+      "sha256": "a39036dabbda1227c9ffd1d0fb3cddc18aa7da29ae96b369301fe56516029f9f"
+    },
+    {
+      "path": "data/profiles/kodak_portra_400.json",
+      "bytes": 161683,
+      "sha256": "eb8b733fd8f79223b93ee389f1f32774378ea1905364ed658e4ce1d46ec1c069"
+    },
+    {
+      "path": "data/profiles/kodak_portra_800.json",
+      "bytes": 162220,
+      "sha256": "a9554e3f75f95dab547379401c37c6da37044f15c2f94ada49ac85f928f33a7b"
+    },
+    {
+      "path": "data/profiles/kodak_portra_800_push1.json",
+      "bytes": 162060,
+      "sha256": "43bfbe92d2a8f8ffea39c057768b2d694176b022b4e6ab143dc1b275f5dbdfab"
+    },
+    {
+      "path": "data/profiles/kodak_portra_800_push2.json",
+      "bytes": 162317,
+      "sha256": "633f7374b67fba21cc308dc70a25d64c7eb3efc8b9451433887ccc34a266e913"
+    },
+    {
+      "path": "data/profiles/kodak_portra_endura.json",
+      "bytes": 158722,
+      "sha256": "e3450fd941155c88e63060dcf202542ccb6da151e9ab6c56c295d7b2d4837969"
+    },
+    {
+      "path": "data/profiles/kodak_supra_endura.json",
+      "bytes": 158653,
+      "sha256": "9f2c8ca36f53440a6e61b599b59682605e4234963e54cf130adb0321b728ae80"
+    },
+    {
+      "path": "data/profiles/kodak_trix.json",
+      "bytes": 92602,
+      "sha256": "223b6c940b7536558ff952ade5069c58d4ef1fd7a98949d3160e4e92d3b7869c"
+    },
+    {
+      "path": "data/profiles/kodak_ultra_endura.json",
+      "bytes": 158505,
+      "sha256": "8b117834f50d0838684cc812d665ce0d1c9d32016b1b562d28a6e0defbdaf16f"
+    },
+    {
+      "path": "data/profiles/kodak_ultramax_400.json",
+      "bytes": 162286,
+      "sha256": "eaa93c6bd212e1ff056b3f678879bab93f5219374210de83eaf5a6264d7c34ed"
+    },
+    {
+      "path": "data/profiles/kodak_verita_200d.json",
+      "bytes": 162225,
+      "sha256": "13b8e61365eeca07c3425676efa81533a11dd3fb0a71adbd1af4f3e01b2e5165"
+    },
+    {
+      "path": "data/profiles/kodak_vision3_200t.json",
+      "bytes": 163018,
+      "sha256": "9d9718bb3900cafe4b84ba2963427a97dfe2cd9b6ffa5bdc5c708652f6e8a3e2"
+    },
+    {
+      "path": "data/profiles/kodak_vision3_250d.json",
+      "bytes": 163526,
+      "sha256": "07d26ffc039be333a05f76ef76f9b97208c8493925d14d95ca8e54c3defb9346"
+    },
+    {
+      "path": "data/profiles/kodak_vision3_500t.json",
+      "bytes": 163534,
+      "sha256": "dabadd09d329b3b10148028f8061537bf16c4932282cef5d5bc33452e8f64e47"
+    },
+    {
+      "path": "data/profiles/kodak_vision3_50d.json",
+      "bytes": 162437,
+      "sha256": "a9534523800ae27e572b8f70c1cec9f790f8824c06a3317029e61123785b550f"
+    }
+  ]
+}

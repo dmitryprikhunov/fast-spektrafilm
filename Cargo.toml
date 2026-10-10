@@ -1,0 +1,34 @@
+[package]
+name = "fast-spektrafilm"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.93"
+license = "GPL-3.0-only"
+description = "Memory-efficient Rust implementation of spektrafilm's experimental pipeline"
+
+[features]
+default = ["bundled-libraw"]
+bundled-libraw = []
+
+[lib]
+name = "fast_spektrafilm"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+rayon = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["float_roundtrip"] }
+toml = "0.8"
+libm = "0.2"
+half = "2"
+tiff = "0.10"
+
+[build-dependencies]
+cc = { version = "1", features = ["parallel"] }
+pkg-config = "0.3"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+

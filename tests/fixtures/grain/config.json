@@ -1,0 +1,19 @@
+{
+  "film_profile": "kodak_portra_400",
+  "print_profile": "kodak_portra_endura",
+  "debug": {
+    "deactivate_spatial_effects": false,
+    "deactivate_stochastic_effects": false
+  },
+  "camera": {
+    "auto_exposure": false,
+    "film_format_mm": 1.0,
+    "auto_exposure_method": "center_weighted"
+  },
+  "settings": {
+    "use_fast_stats": false
+  },
+  "print_glare": {
+    "active": false
+  }
+}

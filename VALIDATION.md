@@ -1,0 +1,70 @@
+# Numerical validation
+
+The reference is experimental commit
+`28bf883e1672e884307edc75852549376e13644e`. Its archive is run under Python 3.13
+with the exact dependencies in `tools/requirements-reference.txt`. The original
+checkout is read-only. `tools/prepare_reference.py` verifies all 235 copied data
+assets against their recorded SHA-256 hashes.
+
+Each supported stage is compared as a float64 HWC array. Shapes must match and
+all results must be finite. The acceptance condition at every element is
+`abs(actual-reference) <= 1e-9 + 1e-8 * abs(reference)`. Reports record maximum
+absolute error, mean absolute error and RMSE separately; tolerances are not
+substitutes for the measured errors.
+
+The Python comparison suite covers film exposure/density, print exposure/density
+and output RGB; all copied filming and printing profiles; chemistry/base controls;
+all six upsampling methods; seven RGB spaces; all six output gamut methods;
+input hull/locus compression; scanner anchors; density LUTs; metering; spatial
+effects; grain and glare; and crop/up/downscaling. The four camera samples use
+cached 256×256 center crops. LibRaw must still unpack and demosaic the capture,
+but floating-point conversion and the simulation are limited to those crops.
+
+The Rust-only regression suite contains 18 small reference cases and 90 stage
+arrays. Additional tests cover unsupported configuration, malformed images,
+NumPy/Numba sampler streams, and seeded renders across one and four threads.
+Tested legacy and fast grain density fixtures also require identical float64 bit
+patterns. Most fixtures are 17×19 pixels; one exercises the reference's signed
+32-bit fast-grain particle counts on a one-pixel input.
+
+## Results, 2026-10-10
+
+The complete Python comparison run passed **590 stage/decoder comparisons**.
+The largest absolute error was **8.0268e-11**, in the chemistry variant's output
+RGB (RMSE **1.0002e-11**). All ten tested seeded grain-density cases had identical
+float64 bit patterns. The four RAW decoder crop errors were at most **3.3307e-16**.
+The crop/rescale inputs differed by at most **1.3323e-15**.
+
+The release build, all five Rust test functions (including the 90-array golden
+loop) and Clippy with `-D warnings` passed. The detailed stage results are saved
+locally in `validation/parity.json` (excluded from version control). Their timing
+fields came from a validation run; use [BENCHMARKS.md](BENCHMARKS.md) for isolated timings.
+
+## Reproduce
+
+```sh
+cargo build --release --locked -j4
+cargo test --release --locked -j4
+python3 tools/prepare_reference.py --source ../spektrafilm
+.venv/bin/python tools/validate.py --all-profiles --samples --decode \
+  --spatial --variants --grain --spectral --gamut --lut --framing --crop-size 256
+```
+
+The development virtual environment is separate from the processor. Install its
+frozen requirements in a user-local Python 3.13 environment. The runtime uses no
+Python libraries. Detailed generated reports and arrays are in `artifacts/parity`.
+
+## Limits
+
+Bit-for-bit floating-point portability across compilers, CPUs and math libraries
+is not promised. The deterministic path is judged by the strict array comparison
+above. The reference's grain float32 stores and reduction order are preserved.
+Legacy grain uses the reference's fixed layer seeds. Fast grain/glare comparison
+uses controlled reference seeds and one Numba sampling thread, because arbitrary
+unseeded thread-local noise cannot be compared pixel by pixel. Default unseeded
+Rust noise varies between renders; an explicit seed makes Rust renders repeatable.
+
+This suite verifies the implemented coverage, not the outstanding workflows in
+[MIGRATION.md](MIGRATION.md). Decoder parity is established for the four supplied
+RAW formats with bundled LibRaw 0.22.0. Linking a different system LibRaw or adding
+other RAW formats requires additional verification.
