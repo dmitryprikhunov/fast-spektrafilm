@@ -35,6 +35,10 @@ target/release/fast-spektrafilm --threads 4 process \
 target/release/fast-spektrafilm bake transform.cube --resolution 33
 ```
 
+LUT baking disables framing, resampling and internal scanner/enlarger
+acceleration LUTs, preserving the cube domain and sampling the exact spectral
+transform even when reusing a render configuration.
+
 `--deterministic` disables grain and glare just as the reference debug switch
 does. Spatial effects and autoexposure remain enabled; use `--no-spatial` and
 `--no-auto-exposure` explicitly when comparing a per-pixel transform.

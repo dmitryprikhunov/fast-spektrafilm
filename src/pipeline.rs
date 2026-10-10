@@ -283,6 +283,13 @@ impl Simulator {
             params.halation.boost_ev = 0.0;
             params.scanner.black_correction = false;
             params.scanner.white_correction = false;
+            // Framing would crop/resample the cube grid rather than an image.
+            params.io.crop = false;
+            params.io.upscale_factor = 1.0;
+            // Bake the exact spectral transform, without embedding a second
+            // layer of interpolation from the interactive acceleration LUTs.
+            params.settings.use_enlarger_lut = false;
+            params.settings.use_scanner_lut = false;
         }
         if params.debug.deactivate_spatial_effects {
             params.scanner.lens_blur = 0.0;

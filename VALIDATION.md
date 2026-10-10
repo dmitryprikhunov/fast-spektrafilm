@@ -27,6 +27,12 @@ Tested legacy and fast grain density fixtures also require identical float64 bit
 patterns. Most fixtures are 17×19 pixels; one exercises the reference's signed
 32-bit fast-grain particle counts on a one-pixel input.
 
+Three additional regressions exercise CLI cube baking with crop/resize settings,
+CLI baking with each internal acceleration LUT enabled, and BT.2020 decoding
+around the pinned transfer-function breakpoint. Bake tests require 125 samples
+for a 5³ cube and identical sample values to the exact, unframed transform.
+The decoding test uses golden values from colour-science 0.4.7.
+
 ## Results, 2026-10-10
 
 The complete Python comparison run passed **590 stage/decoder comparisons**.
