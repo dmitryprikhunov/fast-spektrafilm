@@ -15,6 +15,12 @@ fn sources(dir: &Path, build: &mut cc::Build) {
     }
 }
 fn main() {
+    #[cfg(feature = "gui")]
+    slint_build::compile_with_config(
+        "ui/darkroom.slint",
+        slint_build::CompilerConfiguration::new().with_style("fluent".into()),
+    )
+    .expect("Compile Slint darkroom UI");
     let mut adapter = cc::Build::new();
     adapter.file("native/raw.c");
     if std::env::var_os("CARGO_FEATURE_BUNDLED_LIBRAW").is_some() {

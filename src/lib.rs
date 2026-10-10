@@ -2,6 +2,8 @@ pub mod base;
 pub mod chemistry;
 pub mod color;
 pub mod grain;
+#[cfg(feature = "gui")]
+pub mod gui;
 pub mod image;
 pub mod interpolation;
 pub mod metering;

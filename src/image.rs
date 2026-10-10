@@ -213,6 +213,28 @@ pub fn decode_raw_crop(
     camera_wb: bool,
     crop_size: Option<usize>,
 ) -> Result<Image> {
+    Ok(decode_raw_impl(path, half_size, camera_wb, crop_size, None)?.0)
+}
+
+/// Decode and area-average the entire frame into a bounded float64 preview.
+/// LibRaw still owns its full demosaiced bitmap, but no full-frame float buffer
+/// is allocated. The returned dimensions describe the original decoded frame.
+pub fn decode_raw_preview(
+    path: &Path,
+    camera_wb: bool,
+    max_edge: usize,
+) -> Result<(Image, [usize; 2])> {
+    ensure!(max_edge > 0, "Preview size must be positive");
+    decode_raw_impl(path, false, camera_wb, None, Some(max_edge))
+}
+
+fn decode_raw_impl(
+    path: &Path,
+    half_size: bool,
+    camera_wb: bool,
+    crop_size: Option<usize>,
+    max_edge: Option<usize>,
+) -> Result<(Image, [usize; 2])> {
     let path = std::ffi::CString::new(path.as_os_str().as_encoded_bytes())?;
     let mut error = 0;
     let p = unsafe {
@@ -250,6 +272,32 @@ pub fn decode_raw_crop(
         "Unexpected LibRaw bitmap layout"
     );
     let pixels = unsafe { std::slice::from_raw_parts(sf_raw_pixels(p), bytes) };
+    if let Some(edge) = max_edge.filter(|edge| *edge < w.max(h)) {
+        let scale = edge as f64 / w.max(h) as f64;
+        let pw = ((w as f64 * scale).round() as usize).max(1);
+        let ph = ((h as f64 * scale).round() as usize).max(1);
+        let mut data = vec![0.0; pw * ph * c];
+        for y in 0..ph {
+            let y0 = y * h / ph;
+            let y1 = (y + 1) * h / ph;
+            for x in 0..pw {
+                let x0 = x * w / pw;
+                let x1 = (x + 1) * w / pw;
+                let count = ((y1 - y0) * (x1 - x0)) as f64;
+                for sy in y0..y1 {
+                    for sx in x0..x1 {
+                        for channel in 0..c {
+                            let i = ((sy * w + sx) * c + channel) * 2;
+                            let value = u16::from_ne_bytes([pixels[i], pixels[i + 1]]);
+                            data[(y * pw + x) * c + channel] +=
+                                (value as f32 / 65535.0_f32) as f64 / count;
+                        }
+                    }
+                }
+            }
+        }
+        return Ok((Image::new(pw, ph, c, data)?, [w, h]));
+    }
     // Match reference rawpy's uint16 -> float32 -> normalized float32 path.
     let cw = crop_size.unwrap_or(w).min(w);
     let ch = crop_size.unwrap_or(h).min(h);
@@ -263,5 +311,5 @@ pub fn decode_raw_crop(
             data.push((u16::from_ne_bytes([b[0], b[1]]) as f32 / 65535.0_f32) as f64);
         }
     }
-    Image::new(cw, ch, c, data)
+    Ok((Image::new(cw, ch, c, data)?, [w, h]))
 }

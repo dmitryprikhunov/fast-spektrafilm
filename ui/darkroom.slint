@@ -1,0 +1,258 @@
+import { Button, ComboBox, CheckBox, Slider, ScrollView, TextEdit, TabWidget, Palette } from "std-widgets.slint";
+
+export struct Controls {
+    film: string, paper: string, route: string, route-index: int, meter-index: int, output-index: int,
+    exposure: float, print-ev: float, yellow: float, magenta: float,
+    film-format: float, film-gamma: float, print-gamma: float,
+    halation-amount: float, scanner-blur: float, sharpen: float,
+    auto-exposure: bool, grain: bool, halation: bool, glare: bool,
+    spatial: bool, deterministic: bool, encoded-output: bool,
+}
+
+component SectionTitle inherits Text {
+    color: #adb5ba;
+    font-size: 11px;
+    font-weight: 600;
+    height: 24px;
+}
+
+component Adjustment inherits VerticalLayout {
+    in property <string> label;
+    in property <string> unit;
+    in-out property <float> value;
+    in property <float> minimum: 0;
+    in property <float> maximum: 1;
+    in property <bool> enabled: true;
+    callback edited(float);
+    spacing: 5px;
+    HorizontalLayout {
+        Text { text: root.label; color: #d6dbde; font-size: 13px; }
+        Text { text: round(root.value * 100) / 100 + " " + root.unit; color: #b6c2c6; font-size: 12px; horizontal-alignment: right; }
+    }
+    Slider { enabled: root.enabled; minimum: root.minimum; maximum: root.maximum; value <=> root.value; changed(v) => { root.edited(v); } }
+}
+
+component ImagePanel inherits Rectangle {
+    in property <image> photo;
+    in property <string> label;
+    background: #121517;
+    border-radius: 5px;
+    clip: true;
+    VerticalLayout {
+        padding: 14px;
+        spacing: 12px;
+        Text { text: root.label; color: #859296; font-size: 11px; height: 18px; }
+        Image { source: root.photo; image-fit: contain; }
+    }
+}
+
+export component Darkroom inherits Window {
+    title: "fast-spektrafilm · Darkroom";
+    preferred-width: 1240px;
+    preferred-height: 850px;
+    min-width: 980px;
+    min-height: 700px;
+    background: #191d20;
+    default-font-family: "DejaVu Sans";
+    default-font-size: 13px;
+    init => { Palette.color-scheme = dark; }
+    in-out property <Controls> controls;
+    in property <[string]> films;
+    in property <[string]> papers;
+    in property <image> before;
+    in property <image> after;
+    in property <bool> has-image;
+    in property <bool> busy;
+    in property <bool> exporting;
+    in property <bool> stale;
+    in property <bool> error;
+    in property <string> filename: "No image selected";
+    in property <string> dimensions;
+    in property <string> status: "Open a camera RAW or RGB NPY file to begin.";
+    in property <string> render-info;
+    in-out property <string> json-settings;
+    in-out property <bool> auto-preview: true;
+    in-out property <int> view-mode: 1;
+    in-out property <int> export-format: 1;
+    callback open-image();
+    callback load-settings();
+    callback save-settings();
+    callback reset-settings();
+    callback apply-json(string);
+    callback preview();
+    callback export-image();
+    callback number-edited(string, float);
+    callback toggle-edited(string, bool);
+    callback choice-edited(string, string);
+
+    VerticalLayout {
+        spacing: 0px;
+        Rectangle {
+            height: 76px;
+            background: #22272b;
+            HorizontalLayout {
+                padding-left: 24px;
+                padding-right: 24px;
+                padding-top: 18px;
+                padding-bottom: 18px;
+                spacing: 18px;
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 3px;
+                    Text { text: "SPEKTRA / FILM"; color: #e8ecec; font-size: 19px; font-weight: 700; }
+                    Text { text: "THE DIGITAL DARKROOM"; color: #7f9299; font-size: 10px; letter-spacing: 1.5px; }
+                }
+                Rectangle { horizontal-stretch: 1; }
+                Button { text: "Open image…"; enabled: !root.exporting; clicked => { root.open-image(); } }
+                Button { text: "Load settings…"; enabled: !root.exporting; clicked => { root.load-settings(); } }
+                Button { text: "Save settings…"; enabled: !root.exporting; clicked => { root.save-settings(); } }
+                Button { text: root.export-format == 0 ? "Export TIFF…" : (root.export-format == 1 ? "Export PNG…" : "Export NPY…"); enabled: root.has-image && !root.busy; primary: true; clicked => { root.export-image(); } }
+            }
+        }
+        HorizontalLayout {
+            spacing: 0px;
+            Rectangle {
+                width: 340px;
+                background: #23282c;
+                VerticalLayout {
+                    padding: 18px;
+                    spacing: 14px;
+                    HorizontalLayout {
+                        Text { text: "DEVELOP"; color: #dfe6e7; font-size: 12px; font-weight: 700; }
+                        Button { width: 70px; text: "Reset"; enabled: !root.exporting; clicked => { root.reset-settings(); } }
+                    }
+                    Text { text: "Film stock"; color: #a4b1b7; height: 17px; }
+                    ComboBox { enabled: !root.exporting; model: root.films; current-value <=> root.controls.film; selected(v) => { root.choice-edited("film", v); } }
+                    Text { text: "Print paper"; color: #a4b1b7; height: 17px; }
+                    ComboBox { model: root.papers; current-value <=> root.controls.paper; enabled: !root.exporting && root.controls.route == "Film → Print → Scan"; selected(v) => { root.choice-edited("paper", v); } }
+                    ComboBox { enabled: !root.exporting; model: ["Film → Print → Scan", "Film → Scan", "Passthrough"]; current-index <=> root.controls.route-index; selected(v) => { root.choice-edited("route", v); } }
+                    TabWidget {
+                        Tab {
+                            title: "Light";
+                            ScrollView {
+                                VerticalLayout {
+                                    padding: 10px;
+                                    spacing: 14px;
+                                    SectionTitle { text: "CAMERA"; }
+                                    Adjustment { enabled: !root.exporting; label: "Exposure"; unit: "EV"; value <=> root.controls.exposure; minimum: -5; maximum: 5; edited(v) => { root.number-edited("exposure", v); } }
+                                    CheckBox { enabled: !root.exporting; text: "Auto exposure"; checked <=> root.controls.auto-exposure; toggled => { root.toggle-edited("auto_exposure", self.checked); } }
+                                    ComboBox { enabled: !root.exporting; model: ["center_weighted", "average", "median", "partial", "matrix", "multi_zone", "highlight_weighted"]; current-index <=> root.controls.meter-index; selected(v) => { root.choice-edited("meter", v); } }
+                                    Adjustment { enabled: !root.exporting; label: "Film format"; unit: "mm"; value <=> root.controls.film-format; minimum: 8; maximum: 120; edited(v) => { root.number-edited("film_format", v); } }
+                                    SectionTitle { text: "ENLARGER"; }
+                                    Adjustment { enabled: !root.exporting; label: "Print exposure"; unit: "EV"; value <=> root.controls.print-ev; minimum: -4; maximum: 4; edited(v) => { root.number-edited("print_ev", v); } }
+                                    Adjustment { enabled: !root.exporting; label: "Yellow filter shift"; unit: ""; value <=> root.controls.yellow; minimum: -100; maximum: 100; edited(v) => { root.number-edited("yellow", v); } }
+                                    Adjustment { enabled: !root.exporting; label: "Magenta filter shift"; unit: ""; value <=> root.controls.magenta; minimum: -100; maximum: 100; edited(v) => { root.number-edited("magenta", v); } }
+                                    Rectangle { height: 8px; }
+                                }
+                            }
+                        }
+                        Tab {
+                            title: "Texture";
+                            ScrollView {
+                                VerticalLayout {
+                                    padding: 10px;
+                                    spacing: 14px;
+                                    SectionTitle { text: "FILM & PAPER"; }
+                                    CheckBox { enabled: !root.exporting; text: "Film grain"; checked <=> root.controls.grain; toggled => { root.toggle-edited("grain", self.checked); } }
+                                    CheckBox { enabled: !root.exporting; text: "Halation & scattering"; checked <=> root.controls.halation; toggled => { root.toggle-edited("halation", self.checked); } }
+                                    Adjustment { enabled: !root.exporting; label: "Halation amount"; unit: "×"; value <=> root.controls.halation-amount; maximum: 3; edited(v) => { root.number-edited("halation_amount", v); } }
+                                    CheckBox { enabled: !root.exporting; text: "Print glare"; checked <=> root.controls.glare; toggled => { root.toggle-edited("glare", self.checked); } }
+                                    SectionTitle { text: "DEVELOPMENT"; }
+                                    Adjustment { enabled: !root.exporting; label: "Film gamma"; unit: "×"; value <=> root.controls.film-gamma; minimum: 0.2; maximum: 2; edited(v) => { root.number-edited("film_gamma", v); } }
+                                    Adjustment { enabled: !root.exporting; label: "Print gamma"; unit: "×"; value <=> root.controls.print-gamma; minimum: 0.2; maximum: 2; edited(v) => { root.number-edited("print_gamma", v); } }
+                                    SectionTitle { text: "SCANNER"; }
+                                    Adjustment { enabled: !root.exporting; label: "Scanner blur"; unit: "µm"; value <=> root.controls.scanner-blur; maximum: 20; edited(v) => { root.number-edited("scanner_blur", v); } }
+                                    Adjustment { enabled: !root.exporting; label: "Sharpen amount"; unit: ""; value <=> root.controls.sharpen; maximum: 3; edited(v) => { root.number-edited("sharpen", v); } }
+                                    Rectangle { height: 8px; }
+                                }
+                            }
+                        }
+                        Tab {
+                            title: "Output";
+                            ScrollView {
+                                VerticalLayout {
+                                    padding: 10px;
+                                    spacing: 14px;
+                                    SectionTitle { text: "EXPORT FORMAT"; }
+                                    ComboBox { enabled: !root.exporting; model: ["Float TIFF", "sRGB PNG (8-bit)", "Float64 NPY"]; current-index <=> root.export-format; }
+                                    Text { text: "PNG is encoded sRGB. TIFF / NPY\nretain the output colour settings."; color: #8e9da4; wrap: word-wrap; }
+                                    SectionTitle { text: "COLOUR & QUALITY"; }
+                                    ComboBox { enabled: !root.exporting; model: ["sRGB", "Display P3", "Adobe RGB (1998)", "ProPhoto RGB", "ITU-R BT.2020", "ACES2065-1", "ACEScg"]; current-index <=> root.controls.output-index; selected(v) => { root.choice-edited("output", v); } }
+                                    CheckBox { enabled: !root.exporting; text: "Encode output transfer function"; checked <=> root.controls.encoded-output; toggled => { root.toggle-edited("encoded_output", self.checked); } }
+                                    CheckBox { enabled: !root.exporting; text: "Spatial effects"; checked <=> root.controls.spatial; toggled => { root.toggle-edited("spatial", self.checked); } }
+                                    CheckBox { enabled: !root.exporting; text: "Deterministic (no grain / glare)"; checked <=> root.controls.deterministic; toggled => { root.toggle-edited("deterministic", self.checked); } }
+                                    Text { text: "Preview: 768 px, full frame.\nExport: original resolution.\nTexture can differ at preview scale."; color: #8e9da4; wrap: word-wrap; }
+                                    SectionTitle { text: "ALL SETTINGS"; }
+                                    Text { text: "The JSON editor below includes every supported setting, including input colour space and framing."; color: #8e9da4; wrap: word-wrap; }
+                                    Rectangle { height: 8px; }
+                                }
+                            }
+                        }
+                    }
+                    CheckBox { enabled: !root.exporting; text: "Update preview automatically"; checked <=> root.auto-preview; }
+                    Button { text: root.busy ? "Rendering…" : "Update preview"; enabled: root.has-image && !root.exporting; clicked => { root.preview(); } }
+                }
+            }
+            VerticalLayout {
+                padding: 22px;
+                spacing: 16px;
+                HorizontalLayout {
+                    VerticalLayout {
+                        spacing: 5px;
+                        Text { text: root.filename; color: #e2e8ea; font-size: 15px; font-weight: 600; overflow: elide; }
+                        Text { text: root.dimensions; color: #81939b; font-size: 11px; }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    ComboBox { width: 158px; model: ["Original", "Developed", "Side by side"]; current-index <=> root.view-mode; }
+                }
+                Rectangle {
+                    vertical-stretch: 1;
+                    background: #121517;
+                    border-radius: 6px;
+                    if !root.has-image: VerticalLayout {
+                        alignment: center;
+                        spacing: 18px;
+                        Text { text: "Your next frame starts here."; color: #c4d0d4; font-size: 24px; horizontal-alignment: center; }
+                        Text { text: "Choose a camera RAW or an RGB NPY image.\nDevelop it with the original measured film profiles."; color: #7b8d96; horizontal-alignment: center; }
+                        HorizontalLayout {
+                            alignment: center;
+                            Button { text: "Open image…"; primary: true; clicked => { root.open-image(); } }
+                        }
+                    }
+                    if root.has-image: HorizontalLayout {
+                        spacing: 8px;
+                        if root.view-mode != 1: ImagePanel { photo: root.before; label: "ORIGINAL · sRGB display"; }
+                        if root.view-mode != 0: ImagePanel { photo: root.after; label: root.stale ? "DEVELOPED · preview needs updating" : "DEVELOPED · sRGB display"; }
+                    }
+                }
+                HorizontalLayout {
+                    Text { text: root.render-info; color: #81939b; font-size: 11px; overflow: elide; }
+                    Text { text: root.busy ? "● WORKING" : (root.stale ? "● PENDING" : "● READY"); color: root.busy || root.stale ? #d4b584 : #8bbeaa; font-size: 10px; horizontal-alignment: right; }
+                }
+                Rectangle {
+                    height: 160px;
+                    background: #22272b;
+                    border-radius: 6px;
+                    VerticalLayout {
+                        padding: 12px;
+                        spacing: 8px;
+                        HorizontalLayout {
+                            Text { text: "ADVANCED SETTINGS · JSON"; color: #92a1a8; font-size: 10px; }
+                            Button { width: 120px; text: "Apply JSON"; enabled: !root.exporting; clicked => { root.apply-json(root.json-settings); } }
+                        }
+                        TextEdit { enabled: !root.exporting; text <=> root.json-settings; wrap: no-wrap; }
+                    }
+                }
+            }
+        }
+        Rectangle {
+            height: 45px;
+            background: root.error ? #3a2525 : #22272b;
+            HorizontalLayout {
+                padding-left: 22px;
+                padding-right: 22px;
+                Text { text: root.status; color: root.error ? #ffb9b0 : #a6b5bc; overflow: elide; vertical-alignment: center; }
+            }
+        }
+    }
+}

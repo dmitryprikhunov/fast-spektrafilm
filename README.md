@@ -1,10 +1,10 @@
 # fast-spektrafilm
 
-Rust library and CLI rewriting spektrafilm's **experimental** branch at
+Rust library, CLI and optional Slint desktop GUI rewriting spektrafilm's **experimental** branch at
 `28bf883e1672e884307edc75852549376e13644e`. The original checkout is read-only.
 This is the first core implementation; feature coverage and remaining work are
-tracked in [MIGRATION.md](MIGRATION.md). The future GUI will use Slint after the
-core passes its remaining parity checks.
+tracked in [MIGRATION.md](MIGRATION.md). The GUI uses the same supported Rust
+processing pipeline; its workflow and limitations are described in [GUI.md](GUI.md).
 
 Measured numerical results are recorded in [VALIDATION.md](VALIDATION.md) and
 crop timing/memory results in [BENCHMARKS.md](BENCHMARKS.md).
@@ -33,6 +33,19 @@ target/release/fast-spektrafilm --threads 4 process \
   --crop-size 256 --deterministic --collect cmy-film
 
 target/release/fast-spektrafilm bake transform.cube --resolution 33
+```
+
+The Slint desktop darkroom is an optional build, so library and CLI users do
+not need GUI dependencies. Linux GUI builds additionally require Fontconfig
+development files and pkg-config. Native file dialogs use the desktop's XDG
+portal. Slint uses its Winit backend and software renderer.
+
+```sh
+cargo build --release --locked --features gui -j4
+target/release/fast-spektrafilm-gui
+target/release/fast-spektrafilm-gui samples/RAW_CANON_EOS_5DMARK3.CR2 --threads 4
+# Settings files are shared with the CLI.
+target/release/fast-spektrafilm-gui input.npy --config settings.json --data-dir data
 ```
 
 LUT baking disables framing, resampling and internal scanner/enlarger

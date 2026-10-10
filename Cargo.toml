@@ -5,10 +5,17 @@ edition = "2024"
 rust-version = "1.93"
 license = "GPL-3.0-only"
 description = "Memory-efficient Rust implementation of spektrafilm's experimental pipeline"
+default-run = "fast-spektrafilm"
 
 [features]
 default = ["bundled-libraw"]
 bundled-libraw = []
+gui = ["dep:slint", "dep:slint-build", "dep:rfd", "dep:image", "dep:tempfile"]
+
+[[bin]]
+name = "fast-spektrafilm-gui"
+path = "src/bin/gui.rs"
+required-features = ["gui"]
 
 [lib]
 name = "fast_spektrafilm"
@@ -23,10 +30,15 @@ toml = "0.8"
 libm = "0.2"
 half = "2"
 tiff = "0.10"
+slint = { version = "=1.18.1", optional = true, default-features = false, features = ["std", "backend-winit", "renderer-software", "compat-1-18"] }
+rfd = { version = "0.17.2", optional = true }
+image = { version = "0.25", optional = true, default-features = false, features = ["png"] }
+tempfile = { version = "3", optional = true }
 
 [build-dependencies]
 cc = { version = "1", features = ["parallel"] }
 pkg-config = "0.3"
+slint-build = { version = "=1.18.1", optional = true }
 
 [profile.release]
 lto = "thin"

@@ -28,6 +28,9 @@ claiming that the entire original application has been rewritten.
   blur, microstructure and mass-preserving multiplicative sharpening; glare.
 - Pinned LibRaw 0.22.0 decoding, including rawpy's parameter application order.
   Test crops avoid full-frame floating-point conversion and simulation.
+- Optional native Slint darkroom: measured stock selection, common adjustments,
+  full JSON settings, background rendering, cached full-frame previews, original/
+  developed/comparison views and full-resolution PNG, float TIFF and NPY export.
 
 ## Numerical contract
 
@@ -50,10 +53,12 @@ They must not be extrapolated to full-resolution RAW throughput.
 - Camera/enlarger optical diffusion filters. The experimental enlarger
   `lens_blur` field is accepted for compatibility: its printing stage does not
   use it, so it remains a documented no-op here as well.
-- Broader image-file/ICC I/O, lens correction, custom RAW temperature/tint
-  controls and application preview scheduling/caching.
+- Broader image-file/ICC I/O, lens correction and custom RAW temperature/tint
+  controls. The GUI currently opens RAW and RGB NPY inputs; ICC monitor
+  calibration and embedded output profiles remain unimplemented.
 - Full stochastic validation across shapes, thread counts and all stock classes;
   further workspace reuse and spatial-filter performance work.
 
 Unsupported configuration is rejected rather than silently approximated.
-Slint GUI work follows completion and validation of the core.
+The Slint GUI exposes the supported core routes. Remaining core and application
+coverage above is not presented as implemented. See [GUI.md](GUI.md).
