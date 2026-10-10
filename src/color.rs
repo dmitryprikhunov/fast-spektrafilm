@@ -170,7 +170,9 @@ pub fn decode(name: &str, v: f64) -> f64 {
         }
         "Adobe RGB (1998)" => v.powf(563.0 / 256.0),
         "ITU-R BT.2020" => {
-            if v < 0.081 {
+            // The pinned colour implementation tests against OETF(beta),
+            // i.e. 1.099 * 0.018^0.45 - 0.099, rather than 4.5 * beta.
+            if v < 0.081_247_944_035_140_46 {
                 v / 4.5
             } else {
                 ((v + 0.099) / 1.099).powf(1.0 / 0.45)
