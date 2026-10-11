@@ -33,7 +33,7 @@ impl ScanReference {
             affine: None,
         };
         let s = &params.scanner;
-        let film_scan = params.workflow.route == "input > film > scan";
+        let film_scan = params.workflow.scan_film();
         if !(s.black_correction || s.white_correction)
             || params.workflow.route == "input"
             || (film_scan && film.info.polarity == "negative")

@@ -66,3 +66,23 @@ for mode in spatial legacy-grain; do
   .venv/bin/python tools/benchmark.py --mode "$mode" --film-format-mm 1.5 --threads 4 --repeat 3
 done
 ```
+
+## Added core paths (2026-10-11)
+
+Same cached Canon 5D Mark III 256×256 crop, four threads, Portra 400 → Portra
+Endura, autoexposure off, stochastic effects off, three measured renders.
+The conversion case uses the direct inverse solver then print/scan, spatial
+effects off. The diffusion case enables the default Black Pro-Mist in both
+camera and enlarger, stock halation/scattering, 35 mm format, direct spectral
+integration and normal scanner sharpening. Preparation/JIT is outside the
+render timer; peak RSS includes startup/preparation for both processes.
+
+| Path | Python median | Rust median | Python RSS | Rust RSS | Max RGB error |
+|---|---:|---:|---:|---:|---:|
+| Convert → print → scan | 2.147 s | 0.242 s | 539.9 MiB | 34.9 MiB | 6.45e-6 |
+| Camera + enlarger diffusion | 0.519 s | 0.329 s | 458.5 MiB | 35.0 MiB | 6.54e-7 |
+
+Reproduce with `.venv/bin/python tools/benchmark_core.py` after preparing the
+cached crops and building the release CLI. These tiny-crop figures do not
+establish full-resolution throughput; inverse calibration and large FFT kernels
+need separate full-image memory/performance studies.

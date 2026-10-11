@@ -134,3 +134,24 @@ The rewrite retains the original GPLv3 license and attribution. Third-party
 licenses are preserved in `licenses/` and `vendor/libraw/`. LibRaw's original
 native C++ decoder is reused; `native/raw.c` only adapts its ABI. All new film
 processing algorithms are Rust.
+
+### Additional input and negative workflows
+
+`process` opens RGB NPY, ordinary PNG/JPEG/TIFF/WebP/EXR, and camera RAW.
+PNG/JPEG/WebP without an ICC profile are interpreted as sRGB; untagged TIFF/EXR
+and NPY retain the explicitly configured input representation. RGB ICC profiles
+are honoured. PNG export is 16-bit; TIFF/EXR remain float32 and NPY float64.
+Output profiles are embedded for supported RGB spaces in PNG/JPEG/TIFF.
+
+Set `workflow.route` to `input > convert-film > print > scan`,
+`input > convert-film > scan`, or `input > convert-film > scan-minus-base`.
+`convert` contains the scan lamp, exposure alignment and a 3×3 calibration matrix.
+`calibrate input.tiff fitted.json --config settings.json` detects/fits clear base;
+add `--device` to fit device calibration. Both operations save reusable settings.
+
+`raw.white_balance` accepts `as_shot`, `daylight`, `tungsten`, or `custom`;
+custom uses `raw.temperature` (kelvin) and `raw.tint`. Enable
+`raw.lens_correction` to use Lensfun 0.3 and its camera/lens database.
+`SPEKTRAFILM_LENSFUN_LIBRARY` and `SPEKTRAFILM_LENSFUN_DATABASE` can point to
+user-local installations. Missing required libraries report an error.
+Camera and enlarger `diffusion_filter` expose all four original filter families.

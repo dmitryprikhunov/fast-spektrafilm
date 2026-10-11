@@ -23,6 +23,11 @@ toml = "0.8"
 libm = "0.2"
 half = "2"
 tiff = "0.10"
+rustfft = "6"
+nalgebra = "0.34"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "tiff", "webp", "exr"] }
+lcms2 = "6"
+libloading = "0.8"
 
 [build-dependencies]
 cc = { version = "1", features = ["parallel"] }

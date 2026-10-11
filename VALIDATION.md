@@ -74,3 +74,25 @@ This suite verifies the implemented coverage, not the outstanding workflows in
 [MIGRATION.md](MIGRATION.md). Decoder parity is established for the four supplied
 RAW formats with bundled LibRaw 0.22.0. Linking a different system LibRaw or adding
 other RAW formats requires additional verification.
+
+## Additional core coverage
+
+`tools/generate_core_fixtures.py` extracts fixtures from the same pinned source.
+`cargo test --release --locked --test core_coverage -- --nocapture` prints errors.
+The added deterministic float32 stages are tested separately: direct diffusion
+PSFs ≤ 3e-7, complete optical paths ≤ 2e-6, inverse routes/LUT ≤ 2e-5, arbitrary
+inverse inputs ≤ 2e-4. These are explicit allowances for the source's float32
+FFT/solver stores, not a relaxation of the existing float64 tests. RAW
+white-balance fixtures match exactly; base-fit parameters agree within 1e-4.
+Blind calibration is checked by reduction of the observed clear-base residual;
+its optimizer is a damped least-squares solve and is not bitwise SciPy MINPACK.
+
+The Lensfun differential test is enabled with `SPEKTRAFILM_LENSFUN_LIBRARY`
+pointing to a Lensfun 0.3 library and `SPEKTRAFILM_LENSFUN_DATABASE` pointing
+to the same XML database used to generate the fixture. It exercises all native
+corrections plus Rust float32 bilinear resampling. The test used the bundled
+reference lensfunpy database. Native packages used for local validation live
+under `.tools/`; they are not installed into the base system or committed.
+
+The grain matrix adds 27 comparisons: three stock classes × three image shapes
+× 1/2/4 Rayon threads. All controlled fast-grain density arrays match exactly.

@@ -97,9 +97,48 @@ impl Tables {
             .get(name)
             .with_context(|| format!("Unknown color space: {name}"))
     }
-    pub fn illuminant(&self, name: &str) -> Result<&Illuminant> {
+    pub fn illuminant(&self, name: &str) -> Result<Illuminant> {
+        if let Some(temperature) = name.strip_prefix("BB") {
+            let t: f64 = temperature
+                .parse()
+                .context("Blackbody illuminants use BB followed by kelvin")?;
+            ensure!(
+                t.is_finite() && t > 0.0,
+                "Blackbody temperature must be positive and finite"
+            );
+            let mut spectrum: Vec<_> = (0..81)
+                .map(|i| {
+                    let wavelength = (380.0 + 5.0 * i as f64) * 1e-9;
+                    3.741771e-16
+                        / (std::f64::consts::PI
+                            * wavelength.powi(5)
+                            * ((0.014388 / (wavelength * t)).exp() - 1.0))
+                })
+                .collect();
+            let mean = spectrum.iter().sum::<f64>() / 81.0;
+            ensure!(
+                mean.is_finite() && mean > 0.0,
+                "Blackbody temperature outside numerical range"
+            );
+            for v in &mut spectrum {
+                *v /= mean;
+            }
+            let xyz: [f64; 3] = std::array::from_fn(|c| {
+                spectrum
+                    .iter()
+                    .zip(&self.cmfs)
+                    .map(|(v, cmf)| v * cmf[c])
+                    .sum()
+            });
+            let sum: f64 = xyz.iter().sum();
+            return Ok(Illuminant {
+                spectrum,
+                xy: [xyz[0] / sum, xyz[1] / sum],
+            });
+        }
         self.illuminants
             .get(name)
+            .cloned()
             .with_context(|| format!("Unknown illuminant: {name}"))
     }
     pub fn rgb_to_xyz(&self, input: &str, white: [f64; 2]) -> Result<Matrix> {
