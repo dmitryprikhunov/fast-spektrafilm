@@ -1,0 +1,112 @@
+{
+  "shapes": {
+    "glimmerglass": {
+      "core": {
+        "lambda_um": 10.0,
+        "spread": 1.5,
+        "n_components": 2
+      },
+      "halo": {
+        "lambda_um": 50.0,
+        "spread": 2.0,
+        "n_components": 3
+      },
+      "bloom": {
+        "lambda_um": 260.0,
+        "spread": 2.5,
+        "n_components": 4,
+        "alpha": 3.2
+      },
+      "w_c": 0.6,
+      "w_h": 0.3,
+      "w_b": 0.1,
+      "halo_warmth_base": 0.0
+    },
+    "black_pro_mist": {
+      "core": {
+        "lambda_um": 16.0,
+        "spread": 1.5,
+        "n_components": 2
+      },
+      "halo": {
+        "lambda_um": 95.0,
+        "spread": 2.0,
+        "n_components": 3
+      },
+      "bloom": {
+        "lambda_um": 380.0,
+        "spread": 2.5,
+        "n_components": 4,
+        "alpha": 3.5
+      },
+      "w_c": 0.4,
+      "w_h": 0.47,
+      "w_b": 0.13,
+      "halo_warmth_base": 0.65
+    },
+    "pro_mist": {
+      "core": {
+        "lambda_um": 14.0,
+        "spread": 1.5,
+        "n_components": 2
+      },
+      "halo": {
+        "lambda_um": 150.0,
+        "spread": 2.0,
+        "n_components": 3
+      },
+      "bloom": {
+        "lambda_um": 650.0,
+        "spread": 2.5,
+        "n_components": 4,
+        "alpha": 2.9
+      },
+      "w_c": 0.28,
+      "w_h": 0.42,
+      "w_b": 0.3,
+      "halo_warmth_base": 0.4
+    },
+    "cinebloom": {
+      "core": {
+        "lambda_um": 20.0,
+        "spread": 1.5,
+        "n_components": 2
+      },
+      "halo": {
+        "lambda_um": 200.0,
+        "spread": 2.0,
+        "n_components": 3
+      },
+      "bloom": {
+        "lambda_um": 1000.0,
+        "spread": 2.5,
+        "n_components": 4,
+        "alpha": 2.5
+      },
+      "w_c": 0.22,
+      "w_h": 0.3,
+      "w_b": 0.48,
+      "halo_warmth_base": 0.85
+    }
+  },
+  "gains": {
+    "glimmerglass": 0.65,
+    "black_pro_mist": 0.75,
+    "pro_mist": 1.05,
+    "cinebloom": 1.0
+  },
+  "breakpoints": [
+    0.125,
+    0.25,
+    0.5,
+    1.0,
+    2.0
+  ],
+  "fractions": [
+    0.1,
+    0.2,
+    0.35,
+    0.55,
+    0.75
+  ]
+}

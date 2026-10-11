@@ -1,6 +1,7 @@
 /* ABI adapter only. Demosaicing remains in the existing LibRaw library. */
 #include <libraw/libraw.h>
 #include <string.h>
+#include <stdio.h>
 
 libraw_processed_image_t *sf_decode_raw(const char *path, int half_size,
     int camera_wb, int *error) {
@@ -33,3 +34,21 @@ unsigned int sf_raw_colors(const libraw_processed_image_t *p) { return p->colors
 unsigned int sf_raw_bits(const libraw_processed_image_t *p) { return p->bits; }
 unsigned int sf_raw_bytes(const libraw_processed_image_t *p) { return p->data_size; }
 const unsigned char *sf_raw_pixels(const libraw_processed_image_t *p) { return p->data; }
+
+/* Metadata ABI only; correction and resampling are implemented in Rust. */
+int sf_raw_metadata(const char *path, char *make, char *model, char *lens_make,
+                    char *lens, float *focal, float *aperture) {
+    libraw_data_t *raw = libraw_init(0);
+    if (!raw) return LIBRAW_UNSUFFICIENT_MEMORY;
+    int error = libraw_open_file(raw, path);
+    if (!error) {
+        snprintf(make, 128, "%s", raw->idata.make);
+        snprintf(model, 128, "%s", raw->idata.model);
+        snprintf(lens_make, 128, "%s", raw->lens.LensMake);
+        snprintf(lens, 128, "%s", raw->lens.Lens);
+        *focal = raw->other.focal_len;
+        *aperture = raw->other.aperture;
+    }
+    libraw_close(raw);
+    return error;
+}

@@ -28,13 +28,22 @@ claiming that the entire original application has been rewritten.
   blur, microstructure and mass-preserving multiplicative sharpening; glare.
 - Pinned LibRaw 0.22.0 decoding, including rawpy's parameter application order.
   Test crops avoid full-frame floating-point conversion and simulation.
-- Optional native Slint darkroom: measured stock selection, common adjustments,
-  full JSON settings, background rendering, cached full-frame previews, original/
-  developed/comparison views and full-resolution PNG, float TIFF and NPY export.
+
+- All three convert-film routes, including base-free film scans; bounded inverse
+  scan solver, optional tetrahedral inverse LUT, device calibration and clear-base
+  detection/fitting. CLI `calibrate` saves the fitted settings.
+- All four optical diffusion families in both camera and enlarger, including
+  strength, warmth and per-component overrides. Blackbody scan/enlarger lamps.
+- PNG/JPEG/TIFF/WebP/EXR input; 16-bit PNG, JPEG, float TIFF/EXR and NPY output;
+  embedded RGB ICC conversion and output profile embedding where available.
+- As-shot, daylight, tungsten and custom temperature/tint RAW white balance;
+  optional Lensfun vignetting, TCA, distortion, geometry and scale correction.
 
 ## Numerical contract
 
-No float32 conversion is inserted into the deterministic film/print/scan math.
+No float32 conversion is inserted into the deterministic film/print/scan math
+except where the pinned model itself explicitly uses it (optical diffusion
+and inverse scanning).
 The original grain model's float32 stores and pairwise sums are retained. Strict
 tests compare stage arrays with `atol=1e-9`, `rtol=1e-8` and reject nonfinite
 results. Legacy seeded grain is compared pixel by pixel. Default approximate
@@ -47,18 +56,27 @@ Timing claims must name the enabled effects, crop size and thread count. RSS
 numbers include runtime startup and table/JIT preparation for both processors.
 They must not be extrapolated to full-resolution RAW throughput.
 
-## Remaining core coverage
+## Coverage boundaries
 
-- Scan inverse / convert-film routes and calibration/base detection workflows.
-- Camera/enlarger optical diffusion filters. The experimental enlarger
-  `lens_blur` field is accepted for compatibility: its printing stage does not
-  use it, so it remains a documented no-op here as well.
-- Broader image-file/ICC I/O, lens correction and custom RAW temperature/tint
-  controls. The GUI currently opens RAW and RGB NPY inputs; ICC monitor
-  calibration and embedded output profiles remain unimplemented.
-- Full stochastic validation across shapes, thread counts and all stock classes;
-  further workspace reuse and spatial-filter performance work.
+The remaining named processing features above are implemented. The new
+reference fixtures in `tests/fixtures/core` cover both diffusion placements,
+all inverse routes and inverse LUTs, base fitting, RAW white balance, blackbody
+lamps, Lensfun and image I/O. Controlled fast grain now also covers negative,
+reversal and BW stocks, single-row/single-column/rectangular images and 1/2/4
+threads, with exact density matches.
 
-Unsupported configuration is rejected rather than silently approximated.
-The Slint GUI exposes the supported core routes. Remaining core and application
-coverage above is not presented as implemented. See [GUI.md](GUI.md).
+Inverse scanning preserves the original float32, eight-step bounded solver;
+FFT roundoff and linear-algebra reduction order differ between libraries.
+These paths have explicit measured tolerances rather than claiming the
+float64 contract. See `VALIDATION.md` and `BENCHMARKS.md`.
+
+Lens correction requires Lensfun 0.3 and its database. No matching lens leaves
+the image unchanged, as in the original; an unavailable requested library is
+an error. The original inverse converter requires three dye channels; BW
+conversion is rejected. The experimental enlarger `lens_blur` field remains a
+no-op because the pinned printing stage does not use it.
+
+Application parity (Slint controls, preview scheduling/caching, monitor ICC,
+metadata carryover and presentation) is audited separately from core processing.
+Arbitrary Numba thread-local random patterns and exhaustive performance
+optimization are not feature-parity claims. Unsupported configuration is rejected.

@@ -1,0 +1,7 @@
+{
+  "baseline": "28bf883e1672e884307edc75852549376e13644e",
+  "generator": "tools/generate_core_fixtures.py",
+  "seed": 491,
+  "numpy": "2.5.3",
+  "lens_info": "Canon EF 24-105mm f/4L IS USM @ 24.0mm f/4.0"
+}

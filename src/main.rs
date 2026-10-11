@@ -2,7 +2,7 @@ use anyhow::{Result, ensure};
 use clap::{Parser, Subcommand};
 use fast_spektrafilm::{
     Image, Params, Simulator, Tap,
-    color::{Tables, encode, mat_vec},
+    color::{Tables, mat_vec},
     image::{decode_raw_crop, raw_version},
     profile::Profile,
 };
@@ -39,6 +39,10 @@ enum Command {
         white_balance: String,
         #[arg(long, default_value = "ProPhoto RGB")]
         color_space: String,
+        #[arg(long, default_value_t = 5500.)]
+        temperature: f64,
+        #[arg(long, default_value_t = 1.)]
+        tint: f64,
     },
     /// Process an RGB NPY or RAW through the film pipeline.
     Process {
@@ -63,6 +67,15 @@ enum Command {
         collect: Tap,
         #[arg(long, default_value_t = 1)]
         repeat: usize,
+    },
+    /// Fit a scanned negative's clear base or device calibration and save settings.
+    Calibrate {
+        input: PathBuf,
+        output: PathBuf,
+        #[arg(long)]
+        config: Option<PathBuf>,
+        #[arg(long)]
+        device: bool,
     },
     /// Bake the deterministic transform to a standard .cube LUT.
     Bake {
@@ -127,14 +140,20 @@ fn main() -> Result<()> {
             crop_size,
             white_balance,
             color_space,
+            temperature,
+            tint,
         } => {
-            ensure!(
-                ["as_shot", "daylight"].contains(&white_balance.as_str()),
-                "Only as_shot and daylight RAW white balance are currently supported"
-            );
+            let raw = fast_spektrafilm::params::RawSettings {
+                white_balance,
+                temperature,
+                tint,
+                ..Default::default()
+            };
+            fast_spektrafilm::raw::validate(&raw)?;
             let start = Instant::now();
             let mut image =
-                decode_raw_crop(&input, half_size, white_balance == "as_shot", crop_size)?;
+                decode_raw_crop(&input, half_size, raw.white_balance == "as_shot", crop_size)?;
+            fast_spektrafilm::raw::adjust(&mut image, &Tables::load(&cli.data_dir)?, &raw)?;
             if color_space != "ACES2065-1" {
                 let t = Tables::load(&cli.data_dir)?;
                 let m = t.rgb_to_rgb("ACES2065-1", &color_space)?;
@@ -180,31 +199,9 @@ fn main() -> Result<()> {
             if no_auto_exposure {
                 params.camera.auto_exposure = false;
             }
-            let (image, decode_seconds) =
-                if input.extension().and_then(|v| v.to_str()) == Some("npy") {
-                    let image = Image::read_npy(&input)?;
-                    (
-                        if let Some(size) = crop_size {
-                            image.center_crop(size)?
-                        } else {
-                            image
-                        },
-                        0.0,
-                    )
-                } else {
-                    let start = Instant::now();
-                    let mut image = decode_raw_crop(&input, false, true, crop_size)?;
-                    let t = Tables::load(&cli.data_dir)?;
-                    let matrix = t.rgb_to_rgb("ACES2065-1", &params.io.input_color_space)?;
-                    for pixel in image.data.chunks_exact_mut(3) {
-                        let mut rgb = mat_vec(&matrix, [pixel[0], pixel[1], pixel[2]]);
-                        if params.io.input_cctf_decoding {
-                            rgb = rgb.map(|v| encode(&params.io.input_color_space, v));
-                        }
-                        pixel.copy_from_slice(&rgb);
-                    }
-                    (image, start.elapsed().as_secs_f64())
-                };
+            let start = Instant::now();
+            let image = fast_spektrafilm::file_io::read(&input, &cli.data_dir, &params, crop_size)?;
+            let decode_seconds = start.elapsed().as_secs_f64();
             let sim = Simulator::new(&cli.data_dir, params)?;
             let mut times = Vec::new();
             for _ in 1..repeat {
@@ -216,11 +213,50 @@ fn main() -> Result<()> {
             let start = Instant::now();
             let result = sim.process_owned(image, collect)?;
             times.push(start.elapsed().as_secs_f64());
-            write(&result, &output)?;
+            fast_spektrafilm::file_io::write(
+                &result,
+                &output,
+                &cli.data_dir,
+                &sim.params().io.output_color_space,
+                sim.params().io.output_cctf_encoding,
+            )?;
             eprintln!(
                 "{}",
                 serde_json::json!({"setup_seconds":sim.setup_seconds,"decode_seconds":decode_seconds,"process_seconds":times,"width":result.width,"height":result.height,"channels":result.channels,"tap":collect.name(),"threads":rayon::current_num_threads()})
             );
+        }
+        Command::Calibrate {
+            input,
+            output,
+            config,
+            device,
+        } => {
+            ensure!(
+                input != output,
+                "Settings output must differ from the source image"
+            );
+            let mut p = read_params(config)?;
+            let mut image = fast_spektrafilm::file_io::read(&input, &cli.data_dir, &p, None)?;
+            if p.io.input_cctf_decoding {
+                image.data.iter_mut().for_each(|v| {
+                    *v = fast_spektrafilm::color::decode(&p.io.input_color_space, *v)
+                });
+            }
+            let tables = Tables::load(&cli.data_dir)?;
+            if device {
+                p.workflow.route = "input > convert-film > scan".into();
+                let sim = Simulator::new(&cli.data_dir, p.clone())?;
+                p.convert.calibration =
+                    fast_spektrafilm::convert::FilmConverter::new(&tables, sim.film(), &p)?
+                        .fit_calibration(&image)?;
+            } else {
+                let sample =
+                    fast_spektrafilm::convert::sample_base(&image, p.convert.base_percentile)?;
+                let stock = Profile::load(&cli.data_dir, &p.film_profile)?;
+                (p.film_base, p.convert.exposure_compensation_ev) =
+                    fast_spektrafilm::convert::fit_base(&tables, &stock, &p, sample)?;
+            }
+            std::fs::write(output, serde_json::to_string_pretty(&p)?)?;
         }
         Command::Bake {
             output,
