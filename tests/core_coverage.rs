@@ -284,3 +284,27 @@ fn inverse_lut_and_blackbody_match_reference() -> anyhow::Result<()> {
     );
     Ok(())
 }
+
+#[test]
+fn dye_permutation_matches_pinned_gui() -> anyhow::Result<()> {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let input = Image::read_npy(&root.join("tests/fixtures/core/input.npy"))?;
+    let expected = Image::read_npy(&root.join("tests/fixtures/core/dye_swap.npy"))?;
+    let mut p = Params::default();
+    p.camera.auto_exposure = false;
+    p.debug.deactivate_spatial_effects = true;
+    p.debug.deactivate_stochastic_effects = true;
+    p.special.film_channel_swap = [0, 2, 1];
+    p.special.print_channel_swap = [2, 0, 1];
+    let output = Simulator::new(&root.join("data"), p.clone())?.process(&input, Tap::RgbOut)?;
+    let max = output
+        .data
+        .iter()
+        .zip(&expected.data)
+        .map(|(a, b)| (a - b).abs())
+        .fold(0f64, f64::max);
+    assert!(max < 1e-8, "Dye permutation maximum error {max}");
+    p.special.film_channel_swap = [0, 0, 2];
+    assert!(Simulator::new(&root.join("data"), p).is_err());
+    Ok(())
+}

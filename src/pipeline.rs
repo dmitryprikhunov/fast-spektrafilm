@@ -257,6 +257,8 @@ impl Simulator {
             &params.print_profile,
             params.print_chemistry.development_time,
         )?;
+        film.swap_dyes(params.special.film_channel_swap)?;
+        print.swap_dyes(params.special.print_channel_swap)?;
         let stock_film_base = film.base.clone();
         let stock_print_base = print.base.clone();
         ensure!(
@@ -1181,7 +1183,11 @@ fn filtered_illuminant(tables: &Tables, lamp: &[f64], filters: [f64; 3]) -> Vec<
         })
         .collect()
 }
-fn apply_coupler_presets(data: &Path, film: &Profile, couplers: &mut Couplers) -> Result<()> {
+pub(crate) fn apply_coupler_presets(
+    data: &Path,
+    film: &Profile,
+    couplers: &mut Couplers,
+) -> Result<()> {
     let presets: toml::Value = toml::from_str(&std::fs::read_to_string(
         data.join("presets/couplers.toml"),
     )?)?;

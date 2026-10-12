@@ -58,6 +58,21 @@ pub fn transform_icc(image: &mut Image, input: &[u8], output: &[u8]) -> Result<(
     }
     image.validate()
 }
+/// Read TIFF ICC tags independently of the image crate's pixel-sized decode
+/// buffer. Its TIFF wrapper can silently drop profiles larger than a tiny image.
+pub fn embedded_icc(path: &Path) -> Result<Option<Vec<u8>>> {
+    if ["tif", "tiff"].contains(&extension(path).as_str()) {
+        let mut decoder = tiff::decoder::Decoder::new(std::io::BufReader::new(File::open(path)?))?;
+        return match decoder.find_tag(tiff::tags::Tag::Unknown(34675))? {
+            Some(value) => Ok(Some(value.into_u8_vec()?)),
+            None => Ok(None),
+        };
+    }
+    Ok(image::ImageReader::open(path)?
+        .with_guessed_format()?
+        .into_decoder()?
+        .icc_profile()?)
+}
 pub fn read(path: &Path, data: &Path, p: &Params, crop: Option<usize>) -> Result<Image> {
     if extension(path) == "npy" {
         let im = Image::read_npy(path)?;
@@ -73,7 +88,11 @@ pub fn read(path: &Path, data: &Path, p: &Params, crop: Option<usize>) -> Result
         let mut decoder = image::ImageReader::open(path)?
             .with_guessed_format()?
             .into_decoder()?;
-        let profile = decoder.icc_profile()?;
+        let profile = if ["tif", "tiff"].contains(&extension(path).as_str()) {
+            embedded_icc(path)?
+        } else {
+            decoder.icc_profile()?
+        };
         let orientation = decoder.orientation()?;
         let mut decoded = image::DynamicImage::from_decoder(decoder)?;
         decoded.apply_orientation(orientation);

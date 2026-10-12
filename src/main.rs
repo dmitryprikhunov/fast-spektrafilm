@@ -220,6 +220,15 @@ fn main() -> Result<()> {
                 &sim.params().io.output_color_space,
                 sim.params().io.output_cctf_encoding,
             )?;
+            if sim.params().io.copy_metadata {
+                fast_spektrafilm::metadata::copy(
+                    &input,
+                    &output,
+                    [result.width, result.height],
+                    &sim.params().io.output_color_space,
+                    sim.params().io.output_cctf_encoding,
+                )?;
+            }
             eprintln!(
                 "{}",
                 serde_json::json!({"setup_seconds":sim.setup_seconds,"decode_seconds":decode_seconds,"process_seconds":times,"width":result.width,"height":result.height,"channels":result.channels,"tap":collect.name(),"threads":rayon::current_num_threads()})
@@ -252,7 +261,8 @@ fn main() -> Result<()> {
             } else {
                 let sample =
                     fast_spektrafilm::convert::sample_base(&image, p.convert.base_percentile)?;
-                let stock = Profile::load(&cli.data_dir, &p.film_profile)?;
+                let mut stock = Profile::load(&cli.data_dir, &p.film_profile)?;
+                stock.swap_dyes(p.special.film_channel_swap)?;
                 (p.film_base, p.convert.exposure_compensation_ev) =
                     fast_spektrafilm::convert::fit_base(&tables, &stock, &p, sample)?;
             }

@@ -18,6 +18,7 @@ fn fixture() -> PathBuf {
 }
 fn deterministic() -> Params {
     let mut p = Params::default();
+    p.io.copy_metadata = false;
     p.debug.deactivate_stochastic_effects = true;
     p.debug.deactivate_spatial_effects = true;
     p
@@ -31,12 +32,13 @@ fn export_matches_core_and_keeps_original_resolution() -> Result<()> {
     input.write_npy(&source)?;
     let params = deterministic();
     let mut session = Session::new(&data())?;
-    session.source = Some(Source::load(&source)?);
+    session.source = Some(Source::load(&source, &data(), &params)?);
     let cached = session.source.as_ref().unwrap();
     assert_eq!(cached.original, [800, 2]);
     assert_eq!(cached.preview.width, 768);
     let preview = session.render(&params)?;
     assert_eq!(preview.after_size, [768, 2]);
+    assert_eq!(session.render_size(&params, true)?.after_size, [800, 2]);
     let path = dir.path().join("result.npy");
     assert_eq!(session.export(&params, &path)?, [800, 2]);
     let exported = Image::read_npy(&path)?;
@@ -47,7 +49,7 @@ fn export_matches_core_and_keeps_original_resolution() -> Result<()> {
     let bytes = std::fs::read(&source)?;
     assert!(session.export(&params, &source).is_err());
     assert_eq!(std::fs::read(&source)?, bytes);
-    let unsupported = dir.path().join("result.jpg");
+    let unsupported = dir.path().join("result.bad");
     assert!(session.export(&params, &unsupported).is_err());
     assert!(!unsupported.exists());
     let mut invalid = params.clone();
@@ -57,16 +59,15 @@ fn export_matches_core_and_keeps_original_resolution() -> Result<()> {
     assert_eq!(std::fs::read(&path)?, preserved);
     let png = dir.path().join("result.png");
     session.export(&params, &png)?;
-    let png = image::open(png)?.to_rgb8();
+    let png = image::open(png)?.to_rgb16();
     assert_eq!(png.dimensions(), (800, 2));
     assert_eq!(
         png.as_raw(),
-        &backend::display_rgb(
-            &direct,
-            &params.io.output_color_space,
-            params.io.output_cctf_encoding,
-            &Tables::load(&data())?
-        )?
+        &direct
+            .data
+            .iter()
+            .map(|v| (v.clamp(0., 1.) * 65535.).round() as u16)
+            .collect::<Vec<_>>()
     );
     let tiff = dir.path().join("result.tiff");
     session.export(&params, &tiff)?;
@@ -112,7 +113,7 @@ fn preview_preserves_full_frame_and_display_converts_colour_space() -> Result<()
     p.io.output_color_space = "ITU-R BT.2020".into();
     p.io.output_cctf_encoding = false;
     let mut session = Session::new(&data())?;
-    session.source = Some(Source::load(&fixture().join("input.npy"))?);
+    session.source = Some(Source::load(&fixture().join("input.npy"), &data(), &p)?);
     assert!(!session.render(&p)?.after.is_empty());
     Ok(())
 }
@@ -127,8 +128,8 @@ fn settings_round_trip_without_quantizing_hidden_fields() -> Result<()> {
     save_params(&p, &path)?;
     let mut restored = read_params(&path)?;
     assert_eq!(serde_json::to_value(&p)?, serde_json::to_value(&restored)?);
-    set_number(&mut restored, "yellow", 12.5);
-    set_toggle(&mut restored, "grain", false);
+    restored.enlarger.y_filter_shift = 12.5;
+    restored.grain.active = false;
     assert_eq!(
         restored.camera.exposure_compensation_ev,
         p.camera.exposure_compensation_ev
@@ -207,23 +208,88 @@ fn offscreen_darkroom_callbacks_and_layout() -> Result<()> {
         path: Some(fixture().join("input.npy")),
         films,
         papers,
+        filters: Tables::load(&data())?
+            .camera_filters
+            .keys()
+            .cloned()
+            .collect(),
+        sections: initial_sections(),
         revision: Arc::new(AtomicU64::new(0)),
         sender,
         debounce: Timer::default(),
     }));
-    ui.set_films(model(state.borrow().films.iter().map(|s| s.label.clone())));
-    ui.set_papers(model(state.borrow().papers.iter().map(|s| s.label.clone())));
     sync(&ui, &state.borrow());
     bind_callbacks(&ui, &state);
     ui.set_auto_preview(false);
-    ui.invoke_number_edited("exposure".into(), 1.25);
+    // Open every section and require one editor for every photo parameter.
+    for tab in 0..5 {
+        let headers = inspector::fields(&state.borrow(), tab);
+        for f in headers {
+            if f.kind == 3 {
+                state.borrow_mut().sections.insert(f.key.to_string());
+            }
+        }
+    }
+    let mut keys = HashSet::new();
+    for tab in 0..5 {
+        for field in inspector::fields(&state.borrow(), tab) {
+            if field.kind != 3 {
+                assert!(
+                    keys.insert(field.key.to_string()),
+                    "Duplicate control {}",
+                    field.key
+                );
+            }
+        }
+    }
+    fn leaves(v: &serde_json::Value, path: &str, out: &mut Vec<String>) {
+        if path.starts_with("/special/") {
+            out.push(path.into());
+            return;
+        }
+        match v {
+            serde_json::Value::Object(m) => {
+                for (k, v) in m {
+                    leaves(v, &format!("{path}/{k}"), out);
+                }
+            }
+            serde_json::Value::Array(a) => {
+                for (i, v) in a.iter().enumerate() {
+                    leaves(v, &format!("{path}/{i}"), out);
+                }
+            }
+            _ => out.push(path.into()),
+        }
+    }
+    let mut expected = Vec::new();
+    leaves(
+        &serde_json::to_value(&state.borrow().params)?,
+        "",
+        &mut expected,
+    );
+    for key in expected {
+        if ![
+            "/io/monitor_profile",
+            "/io/input_gamut_compress/algorithm",
+            "/enlarger/lens_blur",
+            "/print_base/tilt",
+            "/debug/lut_mode",
+        ]
+        .contains(&key.as_str())
+        {
+            assert!(keys.contains(&key), "Missing editor for {key}");
+        }
+    }
+    state.borrow_mut().sections = initial_sections();
+    ui.invoke_field_edited("/camera/exposure_compensation_ev".into(), "1.25".into());
     assert_eq!(state.borrow().params.camera.exposure_compensation_ev, 1.25);
     assert!(ui.get_stale());
-    ui.invoke_toggle_edited("grain".into(), false);
+    ui.invoke_field_edited("/grain/active".into(), "false".into());
     assert!(!state.borrow().params.grain.active);
-    ui.invoke_choice_edited("route".into(), "Film → Scan".into());
+    assert!(!state.borrow().params.settings.apply_grain_presets);
+    ui.invoke_field_edited("/workflow/route".into(), "Film → Scan".into());
     assert_eq!(state.borrow().params.workflow.route, "input > film > scan");
-    ui.invoke_apply_json("{bad".into());
+    ui.invoke_field_edited("/camera/exposure_compensation_ev".into(), "bad".into());
     assert!(ui.get_error());
     assert_eq!(state.borrow().params.workflow.route, "input > film > scan");
     ui.invoke_preview();
@@ -234,9 +300,9 @@ fn offscreen_darkroom_callbacks_and_layout() -> Result<()> {
     );
     assert!(matches!(request.job, Job::Preview { .. }));
     ui.set_busy(false);
-    ui.invoke_apply_json(serde_json::to_string(&deterministic())?.into());
+    ui.invoke_calibrated(serde_json::to_string(&deterministic())?.into());
     assert!(!ui.get_error());
-    assert_eq!(state.borrow().params.workflow.route, ROUTES[0]);
+    assert_eq!(state.borrow().params.workflow.route, backend::ROUTES[0]);
     // Exercise the actual worker and UI handoff. Its first completed render
     // becomes obsolete while queued in the UI event loop, then a new request
     // succeeds after a decode failure.
@@ -261,12 +327,23 @@ fn offscreen_darkroom_callbacks_and_layout() -> Result<()> {
     assert!(!ui.get_error());
     assert!(ui.get_has_image());
     assert!(!ui.get_stale());
-    // Real pointer input must update the Rust setting, and an imported preset
-    // must restore the control after it has been manipulated.
+    // Numeric entry keeps float64 precision, and changing tabs cannot duplicate controls.
+    ui.invoke_field_edited(
+        "/camera/exposure_compensation_ev".into(),
+        "0.123456789012345".into(),
+    );
+    assert_eq!(
+        state.borrow().params.camera.exposure_compensation_ev,
+        0.123456789012345
+    );
+    ui.invoke_calibrated(serde_json::to_string(&deterministic())?.into());
+    event_receiver.recv_timeout(Duration::from_secs(60))?();
+    assert_eq!(state.borrow().params.camera.exposure_compensation_ev, 0.);
     ui.show()?;
     window.set_size(slint::PhysicalSize::new(1240, 850));
     let _ = ui.window().take_snapshot()?;
-    let position = slint::LogicalPosition::new(260., 451.);
+    // The tab strip is exercised through real pointer events.
+    let position = slint::LogicalPosition::new(1150., 26.);
     window.dispatch_event(slint::platform::WindowEvent::PointerPressed {
         position,
         button: slint::platform::PointerEventButton::Left,
@@ -275,18 +352,16 @@ fn offscreen_darkroom_callbacks_and_layout() -> Result<()> {
         position,
         button: slint::platform::PointerEventButton::Left,
     });
-    assert!(state.borrow().params.camera.exposure_compensation_ev > 1.);
-    ui.invoke_apply_json(serde_json::to_string(&deterministic())?.into());
-    event_receiver.recv_timeout(Duration::from_secs(60))?();
-    assert_eq!(ui.get_controls().exposure, 0.);
-    assert_eq!(state.borrow().params.camera.exposure_compensation_ev, 0.);
+    assert_eq!(ui.get_tab(), 4);
+    ui.set_tab(0);
+    ui.invoke_tab_selected(0);
     let mut session = Session::new(&data())?;
     // Optional QA uses the actual camera sample for screenshots, otherwise
     // a small checked-in numerical fixture keeps this test portable.
     let path = std::env::var_os("GUI_QA_RAW")
         .map(PathBuf::from)
         .unwrap_or_else(|| fixture().join("input.npy"));
-    session.source = Some(Source::load(&path)?);
+    session.source = Some(Source::load(&path, &data(), &deterministic())?);
     let preview = session.render(&deterministic())?;
     ui.set_before(pixels(&preview.before, preview.before_size));
     ui.set_after(pixels(&preview.after, preview.after_size));
@@ -300,11 +375,11 @@ fn offscreen_darkroom_callbacks_and_layout() -> Result<()> {
             .into_owned()
             .into(),
     );
-    ui.set_dimensions("Full frame · 768 px preview · original resolution export".into());
-    ui.set_status("Preview ready. Export reprocesses the original at full resolution.".into());
+    ui.set_dimensions("768 × 512".into());
+    ui.set_status("Ready".into());
     ui.set_render_info(
         format!(
-            "{} × {} preview · {:.2} s · full frame",
+            "{} × {} · {:.2} s",
             preview.after_size[0], preview.after_size[1], preview.seconds
         )
         .into(),
@@ -314,12 +389,18 @@ fn offscreen_darkroom_callbacks_and_layout() -> Result<()> {
     if let Some(dir) = &qa_dir {
         std::fs::create_dir_all(dir)?;
     }
-    for (w, h, name, view, has_image) in [
-        (1240, 850, "developed", 1, true),
-        (1240, 850, "comparison", 2, true),
-        (980, 700, "compact", 1, true),
-        (1240, 850, "empty", 1, false),
+    for (w, h, name, view, has_image, tab) in [
+        (1240, 850, "developed", 1, true, 0),
+        (1240, 850, "comparison", 2, true, 0),
+        (980, 700, "compact", 1, true, 0),
+        (1240, 850, "empty", 1, false, 0),
+        (1240, 850, "film", 1, true, 1),
+        (1240, 850, "print", 1, true, 2),
+        (1240, 850, "advanced", 1, true, 3),
+        (980, 700, "config", 1, true, 4),
     ] {
+        ui.set_tab(tab);
+        ui.invoke_tab_selected(tab);
         ui.set_has_image(has_image);
         ui.set_view_mode(view);
         window.set_size(slint::PhysicalSize::new(w, h));
@@ -347,5 +428,59 @@ fn offscreen_darkroom_callbacks_and_layout() -> Result<()> {
     thread
         .join()
         .expect("Worker exits when the UI releases its sender");
+    Ok(())
+}
+
+#[test]
+fn rgb_input_cache_and_monitor_are_independent_of_export() -> Result<()> {
+    let dir = tempfile::tempdir()?;
+    let source = dir.path().join("photo.png");
+    image::RgbImage::from_raw(2, 1, vec![32, 64, 128, 200, 140, 80])
+        .unwrap()
+        .save(&source)?;
+    let mut p = deterministic();
+    p.workflow.route = "input".into();
+    p.io.input_color_space = "sRGB".into();
+    p.io.input_cctf_decoding = true;
+    p.io.output_gamut_compress.algorithm = "off".into();
+    let mut session = Session::new(&data())?;
+    session.source = Some(Source::load(&source, &data(), &p)?);
+    let original = session.render(&p)?;
+    assert_eq!(original.before, vec![32, 64, 128, 200, 140, 80]);
+    p.raw.temperature = 6100.;
+    assert!(!session.source.as_ref().unwrap().matches(&source, &p));
+    assert!(session.render(&p).is_err());
+    session.source = Some(Source::load(&source, &data(), &p)?);
+    let normal = dir.path().join("normal.npy");
+    session.export(&p, &normal)?;
+    p.io.monitor_profile = Some(
+        data()
+            .join("icc/ellelstone/sRGB-elle-V2-srgbtrc.icc")
+            .to_string_lossy()
+            .into(),
+    );
+    assert!(session.source.as_ref().unwrap().matches(&source, &p));
+    let managed = session.render(&p)?;
+    assert!(
+        managed
+            .before
+            .iter()
+            .zip(&original.before)
+            .all(|(a, b)| a.abs_diff(*b) <= 1)
+    );
+    let monitor = dir.path().join("monitor.npy");
+    session.export(&p, &monitor)?;
+    assert_eq!(
+        Image::read_npy(&normal)?.data,
+        Image::read_npy(&monitor)?.data
+    );
+    p.io.monitor_profile = Some(dir.path().join("missing.icc").to_string_lossy().into());
+    assert!(session.render(&p).is_err());
+    // Display failure does not affect the exported processing values.
+    session.export(&p, &monitor)?;
+    assert_eq!(
+        Image::read_npy(&normal)?.data,
+        Image::read_npy(&monitor)?.data
+    );
     Ok(())
 }

@@ -2,10 +2,10 @@
 use crate::{
     Image, Params, Simulator, Tap,
     color::{Tables, decode, encode, mat_vec},
-    image::{decode_raw, decode_raw_preview},
+    file_io,
     profile::Info,
 };
-use anyhow::{Context, Result, bail, ensure};
+use anyhow::{Context, Result, ensure};
 use serde::Deserialize;
 use std::{
     fs::File,
@@ -14,12 +14,22 @@ use std::{
 };
 
 pub const PREVIEW_EDGE: usize = 768;
-pub const ROUTES: [&str; 3] = [
+pub const ROUTES: [&str; 6] = [
     "input > film > print > scan",
     "input > film > scan",
     "input",
+    "input > convert-film > print > scan",
+    "input > convert-film > scan",
+    "input > convert-film > scan-minus-base",
 ];
-pub const ROUTE_LABELS: [&str; 3] = ["Film → Print → Scan", "Film → Scan", "Passthrough"];
+pub const ROUTE_LABELS: [&str; 6] = [
+    "Film → Print → Scan",
+    "Film → Scan",
+    "Passthrough",
+    "Negative → Print → Scan",
+    "Negative → Scan",
+    "Negative → Scan (remove base)",
+];
 
 #[derive(Clone)]
 pub struct Stock {
@@ -45,7 +55,7 @@ pub fn profiles(data: &Path) -> Result<(Vec<Stock>, Vec<Stock>)> {
                 .context("Missing stock ID")?
                 .to_string_lossy()
                 .into(),
-            label: header.info.name,
+            label: header.info.name.replace("Professional ", ""),
         };
         match header.info.stage.as_str() {
             "filming" => film.push(stock),
@@ -70,6 +80,14 @@ pub fn profiles(data: &Path) -> Result<(Vec<Stock>, Vec<Stock>)> {
     Ok((film, paper))
 }
 
+pub fn default_params_path() -> Result<PathBuf> {
+    let directory = std::env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("APPDATA").map(PathBuf::from))
+        .or_else(|| std::env::var_os("HOME").map(|p| PathBuf::from(p).join(".config")))
+        .context("Cannot locate the user configuration directory")?;
+    Ok(directory.join("fast-spektrafilm/default.json"))
+}
 pub fn read_params(path: &Path) -> Result<Params> {
     serde_json::from_reader(File::open(path)?)
         .with_context(|| format!("Load settings {}", path.display()))
@@ -84,59 +102,59 @@ pub fn save_params(params: &Params, path: &Path) -> Result<()> {
     temp.persist(path)?;
     Ok(())
 }
-pub fn is_npy(path: &Path) -> bool {
-    path.extension()
-        .is_some_and(|s| s.eq_ignore_ascii_case("npy"))
-}
-
-/// Cached in its original input space: NPY keeps the configured interpretation,
-/// RAW keeps linear ACES2065-1. Input settings may change without decoding again.
+/// Cache includes the input interpretation and RAW processing settings. Editing
+/// any of these requires decoding again; output-only edits reuse the preview.
 pub struct Source {
     pub path: PathBuf,
     pub preview: Image,
     pub original: [usize; 2],
-    pub raw: bool,
+    key: String,
 }
 impl Source {
-    pub fn load(path: &Path) -> Result<Self> {
-        let raw = !is_npy(path);
-        let (preview, original) = if raw {
-            decode_raw_preview(path, true, PREVIEW_EDGE)?
+    fn key(p: &Params) -> String {
+        serde_json::to_string(&(&p.raw, &p.io.input_color_space, p.io.input_cctf_decoding)).unwrap()
+    }
+    pub fn matches(&self, path: &Path, p: &Params) -> bool {
+        self.path == path && self.key == Self::key(p)
+    }
+    pub fn load(path: &Path, data: &Path, p: &Params) -> Result<Self> {
+        // Keep the common RAW preview bounded. Custom white balance / lens
+        // correction run before reduction through the shared full decoder.
+        let (image, original) = if !file_io::is_rgb_file(path)
+            && file_io::extension(path) != "npy"
+            && p.raw.white_balance == "as_shot"
+            && !p.raw.lens_correction
+            && !p.io.input_cctf_decoding
+        {
+            let (mut image, original) = crate::image::decode_raw_preview(path, true, PREVIEW_EDGE)?;
+            let matrix = Tables::load(data)?.rgb_to_rgb("ACES2065-1", &p.io.input_color_space)?;
+            for pixel in image.data.chunks_exact_mut(3) {
+                pixel.copy_from_slice(&mat_vec(&matrix, [pixel[0], pixel[1], pixel[2]]));
+            }
+            (image, original)
         } else {
-            let image = Image::read_npy(path)?;
-            ensure!(image.channels == 3, "Input must be RGB (3 channels)");
+            let image = file_io::read(path, data, p, None)?;
             let original = [image.width, image.height];
-            (resize_preview(&image, PREVIEW_EDGE)?, original)
+            (image, original)
         };
+        ensure!(image.channels == 3, "Input must be RGB (3 channels)");
         Ok(Self {
             path: path.into(),
-            preview,
             original,
-            raw,
+            preview: resize_preview(&image, PREVIEW_EDGE)?,
+            key: Self::key(p),
         })
     }
-    pub fn input(&self, params: &Params, tables: &Tables, full: bool) -> Result<Image> {
-        let mut image = if full {
-            if self.raw {
-                decode_raw(&self.path, false, true)?
-            } else {
-                Image::read_npy(&self.path)?
-            }
+    pub fn input(&self, params: &Params, data: &Path, full: bool) -> Result<Image> {
+        if full {
+            file_io::read(&self.path, data, params, None)
         } else {
-            self.preview.clone()
-        };
-        if self.raw {
-            let matrix = tables.rgb_to_rgb("ACES2065-1", &params.io.input_color_space)?;
-            for p in image.data.chunks_exact_mut(3) {
-                let mut v = mat_vec(&matrix, [p[0], p[1], p[2]]);
-                if params.io.input_cctf_decoding {
-                    v = v.map(|v| encode(&params.io.input_color_space, v));
-                }
-                p.copy_from_slice(&v);
-            }
+            ensure!(
+                self.key == Self::key(params),
+                "Input settings changed; reload the preview"
+            );
+            Ok(self.preview.clone())
         }
-        image.validate()?;
-        Ok(image)
     }
 }
 
@@ -171,8 +189,7 @@ pub fn resize_preview(image: &Image, edge: usize) -> Result<Image> {
     Image::new(w, h, c, data)
 }
 
-/// Display and PNG export always use encoded sRGB. Float TIFF/NPY exports
-/// retain the requested output space and transfer function, without clipping.
+/// Convert the processing representation to encoded sRGB for display.
 pub fn display_rgb(image: &Image, space: &str, encoded: bool, tables: &Tables) -> Result<Vec<u8>> {
     image.validate()?;
     ensure!(image.channels == 3, "Display requires RGB");
@@ -203,7 +220,7 @@ pub struct Preview {
     pub seconds: f64,
 }
 pub struct Session {
-    data: PathBuf,
+    pub data: PathBuf,
     tables: Tables,
     pub source: Option<Source>,
 }
@@ -215,30 +232,82 @@ impl Session {
             source: None,
         })
     }
+    pub fn resolved_params(&self, p: &Params) -> Result<Params> {
+        let sim = Simulator::new(&self.data, p.clone())?;
+        let mut out = p.clone();
+        if p.settings.apply_grain_presets {
+            crate::grain::apply_presets(&self.data, sim.film(), &mut out.grain)?;
+        }
+        if p.settings.apply_coupler_presets {
+            crate::pipeline::apply_coupler_presets(&self.data, sim.film(), &mut out.dir_couplers)?;
+        }
+        if p.settings.neutral_print_filters_from_database {
+            out.enlarger.y_filter_neutral = sim.params().enlarger.y_filter_neutral;
+            out.enlarger.m_filter_neutral = sim.params().enlarger.m_filter_neutral;
+            out.enlarger.c_filter_neutral = sim.params().enlarger.c_filter_neutral;
+        }
+        Ok(out)
+    }
     pub fn validate_params(&self, params: &Params) -> Result<()> {
         Simulator::new(&self.data, params.clone())?;
         Ok(())
     }
     pub fn render(&self, params: &Params) -> Result<Preview> {
+        self.render_size(params, false)
+    }
+    fn display(
+        &self,
+        image: &Image,
+        space: &str,
+        encoded: bool,
+        monitor: Option<&str>,
+    ) -> Result<Vec<u8>> {
+        if let Some(path) = monitor.filter(|p| !p.is_empty()) {
+            let mut image = image.clone();
+            let matrix = self.tables.rgb_to_rgb(space, "sRGB")?;
+            for pixel in image.data.chunks_exact_mut(3) {
+                let rgb = [pixel[0], pixel[1], pixel[2]]
+                    .map(|v| if encoded { decode(space, v) } else { v });
+                pixel.copy_from_slice(&mat_vec(&matrix, rgb).map(|v| encode("sRGB", v)));
+            }
+            file_io::transform_icc(
+                &mut image,
+                &file_io::icc(&self.data, "sRGB", true)?,
+                &std::fs::read(path)?,
+            )?;
+            Ok(image
+                .data
+                .iter()
+                .map(|v| (v.clamp(0., 1.) * 255.).round() as u8)
+                .collect())
+        } else {
+            display_rgb(image, space, encoded, &self.tables)
+        }
+    }
+    pub fn render_size(&self, params: &Params, full: bool) -> Result<Preview> {
         let start = Instant::now();
         let source = self.source.as_ref().context("Open an image first")?;
-        let input = source.input(params, &self.tables, false)?;
-        let before = display_rgb(
+        let input = source.input(params, &self.data, full)?;
+        let before = self.display(
             &input,
             &params.io.input_color_space,
             params.io.input_cctf_decoding,
-            &self.tables,
+            params.io.monitor_profile.as_deref(),
         )?;
         let before_size = [u32::try_from(input.width)?, u32::try_from(input.height)?];
         let output =
             Simulator::new(&self.data, params.clone())?.process_owned(input, Tap::RgbOut)?;
         // Imported framing/upscale settings can enlarge the processed preview.
-        let output = resize_preview(&output, PREVIEW_EDGE)?;
-        let after = display_rgb(
+        let output = if full {
+            output
+        } else {
+            resize_preview(&output, PREVIEW_EDGE)?
+        };
+        let after = self.display(
             &output,
             &params.io.output_color_space,
             params.io.output_cctf_encoding,
-            &self.tables,
+            params.io.monitor_profile.as_deref(),
         )?;
         Ok(Preview {
             before,
@@ -247,6 +316,33 @@ impl Session {
             after_size: [u32::try_from(output.width)?, u32::try_from(output.height)?],
             seconds: start.elapsed().as_secs_f64(),
         })
+    }
+    pub fn calibrate(&self, p: &Params, device: bool) -> Result<Params> {
+        let mut p = p.clone();
+        let mut image = self
+            .source
+            .as_ref()
+            .context("Open a scanned negative first")?
+            .input(&p, &self.data, false)?;
+        if p.io.input_cctf_decoding {
+            image
+                .data
+                .iter_mut()
+                .for_each(|v| *v = decode(&p.io.input_color_space, *v));
+        }
+        if device {
+            let sim = Simulator::new(&self.data, p.clone())?;
+            p.convert.calibration =
+                crate::convert::FilmConverter::new(&self.tables, sim.film(), &p)?
+                    .fit_calibration(&image)?;
+        } else {
+            let sample = crate::convert::sample_base(&image, p.convert.base_percentile)?;
+            let mut stock = crate::profile::Profile::load(&self.data, &p.film_profile)?;
+            stock.swap_dyes(p.special.film_channel_swap)?;
+            (p.film_base, p.convert.exposure_compensation_ev) =
+                crate::convert::fit_base(&self.tables, &stock, &p, sample)?;
+        }
+        Ok(p)
     }
     pub fn export(&self, params: &Params, path: &Path) -> Result<[usize; 2]> {
         let source = self.source.as_ref().context("Open an image first")?;
@@ -263,33 +359,33 @@ impl Session {
             .unwrap_or("")
             .to_ascii_lowercase();
         ensure!(
-            ["png", "tiff", "tif", "npy"].contains(&ext.as_str()),
-            "Export extension must be .png, .tiff or .npy"
+            ["png", "jpg", "jpeg", "exr", "tiff", "tif", "npy"].contains(&ext.as_str()),
+            "Choose PNG, JPEG, TIFF, EXR or NPY"
         );
         let sim = Simulator::new(&self.data, params.clone())?;
-        let output = sim.process_owned(source.input(params, &self.tables, true)?, Tap::RgbOut)?;
-        let temp = tempfile::NamedTempFile::new_in(
-            path.parent()
-                .filter(|p| !p.as_os_str().is_empty())
-                .unwrap_or(Path::new(".")),
+        let output = sim.process_owned(source.input(params, &self.data, true)?, Tap::RgbOut)?;
+        let temp = tempfile::Builder::new()
+            .suffix(&format!(".{ext}"))
+            .tempfile_in(
+                path.parent()
+                    .filter(|p| !p.as_os_str().is_empty())
+                    .unwrap_or(Path::new(".")),
+            )?;
+        file_io::write(
+            &output,
+            temp.path(),
+            &self.data,
+            &params.io.output_color_space,
+            params.io.output_cctf_encoding,
         )?;
-        match ext.as_str() {
-            "npy" => output.write_npy(temp.path())?,
-            "tif" | "tiff" => output.write_tiff(temp.path())?,
-            "png" => image::save_buffer_with_format(
+        if params.io.copy_metadata {
+            crate::metadata::copy(
+                &source.path,
                 temp.path(),
-                &display_rgb(
-                    &output,
-                    &params.io.output_color_space,
-                    params.io.output_cctf_encoding,
-                    &self.tables,
-                )?,
-                u32::try_from(output.width)?,
-                u32::try_from(output.height)?,
-                image::ColorType::Rgb8,
-                image::ImageFormat::Png,
-            )?,
-            _ => bail!("Unsupported export format"),
+                [output.width, output.height],
+                &params.io.output_color_space,
+                params.io.output_cctf_encoding,
+            )?;
         }
         temp.persist(path)?;
         Ok([output.width, output.height])

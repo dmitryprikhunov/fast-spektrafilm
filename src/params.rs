@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 pub struct Params {
     pub film_profile: String,
     pub print_profile: String,
+    pub special: Special,
     pub convert: ConvertFilm,
     pub raw: RawSettings,
     pub camera: Camera,
@@ -27,6 +28,7 @@ impl Default for Params {
         Self {
             film_profile: "kodak_portra_400".into(),
             print_profile: "kodak_portra_endura".into(),
+            special: Special::default(),
             convert: ConvertFilm::default(),
             raw: RawSettings::default(),
             camera: Camera::default(),
@@ -218,6 +220,9 @@ impl Default for Scanner {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Io {
+    /// Optional display-only monitor ICC profile; exports retain their output profile.
+    pub monitor_profile: Option<String>,
+    pub copy_metadata: bool,
     pub input_color_space: String,
     pub input_cctf_decoding: bool,
     pub output_color_space: String,
@@ -232,6 +237,8 @@ pub struct Io {
 impl Default for Io {
     fn default() -> Self {
         Self {
+            monitor_profile: None,
+            copy_metadata: true,
             input_color_space: "ProPhoto RGB".into(),
             input_cctf_decoding: false,
             output_color_space: "sRGB".into(),
@@ -516,5 +523,20 @@ impl Workflow {
     }
     pub fn convert_film(&self) -> bool {
         self.route.contains("convert-film")
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Special {
+    pub film_channel_swap: [usize; 3],
+    pub print_channel_swap: [usize; 3],
+}
+impl Default for Special {
+    fn default() -> Self {
+        Self {
+            film_channel_swap: [0, 1, 2],
+            print_channel_swap: [0, 1, 2],
+        }
     }
 }

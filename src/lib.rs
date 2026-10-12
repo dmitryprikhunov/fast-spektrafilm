@@ -26,3 +26,5 @@ pub use pipeline::{Simulator, Tap};
 mod appearance;
 mod density_lut;
 mod framing;
+
+pub mod metadata;

@@ -36,6 +36,8 @@ claiming that the entire original application has been rewritten.
   strength, warmth and per-component overrides. Blackbody scan/enlarger lamps.
 - PNG/JPEG/TIFF/WebP/EXR input; 16-bit PNG, JPEG, float TIFF/EXR and NPY output;
   embedded RGB ICC conversion and output profile embedding where available.
+- Film/print dye-spectrum permutations, matching the original GUI special controls.
+- EXIF/IPTC/XMP carryover through GExiv2, corrected output tags and preserved ICC.
 - As-shot, daylight, tungsten and custom temperature/tint RAW white balance;
   optional Lensfun vignetting, TCA, distortion, geometry and scale correction.
 
@@ -76,7 +78,10 @@ an error. The original inverse converter requires three dye channels; BW
 conversion is rejected. The experimental enlarger `lens_blur` field remains a
 no-op because the pinned printing stage does not use it.
 
-Application parity (Slint controls, preview scheduling/caching, monitor ICC,
-metadata carryover and presentation) is audited separately from core processing.
+The Slint review and integration are recorded in `GUI_REVIEW.md`. Native controls,
+full-resolution Scan, preview scheduling/caching, monitor ICC, metadata carryover
+and startup settings are implemented. Napari layer tools, decorative Polaroid/
+paper-back presentation and the Qt GUI-state file schema are not reproduced;
+see `GUI.md`. These are application differences, not processing-model omissions.
 Arbitrary Numba thread-local random patterns and exhaustive performance
-optimization are not feature-parity claims. Unsupported configuration is rejected.
+optimization are not feature-parity claims. Unsupported processing configuration is rejected; the upstream enlarger blur compatibility field remains the documented exception.

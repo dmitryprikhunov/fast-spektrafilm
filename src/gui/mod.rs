@@ -1,15 +1,15 @@
 //! Native Slint GUI. All simulation and decoding run on one background worker.
 mod backend;
+mod inspector;
 #[cfg(test)]
 mod tests;
 use crate::Params;
 use anyhow::{Context, Result, ensure};
-use backend::{
-    Preview, ROUTE_LABELS, ROUTES, Session, Source, Stock, profiles, read_params, save_params,
-};
+use backend::{Preview, Session, Source, Stock, profiles, read_params, save_params};
 use slint::{ComponentHandle, ModelRc, Rgb8Pixel, SharedPixelBuffer, Timer, TimerMode, VecModel};
 use std::{
     cell::RefCell,
+    collections::HashSet,
     path::PathBuf,
     rc::Rc,
     sync::{
@@ -33,6 +33,8 @@ struct State {
     path: Option<PathBuf>,
     films: Vec<Stock>,
     papers: Vec<Stock>,
+    filters: Vec<String>,
+    sections: HashSet<String>,
     revision: Arc<AtomicU64>,
     sender: mpsc::Sender<Request>,
     debounce: Timer,
@@ -45,6 +47,12 @@ enum Job {
     Preview {
         path: Option<PathBuf>,
         params: Box<Params>,
+        full: bool,
+    },
+    Calibrate {
+        path: PathBuf,
+        params: Box<Params>,
+        device: bool,
     },
     Export {
         path: PathBuf,
@@ -56,8 +64,10 @@ enum Outcome {
         path: PathBuf,
         original: [usize; 2],
         preview: Preview,
+        params: Box<Params>,
     },
-    Validated,
+    Validated(Box<Params>),
+    Calibrated(Box<Params>),
     Exported {
         path: PathBuf,
         dimensions: [usize; 2],
@@ -67,75 +77,31 @@ enum Outcome {
 fn model(values: impl Iterator<Item = String>) -> ModelRc<slint::SharedString> {
     Rc::new(VecModel::from(values.map(Into::into).collect::<Vec<_>>())).into()
 }
-fn label(stocks: &[Stock], id: &str) -> String {
-    stocks
-        .iter()
-        .find(|s| s.id == id)
-        .map_or_else(|| id.to_owned(), |s| s.label.clone())
-}
-fn controls(p: &Params, film: &[Stock], paper: &[Stock]) -> Controls {
-    Controls {
-        film: label(film, &p.film_profile).into(),
-        paper: label(paper, &p.print_profile).into(),
-        route: ROUTES
-            .iter()
-            .position(|route| *route == p.workflow.route)
-            .map_or(p.workflow.route.as_str(), |i| ROUTE_LABELS[i])
-            .into(),
-        route_index: ROUTES
-            .iter()
-            .position(|v| *v == p.workflow.route)
-            .map_or(-1, |i| i as i32),
-        meter_index: [
-            "center_weighted",
-            "average",
-            "median",
-            "partial",
-            "matrix",
-            "multi_zone",
-            "highlight_weighted",
-        ]
-        .iter()
-        .position(|v| *v == p.camera.auto_exposure_method)
-        .map_or(-1, |i| i as i32),
-        output_index: [
-            "sRGB",
-            "Display P3",
-            "Adobe RGB (1998)",
-            "ProPhoto RGB",
-            "ITU-R BT.2020",
-            "ACES2065-1",
-            "ACEScg",
-        ]
-        .iter()
-        .position(|v| *v == p.io.output_color_space)
-        .map_or(-1, |i| i as i32),
-        exposure: p.camera.exposure_compensation_ev as f32,
-        print_ev: p.enlarger.print_exposure.log2() as f32,
-        yellow: p.enlarger.y_filter_shift as f32,
-        magenta: p.enlarger.m_filter_shift as f32,
-        film_format: p.camera.film_format_mm as f32,
-        film_gamma: p.film_chemistry.gamma_factor as f32,
-        print_gamma: p.print_chemistry.gamma_factor as f32,
-        halation_amount: p.halation.halation_amount as f32,
-        scanner_blur: p.scanner.lens_blur as f32,
-        sharpen: p.scanner.unsharp_mask[1] as f32,
-        auto_exposure: p.camera.auto_exposure,
-        grain: p.grain.active,
-        halation: p.halation.active,
-        glare: p.print_glare.active,
-        spatial: !p.debug.deactivate_spatial_effects,
-        deterministic: p.debug.deactivate_stochastic_effects,
-        encoded_output: p.io.output_cctf_encoding,
-    }
-}
 fn sync(ui: &Darkroom, state: &State) {
-    ui.set_controls(controls(&state.params, &state.films, &state.papers));
-    ui.set_json_settings(
-        serde_json::to_string_pretty(&state.params)
-            .expect("Serializable settings")
+    ui.set_fields(Rc::new(VecModel::from(inspector::fields(state, ui.get_tab()))).into());
+    ui.set_monitor_name(
+        state
+            .params
+            .io
+            .monitor_profile
+            .as_deref()
+            .unwrap_or("sRGB")
             .into(),
     );
+}
+fn initial_sections() -> HashSet<String> {
+    [
+        "0:Profiles",
+        "0:Camera",
+        "0:Enlarger",
+        "1:Development",
+        "2:Development",
+        "3:Negative conversion",
+        "4:Processing",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect()
 }
 fn error(ui: &Darkroom, message: impl Into<slint::SharedString>) {
     ui.set_error(true);
@@ -170,6 +136,9 @@ fn changed(ui: &Darkroom, state: &Rc<RefCell<State>>) {
     }
 }
 fn submit(ui: &Darkroom, state: &Rc<RefCell<State>>) {
+    submit_size(ui, state, false);
+}
+fn submit_size(ui: &Darkroom, state: &Rc<RefCell<State>>, full: bool) {
     let s = state.borrow();
     s.debounce.stop();
     let revision = s.revision.fetch_add(1, Ordering::SeqCst) + 1;
@@ -177,7 +146,11 @@ fn submit(ui: &Darkroom, state: &Rc<RefCell<State>>) {
     ui.set_error(false);
     ui.set_status(
         if s.path.is_some() {
-            "Developing preview…"
+            if full {
+                "Scanning at full resolution…"
+            } else {
+                "Developing preview…"
+            }
         } else {
             "Checking settings…"
         }
@@ -189,6 +162,7 @@ fn submit(ui: &Darkroom, state: &Rc<RefCell<State>>) {
             job: Job::Preview {
                 path: s.path.clone(),
                 params: Box::new(s.params.clone()),
+                full,
             },
         })
         .is_err()
@@ -209,33 +183,67 @@ fn worker(
         if !exporting && request.revision != revision.load(Ordering::SeqCst) {
             continue;
         }
-        let result = pool.install(|| -> Result<Outcome> {
-            match request.job {
-                Job::Preview { path, params } => {
-                    if let Some(path) = path {
-                        if session.source.as_ref().is_none_or(|s| s.path != path) {
-                            session.source = Some(
-                                Source::load(&path)
-                                    .with_context(|| format!("Open {}", path.display()))?,
-                            );
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            pool.install(|| -> Result<Outcome> {
+                match request.job {
+                    Job::Preview { path, params, full } => {
+                        if let Some(path) = path {
+                            if session
+                                .source
+                                .as_ref()
+                                .is_none_or(|s| !s.matches(&path, &params))
+                            {
+                                session.source = Some(
+                                    Source::load(&path, &session.data, &params)
+                                        .with_context(|| format!("Open {}", path.display()))?,
+                                );
+                            }
+                            let preview = if full {
+                                session.render_size(&params, true)?
+                            } else {
+                                session.render(&params)?
+                            };
+                            let original = session.source.as_ref().unwrap().original;
+                            Ok(Outcome::Preview {
+                                path,
+                                original,
+                                preview,
+                                params: Box::new(session.resolved_params(&params)?),
+                            })
+                        } else {
+                            session.validate_params(&params)?;
+                            Ok(Outcome::Validated(Box::new(
+                                session.resolved_params(&params)?,
+                            )))
                         }
-                        let preview = session.render(&params)?;
-                        let original = session.source.as_ref().unwrap().original;
-                        Ok(Outcome::Preview {
-                            path,
-                            original,
-                            preview,
-                        })
-                    } else {
-                        session.validate_params(&params)?;
-                        Ok(Outcome::Validated)
+                    }
+                    Job::Calibrate {
+                        path,
+                        params,
+                        device,
+                    } => {
+                        if session
+                            .source
+                            .as_ref()
+                            .is_none_or(|s| !s.matches(&path, &params))
+                        {
+                            session.source = Some(Source::load(&path, &session.data, &params)?);
+                        }
+                        Ok(Outcome::Calibrated(Box::new(
+                            session.calibrate(&params, device)?,
+                        )))
+                    }
+                    Job::Export { path, params } => {
+                        let dimensions = session.export(&params, &path)?;
+                        Ok(Outcome::Exported { path, dimensions })
                     }
                 }
-                Job::Export { path, params } => {
-                    let dimensions = session.export(&params, &path)?;
-                    Ok(Outcome::Exported { path, dimensions })
-                }
-            }
+            })
+        }))
+        .unwrap_or_else(|_| {
+            Err(anyhow::anyhow!(
+                "Processing failed unexpectedly; adjust the settings and retry."
+            ))
         });
         let weak = weak.clone();
         let revision = revision.clone();
@@ -254,7 +262,9 @@ fn worker(
                     path,
                     original,
                     preview,
+                    params,
                 }) => {
+                    ui.invoke_resolved(serde_json::to_string(&params).unwrap().into());
                     ui.set_filename(
                         path.file_name()
                             .unwrap_or_default()
@@ -262,20 +272,12 @@ fn worker(
                             .into_owned()
                             .into(),
                     );
-                    ui.set_dimensions(
-                        format!(
-                            "{} × {} original · {} px preview",
-                            original[0],
-                            original[1],
-                            backend::PREVIEW_EDGE
-                        )
-                        .into(),
-                    );
+                    ui.set_dimensions(format!("{} × {}", original[0], original[1]).into());
                     ui.set_before(pixels(&preview.before, preview.before_size));
                     ui.set_after(pixels(&preview.after, preview.after_size));
                     ui.set_render_info(
                         format!(
-                            "{} × {} preview · {:.2} s · full frame",
+                            "{} × {} · {:.2} s",
                             preview.after_size[0], preview.after_size[1], preview.seconds
                         )
                         .into(),
@@ -283,11 +285,13 @@ fn worker(
                     ui.set_has_image(true);
                     ui.set_stale(false);
                     ui.set_error(false);
-                    ui.set_status(
-                        "Preview ready. Export reprocesses the original at full resolution.".into(),
-                    );
+                    ui.set_status("Ready".into());
                 }
-                Ok(Outcome::Validated) => {
+                Ok(Outcome::Calibrated(params)) => {
+                    ui.invoke_calibrated(serde_json::to_string(&params).unwrap().into());
+                }
+                Ok(Outcome::Validated(params)) => {
+                    ui.invoke_resolved(serde_json::to_string(&params).unwrap().into());
                     ui.set_error(false);
                     ui.set_status("Settings checked. Open an image to begin.".into());
                 }
@@ -319,7 +323,15 @@ pub fn run(options: Options) -> Result<()> {
         .as_deref()
         .map(read_params)
         .transpose()?
-        .unwrap_or_default();
+        .map(Ok)
+        .unwrap_or_else(|| {
+            let path = backend::default_params_path()?;
+            if path.exists() {
+                read_params(&path)
+            } else {
+                Ok(Params::default())
+            }
+        })?;
     let session = Session::new(&options.data_dir)?;
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(options.threads)
@@ -332,12 +344,16 @@ pub fn run(options: Options) -> Result<()> {
         path: options.input,
         films,
         papers,
+        filters: crate::color::Tables::load(&options.data_dir)?
+            .camera_filters
+            .keys()
+            .cloned()
+            .collect(),
+        sections: initial_sections(),
         revision: revision.clone(),
         sender,
         debounce: Timer::default(),
     }));
-    ui.set_films(model(state.borrow().films.iter().map(|s| s.label.clone())));
-    ui.set_papers(model(state.borrow().papers.iter().map(|s| s.label.clone())));
     sync(&ui, &state.borrow());
     let weak = ui.as_weak();
     std::thread::Builder::new()
@@ -361,12 +377,13 @@ fn bind_callbacks(ui: &Darkroom, state: &Rc<RefCell<State>>) {
             return;
         }
         let path = rfd::FileDialog::new()
-            .set_title("Open camera RAW or RGB NPY")
+            .set_title("Open image")
             .add_filter(
-                "Camera RAW / RGB NPY",
+                "Images",
                 &[
                     "cr2", "cr3", "nef", "nrw", "arw", "dng", "raf", "orf", "rw2", "pef", "3fr",
-                    "fff", "mef", "mos", "raw", "npy",
+                    "fff", "mef", "mos", "raw", "npy", "jpg", "jpeg", "png", "tif", "tiff", "exr",
+                    "webp",
                 ],
             )
             .add_filter("All files", &["*"])
@@ -387,84 +404,122 @@ fn bind_callbacks(ui: &Darkroom, state: &Rc<RefCell<State>>) {
     });
     let weak = ui.as_weak();
     let s = state.clone();
-    ui.on_number_edited(move |key, value| {
+    ui.on_field_edited(move |key, value| {
         let Some(ui) = weak.upgrade() else {
             return;
         };
         if ui.get_exporting() {
             return;
         }
-        {
-            let mut s = s.borrow_mut();
-            set_number(&mut s.params, &key, f64::from(value));
+        let result = inspector::edit(&mut s.borrow_mut(), &key, &value);
+        match result {
+            Ok(()) => changed(&ui, &s),
+            Err(e) => error(&ui, format!("{e:#}")),
         }
+    });
+    let weak = ui.as_weak();
+    let s = state.clone();
+    ui.on_section_toggled(move |key| {
+        let Some(ui) = weak.upgrade() else {
+            return;
+        };
+        let mut s = s.borrow_mut();
+        if !s.sections.remove(key.as_str()) {
+            s.sections.insert(key.into());
+        }
+        sync(&ui, &s);
+    });
+    let weak = ui.as_weak();
+    let s = state.clone();
+    ui.on_tab_selected(move |_| {
+        if let Some(ui) = weak.upgrade() {
+            sync(&ui, &s.borrow());
+        }
+    });
+    let weak = ui.as_weak();
+    let s = state.clone();
+    ui.on_monitor(move |choose| {
+        let Some(ui) = weak.upgrade() else {
+            return;
+        };
+        if ui.get_exporting() {
+            return;
+        }
+        let profile = if choose {
+            let Some(path) = rfd::FileDialog::new()
+                .add_filter("ICC profile", &["icc", "icm"])
+                .pick_file()
+            else {
+                return;
+            };
+            Some(path.to_string_lossy().into_owned())
+        } else {
+            None
+        };
+        s.borrow_mut().params.io.monitor_profile = profile;
         changed(&ui, &s);
     });
     let weak = ui.as_weak();
     let s = state.clone();
-    ui.on_toggle_edited(move |key, value| {
+    ui.on_calibrate(move |device| {
         let Some(ui) = weak.upgrade() else {
             return;
         };
-        if ui.get_exporting() {
+        if ui.get_busy() || !ui.get_has_image() {
             return;
         }
+        let s = s.borrow();
+        s.debounce.stop();
+        ui.set_busy(true);
+        ui.set_exporting(true);
+        ui.set_status("Fitting scan calibration…".into());
+        let revision = s.revision.fetch_add(1, Ordering::SeqCst) + 1;
+        if s.sender
+            .send(Request {
+                revision,
+                job: Job::Calibrate {
+                    path: s.path.clone().unwrap(),
+                    params: Box::new(s.params.clone()),
+                    device,
+                },
+            })
+            .is_err()
         {
-            let mut s = s.borrow_mut();
-            set_toggle(&mut s.params, &key, value);
+            ui.set_busy(false);
+            ui.set_exporting(false);
+            error(&ui, "Render worker stopped.");
         }
-        changed(&ui, &s);
     });
     let weak = ui.as_weak();
     let s = state.clone();
-    ui.on_choice_edited(move |key, value| {
+    ui.on_resolved(move |text| {
         let Some(ui) = weak.upgrade() else {
             return;
         };
-        if ui.get_exporting() {
-            return;
+        if let Ok(p) = serde_json::from_str(&text) {
+            s.borrow_mut().params = p;
+            sync(&ui, &s.borrow());
         }
-        {
-            let mut s = s.borrow_mut();
-            match key.as_str() {
-                "film" => {
-                    if let Some(stock) = s.films.iter().find(|v| v.label == value.as_str()) {
-                        s.params.film_profile = stock.id.clone();
-                    }
-                }
-                "paper" => {
-                    if let Some(stock) = s.papers.iter().find(|v| v.label == value.as_str()) {
-                        s.params.print_profile = stock.id.clone();
-                    }
-                }
-                "route" => {
-                    if let Some(i) = ROUTE_LABELS.iter().position(|v| *v == value.as_str()) {
-                        s.params.workflow.route = ROUTES[i].into();
-                    }
-                }
-                "meter" => s.params.camera.auto_exposure_method = value.into(),
-                "output" => s.params.io.output_color_space = value.into(),
-                _ => {}
-            }
-        }
-        changed(&ui, &s);
     });
     let weak = ui.as_weak();
     let s = state.clone();
-    ui.on_apply_json(move |text| {
+    ui.on_calibrated(move |text| {
         let Some(ui) = weak.upgrade() else {
             return;
         };
-        if ui.get_exporting() {
-            return;
+        if let Ok(p) = serde_json::from_str(&text) {
+            s.borrow_mut().params = p;
+            changed(&ui, &s);
+            submit(&ui, &s);
         }
-        match serde_json::from_str::<Params>(&text) {
-            Ok(params) => {
-                s.borrow_mut().params = params;
-                changed(&ui, &s);
-                submit(&ui, &s);
-            }
-            Err(e) => error(&ui, format!("Invalid settings: {e}")),
+    });
+    let weak = ui.as_weak();
+    let s = state.clone();
+    ui.on_scan(move || {
+        if let Some(ui) = weak.upgrade()
+            && !ui.get_busy()
+        {
+            submit_size(&ui, &s, true);
         }
     });
     let weak = ui.as_weak();
@@ -488,6 +543,28 @@ fn bind_callbacks(ui: &Darkroom, state: &Rc<RefCell<State>>) {
                 }
                 Err(e) => error(&ui, format!("{e:#}")),
             }
+        }
+    });
+    let weak = ui.as_weak();
+    let s = state.clone();
+    ui.on_save_default(move || {
+        let Some(ui) = weak.upgrade() else {
+            return;
+        };
+        if ui.get_exporting() {
+            return;
+        }
+        let result = (|| -> Result<()> {
+            let path = backend::default_params_path()?;
+            std::fs::create_dir_all(path.parent().unwrap())?;
+            save_params(&s.borrow().params, &path)
+        })();
+        match result {
+            Ok(()) => {
+                ui.set_error(false);
+                ui.set_status("Startup settings saved.".into());
+            }
+            Err(e) => error(&ui, format!("{e:#}")),
         }
     });
     let weak = ui.as_weak();
@@ -552,14 +629,16 @@ fn bind_callbacks(ui: &Darkroom, state: &Rc<RefCell<State>>) {
             .unwrap_or_else(|| "image".into());
         let (format, extension) = [
             ("Float TIFF", "tiff"),
-            ("sRGB PNG (8-bit)", "png"),
+            ("PNG (16-bit)", "png"),
             ("Float64 NPY", "npy"),
+            ("JPEG", "jpg"),
+            ("Float EXR", "exr"),
         ]
         .get(ui.get_export_format() as usize)
         .copied()
-        .unwrap_or(("sRGB PNG (8-bit)", "png"));
+        .unwrap_or(("PNG (16-bit)", "png"));
         if let Some(path) = rfd::FileDialog::new()
-            .set_title("Export original resolution · PNG is sRGB; TIFF/NPY use output settings")
+            .set_title("Save image")
             .set_file_name(format!("{stem}-developed.{extension}"))
             .add_filter(format, &[extension])
             .save_file()
@@ -587,32 +666,4 @@ fn bind_callbacks(ui: &Darkroom, state: &Rc<RefCell<State>>) {
             }
         }
     });
-}
-
-fn set_number(p: &mut Params, key: &str, value: f64) {
-    match key {
-        "exposure" => p.camera.exposure_compensation_ev = value,
-        "print_ev" => p.enlarger.print_exposure = value.exp2(),
-        "yellow" => p.enlarger.y_filter_shift = value,
-        "magenta" => p.enlarger.m_filter_shift = value,
-        "film_format" => p.camera.film_format_mm = value,
-        "film_gamma" => p.film_chemistry.gamma_factor = value,
-        "print_gamma" => p.print_chemistry.gamma_factor = value,
-        "halation_amount" => p.halation.halation_amount = value,
-        "scanner_blur" => p.scanner.lens_blur = value,
-        "sharpen" => p.scanner.unsharp_mask[1] = value,
-        _ => {}
-    }
-}
-fn set_toggle(p: &mut Params, key: &str, value: bool) {
-    match key {
-        "auto_exposure" => p.camera.auto_exposure = value,
-        "grain" => p.grain.active = value,
-        "halation" => p.halation.active = value,
-        "glare" => p.print_glare.active = value,
-        "spatial" => p.debug.deactivate_spatial_effects = !value,
-        "deterministic" => p.debug.deactivate_stochastic_effects = value,
-        "encoded_output" => p.io.output_cctf_encoding = value,
-        _ => {}
-    }
 }
