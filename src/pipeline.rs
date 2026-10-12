@@ -154,6 +154,9 @@ impl CouplerModel {
 
 pub struct Simulator {
     params: Params,
+    converter: Option<crate::convert::FilmConverter>,
+    convert_lut: Option<crate::density_lut::DensityLut>,
+    scan_profile: Profile,
     film: Profile,
     print: Profile,
     response: FilmResponse,
@@ -187,6 +190,8 @@ impl Simulator {
     pub fn new(data: &Path, mut params: Params) -> Result<Self> {
         let start = Instant::now();
         crate::framing::validate(&params.io)?;
+        crate::diffusion::validate(&params.camera.diffusion_filter)?;
+        crate::diffusion::validate(&params.enlarger.diffusion_filter)?;
         ensure!(
             [
                 "average",
@@ -252,6 +257,8 @@ impl Simulator {
             &params.print_profile,
             params.print_chemistry.development_time,
         )?;
+        film.swap_dyes(params.special.film_channel_swap)?;
+        print.swap_dyes(params.special.print_channel_swap)?;
         let stock_film_base = film.base.clone();
         let stock_print_base = print.base.clone();
         ensure!(
@@ -265,7 +272,10 @@ impl Simulator {
             [
                 "input",
                 "input > film > scan",
-                "input > film > print > scan"
+                "input > film > print > scan",
+                "input > convert-film > print > scan",
+                "input > convert-film > scan",
+                "input > convert-film > scan-minus-base"
             ]
             .contains(&params.workflow.route.as_str()),
             "Unsupported workflow route"
@@ -288,10 +298,13 @@ impl Simulator {
             params.io.upscale_factor = 1.0;
             // Bake the exact spectral transform, without embedding a second
             // layer of interpolation from the interactive acceleration LUTs.
+            params.settings.use_convert_lut = false;
             params.settings.use_enlarger_lut = false;
             params.settings.use_scanner_lut = false;
         }
         if params.debug.deactivate_spatial_effects {
+            params.camera.diffusion_filter.active = false;
+            params.enlarger.diffusion_filter.active = false;
             params.scanner.lens_blur = 0.0;
             params.scanner.unsharp_mask = [0.0, 0.0];
             params.camera.lens_blur_um = 0.0;
@@ -441,12 +454,22 @@ impl Simulator {
                 }
             }
         }
-        let scan_profile = if params.workflow.route == "input > film > scan" {
+        let scan_profile = if params.workflow.scan_film() {
             &film
         } else {
             &print
         };
-        let scan_illuminant = tables.illuminant(&scan_profile.info.viewing_illuminant)?;
+        let mut scan_profile = scan_profile.clone();
+        if params.workflow.route == "input > convert-film > scan-minus-base" {
+            scan_profile.base.fill(0.0);
+        }
+        let scan_illuminant = tables.illuminant(
+            if params.workflow.convert_film() && params.workflow.scan_film() {
+                &params.convert.scan_illuminant
+            } else {
+                &scan_profile.info.viewing_illuminant
+            },
+        )?;
         let norm: f64 = (0..81)
             .map(|w| scan_illuminant.spectrum[w] * tables.cmfs[w][1])
             .sum();
@@ -498,12 +521,8 @@ impl Simulator {
             None
         };
         let scanner_lut = if params.settings.use_scanner_lut {
-            let profile = if params.workflow.route == "input > film > scan" {
-                &film
-            } else {
-                &print
-            };
-            let minimum = if params.workflow.route == "input > film > scan" {
+            let profile = &scan_profile;
+            let minimum = if params.workflow.scan_film() {
                 film_min
             } else {
                 print.min()
@@ -531,7 +550,31 @@ impl Simulator {
         // Print balancing uses stock curves; only the developed print is morphed.
         crate::chemistry::apply(&mut print, &params.print_chemistry)?;
         let couplers = CouplerModel::new(&film, &params.dir_couplers);
+        let converter = if params.workflow.convert_film() {
+            Some(crate::convert::FilmConverter::new(&tables, &film, &params)?)
+        } else {
+            None
+        };
+        let convert_lut = if params.settings.use_convert_lut {
+            if let Some(converter) = &converter {
+                let (lo, hi) = converter.gamut_bounds();
+                Some(crate::density_lut::DensityLut::new(
+                    lo.to_vec(),
+                    hi.to_vec(),
+                    3,
+                    params.settings.convert_lut_resolution,
+                    |v| converter.invert([v[0], v[1], v[2]]),
+                )?)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
         Ok(Self {
+            converter,
+            convert_lut,
+            scan_profile,
             params,
             film,
             print,
@@ -576,7 +619,10 @@ impl Simulator {
             / image.width.max(image.height) as f64
             / self.params.io.upscale_factor;
         // Meter the captured full frame, before framing changes its field of view.
-        let auto_scale = if collect != Tap::RgbPre && self.params.workflow.route != "input" {
+        let auto_scale = if collect != Tap::RgbPre
+            && self.params.workflow.route != "input"
+            && !self.params.workflow.convert_film()
+        {
             self.auto_scale(&image)
         } else {
             1.0
@@ -600,9 +646,36 @@ impl Simulator {
             });
             return Ok(image);
         }
-        let film_scan = self.params.workflow.route == "input > film > scan";
+        let film_scan = self.params.workflow.scan_film();
         if film_scan && [Tap::LogEPrint, Tap::CmyPrint].contains(&collect) {
             bail!("Film-scan workflow has no print taps");
+        }
+        if let Some(converter) = &self.converter {
+            ensure!(
+                collect != Tap::LogEFilm,
+                "Negative conversion has no film exposure tap"
+            );
+            if self.params.io.input_cctf_decoding {
+                image
+                    .data
+                    .iter_mut()
+                    .for_each(|v| *v = decode(&self.params.io.input_color_space, *v));
+            }
+            let density = if let Some(lut) = &self.convert_lut {
+                image.data.par_chunks_exact_mut(3).for_each(|p| {
+                    let y = converter.pretransform([p[0], p[1], p[2]]);
+                    p.copy_from_slice(&lut.apply(&y));
+                });
+                image
+            } else {
+                converter.convert(&image)
+            };
+            return self.finish_density(
+                density,
+                collect,
+                pixel_um,
+                self.params.settings.random_seed.unwrap_or(0),
+            );
         }
         if !self.params.debug.deactivate_spatial_effects
             || self.params.grain.active
@@ -731,6 +804,7 @@ impl Simulator {
         if self.params.camera.lens_blur_um > 0.0 {
             raw = gaussian(&raw, &[self.params.camera.lens_blur_um / pixel_um]);
         }
+        raw = crate::diffusion::apply(&raw, &self.params.camera.diffusion_filter, pixel_um)?;
         if hal.active && !self.params.debug.deactivate_spatial_effects {
             let core_sigma = hal.scatter_core_um[..ch]
                 .iter()
@@ -853,9 +927,56 @@ impl Simulator {
                 random_seed,
             )?;
         }
+        self.finish_density(density, collect, pixel_um, random_seed)
+    }
+    fn finish_density(
+        &self,
+        density: Image,
+        collect: Tap,
+        pixel_um: f64,
+        random_seed: u32,
+    ) -> Result<Image> {
+        use crate::spatial::gaussian;
         if collect == Tap::CmyFilm {
             return Ok(density);
         }
+        let (w, h, ch) = (density.width, density.height, density.channels);
+        let print_density = if !self.params.workflow.scan_film()
+            && self.params.enlarger.diffusion_filter.active
+        {
+            let mut raw = Image::new(
+                w,
+                h,
+                self.print.channels(),
+                vec![0.; w * h * self.print.channels()],
+            )?;
+            raw.data
+                .par_chunks_exact_mut(raw.channels)
+                .zip(density.data.par_chunks_exact(ch))
+                .for_each(|(out, d)| {
+                    let logs = self.after_film(d, Tap::LogEPrint, false, 0.);
+                    for c in 0..out.len() {
+                        out[c] = (10.0f64.powf(logs[c]) - 1e-10).max(0.);
+                    }
+                });
+            raw = crate::diffusion::apply(&raw, &self.params.enlarger.diffusion_filter, pixel_um)?;
+            raw.data
+                .iter_mut()
+                .for_each(|v| *v = (v.max(0.) + 1e-10).log10());
+            if collect == Tap::LogEPrint {
+                return Ok(raw);
+            }
+            raw.data.par_chunks_exact_mut(raw.channels).for_each(|v| {
+                let logs = v.to_vec();
+                self.print.density(&logs, v);
+            });
+            if collect == Tap::CmyPrint {
+                return Ok(raw);
+            }
+            Some(raw)
+        } else {
+            None
+        };
         let out_ch = match collect {
             Tap::LogEPrint | Tap::CmyPrint => self.print.channels(),
             _ => 3,
@@ -869,7 +990,7 @@ impl Simulator {
         let mut glare = None;
         let g = &self.params.print_glare;
         if collect == Tap::RgbOut
-            && self.params.workflow.route != "input > film > scan"
+            && !self.params.workflow.scan_film()
             && g.active
             && g.percent > 0.0
         {
@@ -893,7 +1014,19 @@ impl Simulator {
             .enumerate()
             .for_each(|(i, (out, d))| {
                 let amount = glare.as_ref().map_or(0.0, |field| field.data[i]);
-                out.copy_from_slice(&self.after_film(d, collect, false, amount)[..out_ch])
+                let value = if let Some(print) = &print_density {
+                    let pd = &print.data[i * print.channels..(i + 1) * print.channels];
+                    let mut xyz = [0.; 3];
+                    if let Some(lut) = &self.scanner_lut {
+                        xyz = lut.apply(pd).map(|v| 10.0f64.powf(v));
+                    } else {
+                        integrate(&self.print, pd, &self.scan_weights, 3, &mut xyz);
+                    }
+                    self.finish_scan(xyz, false, amount)
+                } else {
+                    self.after_film(d, collect, false, amount)
+                };
+                out.copy_from_slice(&value[..out_ch])
             });
         drop(density);
         if collect == Tap::RgbOut {
@@ -942,12 +1075,12 @@ impl Simulator {
     }
     fn after_film(&self, dfilm: &[f64], collect: Tap, encode_output: bool, glare: f64) -> [f64; 3] {
         let mut scanned = [0.0; 3];
-        if self.params.workflow.route == "input > film > scan" {
+        if self.params.workflow.scan_film() {
             if let Some(lut) = &self.scanner_lut {
                 scanned = lut.apply(dfilm).map(|v| 10.0f64.powf(v));
             } else {
                 integrate(
-                    &self.film,
+                    &self.scan_profile,
                     &dfilm[..self.film.channels()],
                     &self.scan_weights,
                     3,
@@ -1003,6 +1136,9 @@ impl Simulator {
                 );
             }
         }
+        self.finish_scan(scanned, encode_output, glare)
+    }
+    fn finish_scan(&self, scanned: [f64; 3], encode_output: bool, glare: f64) -> [f64; 3] {
         // Scanner's log XYZ -> 10**log XYZ contributes the +1e-10 floor.
         let mut xyz = if self.scanner_lut.is_some() {
             scanned
@@ -1047,7 +1183,11 @@ fn filtered_illuminant(tables: &Tables, lamp: &[f64], filters: [f64; 3]) -> Vec<
         })
         .collect()
 }
-fn apply_coupler_presets(data: &Path, film: &Profile, couplers: &mut Couplers) -> Result<()> {
+pub(crate) fn apply_coupler_presets(
+    data: &Path,
+    film: &Profile,
+    couplers: &mut Couplers,
+) -> Result<()> {
     let presets: toml::Value = toml::from_str(&std::fs::read_to_string(
         data.join("presets/couplers.toml"),
     )?)?;

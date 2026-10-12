@@ -1,0 +1,146 @@
+import { Button, ComboBox, CheckBox, ScrollView, LineEdit, Palette } from "std-widgets.slint";
+
+export struct Field { key: string, label: string, value: string, kind: int, checked: bool, options: [string], hint: string }
+
+component ImagePanel inherits Rectangle {
+    in property <image> photo;
+    in property <float> zoom;
+    background: #777777;
+    clip: true;
+    in property <float> aspect: max(1, root.photo.width) / max(1, root.photo.height);
+    in property <length> photo-width: root.zoom > 0 ? root.photo.width * root.zoom * 1px : min(root.width - 64px, (root.height - 64px) * root.aspect);
+    in property <length> photo-height: root.photo-width / root.aspect;
+    ScrollView {
+        content-width: max(self.visible-width, root.photo-width + 64px);
+        content-height: max(self.visible-height, root.photo-height + 64px);
+        Rectangle {
+            x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+            width: root.photo-width + 32px; height: root.photo-height + 32px;
+            background: white;
+            Image { x: 16px; y: 16px; width: root.photo-width; height: root.photo-height; source: root.photo; image-fit: contain; }
+        }
+    }
+}
+export component Darkroom inherits Window {
+    title: "spektrafilm";
+    preferred-width: 1240px; preferred-height: 850px;
+    min-width: 980px; min-height: 700px;
+    background: #080808;
+    default-font-family: "DejaVu Sans";
+    default-font-size: 13px;
+    init => { Palette.color-scheme = dark; }
+    in property <[Field]> fields;
+    in property <image> before;
+    in property <image> after;
+    in property <bool> has-image;
+    in property <bool> busy;
+    in property <bool> exporting;
+    in property <bool> stale;
+    in property <bool> error;
+    in property <string> filename: "No image selected";
+    in property <string> dimensions;
+    in property <string> status: "Select an image to begin.";
+    in property <string> render-info;
+    in property <string> monitor-name: "sRGB";
+    in-out property <bool> auto-preview: true;
+    in-out property <int> view-mode: 1;
+    in-out property <int> export-format: 1;
+    in-out property <int> tab: 0;
+    in-out property <float> zoom: 0;
+    callback open-image(); callback load-settings(); callback save-settings(); callback save-default(); callback reset-settings();
+    callback preview(); callback scan(); callback export-image();
+    callback field-edited(string,string); callback section-toggled(string); callback tab-selected(int);
+    callback calibrate(bool); callback calibrated(string); callback resolved(string); callback monitor(bool);
+    VerticalLayout {
+        padding: 10px; spacing: 8px;
+        HorizontalLayout {
+            spacing: 14px;
+            VerticalLayout {
+                spacing: 8px;
+                Rectangle {
+                    background: #777777;
+                    if root.has-image: HorizontalLayout {
+                        spacing: 4px;
+                        if root.view-mode != 1: ImagePanel { photo: root.before; zoom: root.zoom; }
+                        if root.view-mode != 0: ImagePanel { photo: root.after; zoom: root.zoom; }
+                    }
+                }
+                HorizontalLayout {
+                    height: 32px; spacing: 5px;
+                    ComboBox { width: 130px; model: ["Original", "Processed", "Compare"]; current-index <=> root.view-mode; }
+                    Text { text: root.stale ? "Preview needs updating" : root.render-info; color: #aaaaaa; overflow: elide; vertical-alignment: center; }
+                    for scale in [1,2,4]: Button { width: 56px; text: scale * 100 + "%"; clicked => { root.zoom = scale; } }
+                    Button { width: 60px; text: "Fit"; clicked => { root.zoom = 0; } }
+                }
+            }
+            Rectangle {
+                width: 420px;
+                background: #080808;
+                VerticalLayout {
+                    spacing: 8px;
+                    HorizontalLayout {
+                        height: 34px; spacing: 0px;
+                        for title[i] in ["MAIN", "FILM", "PRINT", "ADVANCED", "CONFIG"]: Rectangle {
+                            background: root.tab == i ? #27211c : #080808;
+                            Text { text: title; font-size: 12px; color: root.tab == i ? #ff985a : #aaaaaa; horizontal-alignment: center; vertical-alignment: center; }
+                            TouchArea { clicked => { root.tab = i; root.tab-selected(i); } }
+                        }
+                    }
+                    if root.tab == 0: HorizontalLayout {
+                        height: 32px;
+                        Text { text: root.filename; color: #dddddd; overflow: elide; vertical-alignment: center; }
+                        Button { width: 110px; text: "Select file…"; enabled: !root.exporting; clicked => { root.open-image(); } }
+                    }
+                    if root.tab == 0: Text { text: root.dimensions; color: #999999; height: 20px; }
+                    if root.tab == 4: VerticalLayout {
+                        spacing: 5px;
+                        HorizontalLayout {
+                            Button { text: "Load settings…"; enabled: !root.exporting; clicked => { root.load-settings(); } }
+                            Button { text: "Save settings…"; enabled: !root.exporting; clicked => { root.save-settings(); } }
+                            Button { text: "Reset"; enabled: !root.exporting; clicked => { root.reset-settings(); } }
+                        }
+                        Button { text: "Use current settings at startup"; enabled: !root.exporting; clicked => { root.save-default(); } }
+                        HorizontalLayout {
+                            Text { text: root.monitor-name; color: #cccccc; overflow: elide; vertical-alignment: center; }
+                            Button { text: "Monitor ICC…"; enabled: !root.exporting; clicked => { root.monitor(true); } }
+                            Button { text: "sRGB"; enabled: !root.exporting; clicked => { root.monitor(false); } }
+                        }
+                        CheckBox { text: "Automatic preview"; checked <=> root.auto-preview; enabled: !root.exporting; }
+                        ComboBox { model: ["TIFF · float", "PNG · 16 bit", "NPY · float", "JPEG", "EXR · float"]; current-index <=> root.export-format; enabled: !root.exporting; }
+                    }
+                    if root.tab == 3: HorizontalLayout {
+                        Button { text: "Detect film base"; enabled: root.has-image && !root.busy; clicked => { root.calibrate(false); } }
+                        Button { text: "Calibrate scanner"; enabled: root.has-image && !root.busy; clicked => { root.calibrate(true); } }
+                    }
+                    ScrollView {
+                        VerticalLayout {
+                            spacing: 3px; padding-right: 8px;
+                            for field in root.fields: Rectangle {
+                                height: field.kind == 3 ? 34px : 32px;
+                                if field.kind == 3: Rectangle {
+                                    x: 0px; width: parent.width; height: parent.height;
+                                    Text { x: 0px; width: parent.width; text: (field.checked ? "⌄  " : "›  ") + field.label; color: #ff985a; horizontal-alignment: left; vertical-alignment: center; }
+                                    TouchArea { clicked => { root.section-toggled(field.key); } }
+                                }
+                                if field.kind != 3: HorizontalLayout {
+                                    spacing: 8px;
+                                    Text { text: field.label; width: 200px; font-size: 12px; color: #dddddd; vertical-alignment: center; wrap: word-wrap; }
+                                    if field.kind == 0: LineEdit { text: field.value; placeholder-text: field.hint; enabled: !root.exporting; accepted => { root.field-edited(field.key, self.text); } changed has-focus => { if !self.has-focus && self.text != field.value { root.field-edited(field.key, self.text); } } }
+                                    if field.kind == 1: CheckBox { checked: field.checked; enabled: !root.exporting; toggled => { root.field-edited(field.key, self.checked ? "true" : "false"); } }
+                                    if field.kind == 2: ComboBox { model: field.options; current-value: field.value; enabled: !root.exporting; selected(v) => { root.field-edited(field.key,v); } }
+                                }
+                            }
+                        }
+                    }
+                    HorizontalLayout {
+                        height: 38px; spacing: 5px;
+                        Button { text: "PREVIEW"; enabled: !root.exporting; clicked => { root.preview(); } }
+                        Button { text: "SCAN"; enabled: root.has-image && !root.busy; clicked => { root.scan(); } }
+                        Button { text: "SAVE"; enabled: root.has-image && !root.busy; clicked => { root.export-image(); } }
+                    }
+                }
+            }
+        }
+        Text { height: 24px; text: root.status; color: root.error ? #ff9c8c : #aaaaaa; overflow: elide; vertical-alignment: center; }
+    }
+}

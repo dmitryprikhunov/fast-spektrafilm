@@ -1,14 +1,21 @@
 pub mod base;
 pub mod chemistry;
 pub mod color;
+pub mod convert;
+pub mod diffusion;
+pub mod file_io;
 pub mod grain;
+#[cfg(feature = "gui")]
+pub mod gui;
 pub mod image;
 pub mod interpolation;
+pub mod lens;
 pub mod metering;
 pub mod params;
 pub mod pipeline;
 pub mod profile;
 pub mod random;
+pub mod raw;
 mod scan_reference;
 pub mod spatial;
 pub mod spectral;
@@ -19,3 +26,5 @@ pub use pipeline::{Simulator, Tap};
 mod appearance;
 mod density_lut;
 mod framing;
+
+pub mod metadata;

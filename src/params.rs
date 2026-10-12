@@ -4,6 +4,9 @@ use serde::{Deserialize, Serialize};
 pub struct Params {
     pub film_profile: String,
     pub print_profile: String,
+    pub special: Special,
+    pub convert: ConvertFilm,
+    pub raw: RawSettings,
     pub camera: Camera,
     pub enlarger: Enlarger,
     pub scanner: Scanner,
@@ -25,6 +28,9 @@ impl Default for Params {
         Self {
             film_profile: "kodak_portra_400".into(),
             print_profile: "kodak_portra_endura".into(),
+            special: Special::default(),
+            convert: ConvertFilm::default(),
+            raw: RawSettings::default(),
             camera: Camera::default(),
             enlarger: Enlarger::default(),
             scanner: Scanner::default(),
@@ -128,6 +134,7 @@ impl Default for Grain {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Camera {
+    pub diffusion_filter: DiffusionFilter,
     pub exposure_compensation_ev: f64,
     pub auto_exposure: bool,
     pub auto_exposure_method: String,
@@ -138,6 +145,7 @@ pub struct Camera {
 impl Default for Camera {
     fn default() -> Self {
         Self {
+            diffusion_filter: DiffusionFilter::default(),
             exposure_compensation_ev: 0.0,
             auto_exposure: true,
             auto_exposure_method: "center_weighted".into(),
@@ -150,6 +158,7 @@ impl Default for Camera {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Enlarger {
+    pub diffusion_filter: DiffusionFilter,
     pub illuminant: String,
     pub print_exposure: f64,
     pub print_exposure_compensation: bool,
@@ -169,6 +178,7 @@ pub struct Enlarger {
 impl Default for Enlarger {
     fn default() -> Self {
         Self {
+            diffusion_filter: DiffusionFilter::default(),
             illuminant: "TH-KG3".into(),
             print_exposure: 1.0,
             print_exposure_compensation: true,
@@ -210,6 +220,9 @@ impl Default for Scanner {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Io {
+    /// Optional display-only monitor ICC profile; exports retain their output profile.
+    pub monitor_profile: Option<String>,
+    pub copy_metadata: bool,
     pub input_color_space: String,
     pub input_cctf_decoding: bool,
     pub output_color_space: String,
@@ -224,6 +237,8 @@ pub struct Io {
 impl Default for Io {
     fn default() -> Self {
         Self {
+            monitor_profile: None,
+            copy_metadata: true,
             input_color_space: "ProPhoto RGB".into(),
             input_cctf_decoding: false,
             output_color_space: "sRGB".into(),
@@ -299,6 +314,8 @@ pub struct Settings {
     pub apply_hanatos2025_adaptation_window: bool,
     pub apply_hanatos2025_adaptation_surface: bool,
     pub spectral_gaussian_blur: f64,
+    pub use_convert_lut: bool,
+    pub convert_lut_resolution: usize,
     pub use_enlarger_lut: bool,
     pub use_scanner_lut: bool,
     pub lut_resolution: usize,
@@ -316,6 +333,8 @@ impl Default for Settings {
             apply_hanatos2025_adaptation_window: true,
             apply_hanatos2025_adaptation_surface: false,
             spectral_gaussian_blur: 0.0,
+            use_convert_lut: false,
+            convert_lut_resolution: 33,
             use_enlarger_lut: false,
             use_scanner_lut: false,
             lut_resolution: 17,
@@ -421,6 +440,103 @@ impl Default for Halation {
             halation_n_bounces: 3,
             halation_bounce_decay: 0.5,
             halation_renormalize: true,
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct DiffusionFilter {
+    pub active: bool,
+    pub filter_family: String,
+    pub strength: f64,
+    pub spatial_scale: f64,
+    pub halo_warmth: f64,
+    pub core_intensity: f64,
+    pub core_size: f64,
+    pub halo_intensity: f64,
+    pub halo_size: f64,
+    pub bloom_intensity: f64,
+    pub bloom_size: f64,
+}
+impl Default for DiffusionFilter {
+    fn default() -> Self {
+        Self {
+            active: false,
+            filter_family: "black_pro_mist".into(),
+            strength: 0.5,
+            spatial_scale: 1.0,
+            halo_warmth: 0.0,
+            core_intensity: 1.0,
+            core_size: 1.0,
+            halo_intensity: 1.0,
+            halo_size: 1.0,
+            bloom_intensity: 1.0,
+            bloom_size: 1.0,
+        }
+    }
+}
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct ConvertFilm {
+    pub scan_illuminant: String,
+    pub exposure_compensation_ev: f64,
+    pub base_percentile: f64,
+    pub calibration: [[f64; 3]; 3],
+}
+impl Default for ConvertFilm {
+    fn default() -> Self {
+        Self {
+            scan_illuminant: "D55".into(),
+            exposure_compensation_ev: 0.0,
+            base_percentile: 99.0,
+            calibration: [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]],
+        }
+    }
+}
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct RawSettings {
+    pub lens_correction: bool,
+    pub white_balance: String,
+    pub temperature: f64,
+    pub tint: f64,
+}
+impl Default for RawSettings {
+    fn default() -> Self {
+        Self {
+            lens_correction: false,
+            white_balance: "as_shot".into(),
+            temperature: 5500.,
+            tint: 1.,
+        }
+    }
+}
+impl Workflow {
+    pub fn scan_film(&self) -> bool {
+        matches!(
+            self.route.as_str(),
+            "input > film > scan"
+                | "input > convert-film > scan"
+                | "input > convert-film > scan-minus-base"
+        )
+    }
+    pub fn convert_film(&self) -> bool {
+        self.route.contains("convert-film")
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Special {
+    pub film_channel_swap: [usize; 3],
+    pub print_channel_swap: [usize; 3],
+}
+impl Default for Special {
+    fn default() -> Self {
+        Self {
+            film_channel_swap: [0, 1, 2],
+            print_channel_swap: [0, 1, 2],
         }
     }
 }

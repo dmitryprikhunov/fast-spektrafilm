@@ -55,6 +55,31 @@ pub struct Profile {
     pub surface: Option<Vec<Vec<f64>>>,
 }
 impl Profile {
+    /// The experimental GUI permutes dye spectra only, leaving sensitivity and
+    /// development layers intact. This is not an output RGB channel swap.
+    pub fn swap_dyes(&mut self, order: [usize; 3]) -> Result<()> {
+        let mut sorted = order;
+        sorted.sort();
+        ensure!(
+            sorted == [0, 1, 2],
+            "Dye order must contain cyan, magenta and yellow once each"
+        );
+        if order == [0, 1, 2] {
+            return Ok(());
+        }
+        ensure!(
+            self.channels() == 3,
+            "Dye swapping requires a three-channel stock"
+        );
+        for row in &mut self.dyes {
+            let old = row.clone();
+            for c in 0..3 {
+                row[c] = old[order[c]];
+            }
+        }
+        Ok(())
+    }
+
     pub fn load(data_dir: &Path, stock: &str) -> Result<Self> {
         Self::load_development(data_dir, stock, None)
     }
