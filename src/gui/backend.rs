@@ -219,10 +219,17 @@ pub struct Preview {
     pub after_size: [u32; 2],
     pub seconds: f64,
 }
+struct Scan {
+    path: PathBuf,
+    keys: [String; 2],
+    output: Image,
+}
+
 pub struct Session {
     pub data: PathBuf,
     tables: Tables,
     pub source: Option<Source>,
+    scan: Option<Scan>,
 }
 impl Session {
     pub fn new(data: &Path) -> Result<Self> {
@@ -230,7 +237,46 @@ impl Session {
             data: data.into(),
             tables: Tables::load(data)?,
             source: None,
+            scan: None,
         })
+    }
+    pub fn set_source(&mut self, source: Source) {
+        self.scan = None;
+        self.source = Some(source);
+    }
+    fn processing_key(params: &Params) -> Result<String> {
+        let mut params = params.clone();
+        params.io.monitor_profile = None;
+        params.io.copy_metadata = false;
+        Ok(serde_json::to_string(&params)?)
+    }
+    fn scan_keys(&self, params: &Params) -> Result<[String; 2]> {
+        // The UI resolves stock presets after rendering. Accept both the request
+        // and its resolved settings without constructing a simulator on Save.
+        Ok([
+            Self::processing_key(params)?,
+            Self::processing_key(&self.resolved_params(params)?)?,
+        ])
+    }
+    fn ensure_scan(&mut self, params: &Params) -> Result<()> {
+        let source = self.source.as_ref().context("Open an image first")?;
+        let key = Self::processing_key(params)?;
+        if self
+            .scan
+            .as_ref()
+            .is_some_and(|scan| scan.path == source.path && scan.keys.contains(&key))
+        {
+            return Ok(());
+        }
+        self.scan = None;
+        let output = Simulator::new(&self.data, params.clone())?
+            .process_owned(source.input(params, &self.data, true)?, Tap::RgbOut)?;
+        self.scan = Some(Scan {
+            path: source.path.clone(),
+            keys: self.scan_keys(params)?,
+            output,
+        });
+        Ok(())
     }
     pub fn resolved_params(&self, p: &Params) -> Result<Params> {
         let sim = Simulator::new(&self.data, p.clone())?;
@@ -252,7 +298,7 @@ impl Session {
         Simulator::new(&self.data, params.clone())?;
         Ok(())
     }
-    pub fn render(&self, params: &Params) -> Result<Preview> {
+    pub fn render(&mut self, params: &Params) -> Result<Preview> {
         self.render_size(params, false)
     }
     fn display(
@@ -284,8 +330,11 @@ impl Session {
             display_rgb(image, space, encoded, &self.tables)
         }
     }
-    pub fn render_size(&self, params: &Params, full: bool) -> Result<Preview> {
+    pub fn render_size(&mut self, params: &Params, full: bool) -> Result<Preview> {
         let start = Instant::now();
+        if full {
+            self.scan = None; // Release the old full image before allocating its replacement.
+        }
         let source = self.source.as_ref().context("Open an image first")?;
         let input = source.input(params, &self.data, full)?;
         let before = self.display(
@@ -309,11 +358,19 @@ impl Session {
             params.io.output_cctf_encoding,
             params.io.monitor_profile.as_deref(),
         )?;
+        let after_size = [u32::try_from(output.width)?, u32::try_from(output.height)?];
+        if full {
+            self.scan = Some(Scan {
+                path: source.path.clone(),
+                keys: self.scan_keys(params)?,
+                output,
+            });
+        }
         Ok(Preview {
             before,
             after,
             before_size,
-            after_size: [u32::try_from(output.width)?, u32::try_from(output.height)?],
+            after_size,
             seconds: start.elapsed().as_secs_f64(),
         })
     }
@@ -344,7 +401,7 @@ impl Session {
         }
         Ok(p)
     }
-    pub fn export(&self, params: &Params, path: &Path) -> Result<[usize; 2]> {
+    pub fn export(&mut self, params: &Params, path: &Path) -> Result<[usize; 2]> {
         let source = self.source.as_ref().context("Open an image first")?;
         ensure!(
             path != source.path,
@@ -362,8 +419,9 @@ impl Session {
             ["png", "jpg", "jpeg", "exr", "tiff", "tif", "npy"].contains(&ext.as_str()),
             "Choose PNG, JPEG, TIFF, EXR or NPY"
         );
-        let sim = Simulator::new(&self.data, params.clone())?;
-        let output = sim.process_owned(source.input(params, &self.data, true)?, Tap::RgbOut)?;
+        let source_path = source.path.clone();
+        self.ensure_scan(params)?;
+        let output = &self.scan.as_ref().unwrap().output;
         let temp = tempfile::Builder::new()
             .suffix(&format!(".{ext}"))
             .tempfile_in(
@@ -372,7 +430,7 @@ impl Session {
                     .unwrap_or(Path::new(".")),
             )?;
         file_io::write(
-            &output,
+            output,
             temp.path(),
             &self.data,
             &params.io.output_color_space,
@@ -380,7 +438,7 @@ impl Session {
         )?;
         if params.io.copy_metadata {
             crate::metadata::copy(
-                &source.path,
+                &source_path,
                 temp.path(),
                 [output.width, output.height],
                 &params.io.output_color_space,

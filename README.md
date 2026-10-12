@@ -1,40 +1,26 @@
 # fast-spektrafilm
 
-Rust implementation of [spektrafilm](https://github.com/andreavolpato/spektrafilm)'s
-experimental processing pipeline, with a CLI, library and optional Slint GUI.
+Film and print simulations for RAW and RGB images, with a Rust CLI and desktop app.
 
-The film model, processing methods and original profiles/data are the work of
-**Andrea Volpato and the spektrafilm contributors**. This repository ports that
-work to Rust. Its reference is experimental commit
-[`28bf883`](https://github.com/andreavolpato/spektrafilm/tree/28bf883e1672e884307edc75852549376e13644e).
-Upstream attribution and licenses are retained; this derivative is GPLv3.
+Based on [spektrafilm](https://github.com/andreavolpato/spektrafilm/tree/28bf883e1672e884307edc75852549376e13644e)
+by **Andrea Volpato and the spektrafilm contributors**. Original attribution,
+data and licenses are retained; this port is GPLv3.
 
-## Build
+## Get started
 
-Rust 1.93+, a C/C++ compiler and pkg-config are required. LibRaw is bundled;
-Linux builds need the OpenMP runtime. The optional Linux GUI also needs
-Fontconfig development files and an XDG portal for file dialogs.
+Run from the repository root:
 
 ```sh
-cargo build --release --locked
-cargo test --release --locked
-cargo run --release --locked -- profiles
-cargo run --release --locked -- process input.tiff output.tiff
-# Optional desktop GUI:
+# Desktop app
 cargo run --release --locked --features gui --bin fast-spektrafilm-gui
+
+# Command line
+cargo run --release --locked -- process input.tiff output.tiff
 ```
 
-Run from the repository root so `data/` is found, or pass `--data-dir`.
-Metadata copying requires GExiv2 0.14; disable `io.copy_metadata` if unavailable.
-Lens correction requires Lensfun 0.3 and its database.
+Open an image, adjust settings with **Preview**, then **Scan** at full resolution.
+**Save** reuses the scan when settings match. CPU threads are selected automatically;
+use `--threads N` to set a limit.
 
-## Development
-
-`develop` is the integration branch. See [CONTRIBUTING.md](CONTRIBUTING.md)
-for checks and [DEVELOPMENT.md](DEVELOPMENT.md) for CLI/library usage,
-dependencies and reference tooling.
-
-- [Coverage and remaining differences](MIGRATION.md)
-- [Numerical validation](VALIDATION.md) and [measured benchmarks](BENCHMARKS.md)
-- [GUI behavior](GUI.md) and [branch review](GUI_REVIEW.md)
-- [Original asset hashes](BASELINE.json), [GPLv3](LICENSE) and [third-party licenses](licenses/)
+[App guide](GUI.md) · [Build requirements and CLI/library usage](DEVELOPMENT.md) ·
+[Contributing](CONTRIBUTING.md) · [Benchmarks](BENCHMARKS.md) · [License](LICENSE)

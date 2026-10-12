@@ -4,6 +4,7 @@ use crate::{
     color::Tables,
     image::{decode_raw, decode_raw_preview},
 };
+use anyhow::ensure;
 use slint::platform::{
     EventLoopProxy, Platform, WindowAdapter,
     software_renderer::{MinimalSoftwareWindow, RepaintBufferType},
@@ -82,6 +83,102 @@ fn export_matches_core_and_keeps_original_resolution() -> Result<()> {
         direct.data.iter().map(|v| *v as f32).collect::<Vec<_>>()
     );
     Ok(())
+}
+
+#[test]
+fn scan_export_reuses_pixels_without_reading_source_again() -> Result<()> {
+    let dir = tempfile::tempdir()?;
+    let source = dir.path().join("photo.npy");
+    let input = Image::read_npy(&fixture().join("input.npy"))?;
+    input.write_npy(&source)?;
+    let mut params = Params::default();
+    params.io.copy_metadata = false;
+    params.debug.deactivate_spatial_effects = true;
+    // Leave stochastic grain enabled: export must preserve this exact scan.
+    let mut session = Session::new(&data())?;
+    session.set_source(Source::load(&source, &data(), &params)?);
+    let scan = session.render_size(&params, true)?;
+    let resolved = session.resolved_params(&params)?;
+    session.render(&resolved)?; // A subsequent preview must not replace the scan.
+    std::fs::remove_file(&source)?;
+    // A matching Save must not even rebuild the simulator or reload its tables.
+    let processing_data = std::mem::replace(&mut session.data, dir.path().join("missing-data"));
+    let output = dir.path().join("scan.npy");
+    session.export(&resolved, &output)?;
+    let exported = Image::read_npy(&output)?;
+    assert_eq!(
+        backend::display_rgb(
+            &exported,
+            &params.io.output_color_space,
+            params.io.output_cctf_encoding,
+            &Tables::load(&data())?
+        )?,
+        scan.after
+    );
+    let mut display_only = resolved.clone();
+    display_only.io.monitor_profile = Some("missing-monitor.icc".into());
+    session.export(&display_only, &dir.path().join("second.npy"))?;
+    assert_eq!(
+        Image::read_npy(&dir.path().join("second.npy"))?.data,
+        exported.data
+    );
+    session.data = processing_data;
+    // A real processing edit requires a new scan, which cannot read a removed source.
+    let mut edited = resolved;
+    edited.camera.exposure_compensation_ev += 1.;
+    assert!(
+        session
+            .export(&edited, &dir.path().join("changed.npy"))
+            .is_err()
+    );
+    assert!(!dir.path().join("changed.npy").exists());
+    Ok(())
+}
+
+#[test]
+fn preview_export_and_source_changes_invalidate_scan() -> Result<()> {
+    let dir = tempfile::tempdir()?;
+    let source = dir.path().join("photo.npy");
+    let input = Image::new(800, 2, 3, vec![0.18; 800 * 2 * 3])?;
+    input.write_npy(&source)?;
+    let mut params = deterministic();
+    let mut session = Session::new(&data())?;
+    session.set_source(Source::load(&source, &data(), &params)?);
+    session.render(&params)?;
+    let first = dir.path().join("first.npy");
+    assert_eq!(session.export(&params, &first)?, [800, 2]);
+    let original = Image::read_npy(&first)?;
+    params.camera.exposure_compensation_ev += 1.;
+    session.render(&params)?;
+    let edited = dir.path().join("edited.npy");
+    session.export(&params, &edited)?;
+    let direct = Simulator::new(&data(), params.clone())?.process_owned(input, Tap::RgbOut)?;
+    assert_eq!(Image::read_npy(&edited)?.data, direct.data);
+    assert_ne!(original.data, direct.data);
+    // Reloading even the same path must discard the previous source's scan.
+    Image::new(4, 2, 3, vec![0.36; 4 * 2 * 3])?.write_npy(&source)?;
+    session.set_source(Source::load(&source, &data(), &params)?);
+    assert_eq!(
+        session.export(&params, &dir.path().join("reloaded.npy"))?,
+        [4, 2]
+    );
+    Ok(())
+}
+
+#[test]
+fn image_filters_include_uppercase_camera_extensions() {
+    let extensions = extensions_with_case(RAW_EXTENSIONS);
+    for ext in [
+        "CR2", "CR3", "NEF", "ARW", "RAF", "DNG", "RW2", "IIQ", "CRW",
+    ] {
+        assert!(extensions.iter().any(|v| v == ext));
+        assert!(extensions.iter().any(|v| v == &ext.to_ascii_lowercase()));
+    }
+    assert!(
+        extensions_with_case(RGB_EXTENSIONS)
+            .iter()
+            .any(|v| v == "TIFF")
+    );
 }
 
 #[test]
@@ -217,10 +314,59 @@ fn offscreen_darkroom_callbacks_and_layout() -> Result<()> {
         revision: Arc::new(AtomicU64::new(0)),
         sender,
         debounce: Timer::default(),
+        dialog_timer: Timer::default(),
+        dialog_pending: false,
     }));
     sync(&ui, &state.borrow());
     bind_callbacks(&ui, &state);
     ui.set_auto_preview(false);
+    // A blocked chooser must return control to Slint immediately. Deliver the
+    // selection and cancellation through the same timer used by native dialogs.
+    let (release, waiting) = mpsc::channel();
+    let main_thread = std::thread::current().id();
+    choose_file(
+        &ui,
+        &state,
+        move || {
+            assert_ne!(std::thread::current().id(), main_thread);
+            waiting.recv().unwrap()
+        },
+        |ui, _, path| ui.set_status(path.to_string_lossy().into_owned().into()),
+    );
+    assert!(state.borrow().dialog_pending);
+    assert!(ui.get_dialog_open());
+    ui.invoke_tab_selected(1);
+    ui.set_status("UI is responsive".into());
+    assert_eq!(ui.get_status().as_str(), "UI is responsive");
+    choose_file(&ui, &state, || panic!("Duplicate chooser"), |_, _, _| {});
+    release.send(Some(PathBuf::from("selected.CR2")))?;
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    while state.borrow().dialog_pending {
+        ensure!(
+            std::time::Instant::now() < deadline,
+            "Dialog completion timed out"
+        );
+        std::thread::sleep(Duration::from_millis(35));
+        slint::platform::update_timers_and_animations();
+    }
+    assert_eq!(ui.get_status().as_str(), "selected.CR2");
+    assert!(!ui.get_dialog_open());
+    choose_file(
+        &ui,
+        &state,
+        || None,
+        |_, _, _| panic!("Cancellation selected a file"),
+    );
+    while state.borrow().dialog_pending {
+        ensure!(
+            std::time::Instant::now() < deadline,
+            "Dialog cancellation timed out"
+        );
+        std::thread::sleep(Duration::from_millis(35));
+        slint::platform::update_timers_and_animations();
+    }
+    assert_eq!(ui.get_status().as_str(), "selected.CR2");
+
     // Open every section and require one editor for every photo parameter.
     for tab in 0..5 {
         let headers = inspector::fields(&state.borrow(), tab);
@@ -481,6 +627,31 @@ fn rgb_input_cache_and_monitor_are_independent_of_export() -> Result<()> {
     assert_eq!(
         Image::read_npy(&normal)?.data,
         Image::read_npy(&monitor)?.data
+    );
+    Ok(())
+}
+
+#[test]
+fn processing_pool_uses_automatic_or_explicit_thread_count() -> Result<()> {
+    let automatic = processing_pool(0)?;
+    let rayon_default = rayon::ThreadPoolBuilder::new().build()?;
+    assert_eq!(
+        automatic.current_num_threads(),
+        rayon_default.current_num_threads()
+    );
+    if std::env::var_os("RAYON_NUM_THREADS").is_none()
+        && std::env::var_os("RAYON_RS_NUM_CPUS").is_none()
+    {
+        assert_eq!(
+            automatic.current_num_threads(),
+            std::thread::available_parallelism()?.get()
+        );
+    }
+    let explicit = processing_pool(2)?;
+    assert_eq!(explicit.install(rayon::current_num_threads), 2);
+    eprintln!(
+        "Automatic GUI processing pool: {} threads",
+        automatic.current_num_threads()
     );
     Ok(())
 }
