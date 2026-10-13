@@ -44,7 +44,8 @@ white balance, lens correction and other input paths decode before reduction.
 PNG is 16-bit, JPEG is quality 95, TIFF/EXR are float32 and NPY is float64.
 Exports retain the selected output colour representation and embed its ICC
 profile where the reference ships one. The monitor ICC profile affects display
-only. Image saves refuse the source path and replace the destination only after
+only; an invalid monitor profile preserves the completed scan. Image saves refuse
+the source path and replace the destination only after
 successful processing, encoding and metadata copying.
 
 Copy metadata preserves source EXIF/IPTC/XMP for PNG/JPEG/TIFF and corrects the

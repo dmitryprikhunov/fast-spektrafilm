@@ -32,6 +32,7 @@ pub struct Options {
 struct State {
     params: Params,
     path: Option<PathBuf>,
+    source_generation: u64,
     films: Vec<Stock>,
     papers: Vec<Stock>,
     filters: Vec<String>,
@@ -51,7 +52,7 @@ enum Job {
         path: Option<PathBuf>,
         params: Box<Params>,
         full: bool,
-        reload: bool,
+        source_generation: u64,
     },
     Calibrate {
         path: PathBuf,
@@ -146,7 +147,12 @@ fn submit_size(ui: &Darkroom, state: &Rc<RefCell<State>>, full: bool) {
     submit_request(ui, state, full, false);
 }
 fn submit_request(ui: &Darkroom, state: &Rc<RefCell<State>>, full: bool, reload: bool) {
-    let s = state.borrow();
+    let mut s = state.borrow_mut();
+    if reload {
+        // Reopening a path is a source change even if the filename is unchanged.
+        // Every subsequent request carries it, including when this one is skipped.
+        s.source_generation = s.source_generation.wrapping_add(1);
+    }
     s.debounce.stop();
     let revision = s.revision.fetch_add(1, Ordering::SeqCst) + 1;
     ui.set_busy(true);
@@ -170,7 +176,7 @@ fn submit_request(ui: &Darkroom, state: &Rc<RefCell<State>>, full: bool, reload:
                 path: s.path.clone(),
                 params: Box::new(s.params.clone()),
                 full,
-                reload,
+                source_generation: s.source_generation,
             },
         })
         .is_err()
@@ -186,6 +192,7 @@ fn worker(
     weak: slint::Weak<Darkroom>,
     pool: rayon::ThreadPool,
 ) {
+    let mut loaded_source_generation = 0;
     while let Ok(request) = receiver.recv() {
         let exporting = matches!(request.job, Job::Export { .. });
         if !exporting && request.revision != revision.load(Ordering::SeqCst) {
@@ -198,10 +205,10 @@ fn worker(
                         path,
                         params,
                         full,
-                        reload,
+                        source_generation,
                     } => {
                         if let Some(path) = path {
-                            if reload
+                            if source_generation != loaded_source_generation
                                 || session
                                     .source
                                     .as_ref()
@@ -211,6 +218,7 @@ fn worker(
                                     Source::load(&path, &session.data, &params)
                                         .with_context(|| format!("Open {}", path.display()))?,
                                 );
+                                loaded_source_generation = source_generation;
                             }
                             let preview = if full {
                                 session.render_size(&params, true)?
@@ -359,6 +367,7 @@ pub fn run(options: Options) -> Result<()> {
     let state = Rc::new(RefCell::new(State {
         params,
         path: options.input,
+        source_generation: 0,
         films,
         papers,
         filters: crate::color::Tables::load(&options.data_dir)?

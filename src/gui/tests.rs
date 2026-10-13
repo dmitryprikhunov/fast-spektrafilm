@@ -166,6 +166,30 @@ fn preview_export_and_source_changes_invalidate_scan() -> Result<()> {
 }
 
 #[test]
+fn failed_monitor_display_preserves_completed_scan() -> Result<()> {
+    let dir = tempfile::tempdir()?;
+    let source = dir.path().join("photo.npy");
+    Image::read_npy(&fixture().join("input.npy"))?.write_npy(&source)?;
+    let mut params = Params::default();
+    params.io.copy_metadata = false;
+    params.debug.deactivate_spatial_effects = true;
+    let mut session = Session::new(&data())?;
+    session.set_source(Source::load(&source, &data(), &params)?);
+    session.render_size(&params, true)?;
+    let saved = dir.path().join("saved.npy");
+    session.export(&params, &saved)?;
+    let original = Image::read_npy(&saved)?;
+    params.io.monitor_profile = Some(dir.path().join("missing.icc").to_string_lossy().into());
+    assert!(session.render_size(&params, true).is_err());
+    std::fs::write(dir.path().join("missing.icc"), b"invalid ICC profile")?;
+    assert!(session.render_size(&params, true).is_err());
+    std::fs::remove_file(&source)?;
+    session.export(&params, &saved)?;
+    assert_eq!(Image::read_npy(&saved)?.data, original.data);
+    Ok(())
+}
+
+#[test]
 fn image_filters_include_uppercase_camera_extensions() {
     let extensions = extensions_with_case(RAW_EXTENSIONS);
     for ext in [
@@ -303,6 +327,7 @@ fn offscreen_darkroom_callbacks_and_layout() -> Result<()> {
     let state = Rc::new(RefCell::new(State {
         params: deterministic(),
         path: Some(fixture().join("input.npy")),
+        source_generation: 0,
         films,
         papers,
         filters: Tables::load(&data())?
@@ -473,6 +498,38 @@ fn offscreen_darkroom_callbacks_and_layout() -> Result<()> {
     assert!(!ui.get_error());
     assert!(ui.get_has_image());
     assert!(!ui.get_stale());
+    // Reopening the same path must reload it even when a newer preview makes
+    // the opening request obsolete before the worker can process it.
+    let reload_dir = tempfile::tempdir()?;
+    let reload_path = reload_dir.path().join("reopen.npy");
+    Image::new(4, 2, 3, vec![0.18; 24])?.write_npy(&reload_path)?;
+    let mut reload_session = Session::new(&data())?;
+    reload_session.set_source(Source::load(&reload_path, &data(), &state.borrow().params)?);
+    state.borrow_mut().path = Some(reload_path.clone());
+    Image::new(5, 2, 3, vec![0.36; 30])?.write_npy(&reload_path)?;
+    let (reload_sender, reload_receiver) = mpsc::channel();
+    let original_sender = std::mem::replace(&mut state.borrow_mut().sender, reload_sender);
+    // Queue both revisions before starting the worker to guarantee that the
+    // opening request is discarded while the same-path source is cached.
+    submit_request(&ui, &state, false, true);
+    submit(&ui, &state);
+    state.borrow_mut().sender = original_sender;
+    let reload_weak = ui.as_weak();
+    let reload_revision = state.borrow().revision.clone();
+    let reload_pool = processing_pool(2)?;
+    let reload_thread = std::thread::spawn(move || {
+        worker(
+            reload_session,
+            reload_receiver,
+            reload_revision,
+            reload_weak,
+            reload_pool,
+        )
+    });
+    event_receiver.recv_timeout(Duration::from_secs(60))?();
+    reload_thread.join().expect("Reload worker exits");
+    assert_eq!(ui.get_dimensions().as_str(), "5 × 2");
+    state.borrow_mut().path = Some(fixture().join("input.npy"));
     // Numeric entry keeps float64 precision, and changing tabs cannot duplicate controls.
     ui.invoke_field_edited(
         "/camera/exposure_compensation_ev".into(),

@@ -306,9 +306,9 @@ impl Session {
         image: &Image,
         space: &str,
         encoded: bool,
-        monitor: Option<&str>,
+        monitor: Option<&[u8]>,
     ) -> Result<Vec<u8>> {
-        if let Some(path) = monitor.filter(|p| !p.is_empty()) {
+        if let Some(profile) = monitor {
             let mut image = image.clone();
             let matrix = self.tables.rgb_to_rgb(space, "sRGB")?;
             for pixel in image.data.chunks_exact_mut(3) {
@@ -319,7 +319,7 @@ impl Session {
             file_io::transform_icc(
                 &mut image,
                 &file_io::icc(&self.data, "sRGB", true)?,
-                &std::fs::read(path)?,
+                profile,
             )?;
             Ok(image
                 .data
@@ -332,6 +332,22 @@ impl Session {
     }
     pub fn render_size(&mut self, params: &Params, full: bool) -> Result<Preview> {
         let start = Instant::now();
+        let monitor = params
+            .io
+            .monitor_profile
+            .as_deref()
+            .filter(|p| !p.is_empty())
+            .map(std::fs::read)
+            .transpose()?;
+        if let Some(profile) = &monitor {
+            // Validate the display transform before discarding a completed scan.
+            // Use one pixel so this check does not allocate another full image.
+            file_io::transform_icc(
+                &mut Image::new(1, 1, 3, vec![0.; 3])?,
+                &file_io::icc(&self.data, "sRGB", true)?,
+                profile,
+            )?;
+        }
         if full {
             self.scan = None; // Release the old full image before allocating its replacement.
         }
@@ -341,7 +357,7 @@ impl Session {
             &input,
             &params.io.input_color_space,
             params.io.input_cctf_decoding,
-            params.io.monitor_profile.as_deref(),
+            monitor.as_deref(),
         )?;
         let before_size = [u32::try_from(input.width)?, u32::try_from(input.height)?];
         let output =
@@ -356,7 +372,7 @@ impl Session {
             &output,
             &params.io.output_color_space,
             params.io.output_cctf_encoding,
-            params.io.monitor_profile.as_deref(),
+            monitor.as_deref(),
         )?;
         let after_size = [u32::try_from(output.width)?, u32::try_from(output.height)?];
         if full {
