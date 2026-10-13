@@ -86,3 +86,46 @@ Reproduce with `.venv/bin/python tools/benchmark_core.py` after preparing the
 cached crops and building the release CLI. These tiny-crop figures do not
 establish full-resolution throughput; inverse calibration and large FFT kernels
 need separate full-image memory/performance studies.
+
+## Audit recheck, 2026-10-13
+
+Rust source `b83e4d1`, release CLI built with `--features gui`; same Xeon CPU
+and Rust 1.93.1 as above, Python 3.13.16. Four cached 256×256 sample crops,
+Portra 400 → Portra Endura → sRGB, 35 mm format, four threads, three repeats.
+Autoexposure, spatial effects and grain/glare were disabled in both processors;
+default gamut compression and direct spectral integration were retained.
+Preparation/JIT, decoding and output writing are outside the render timer;
+peak RSS includes startup and preparation. Compilation/tests were finished
+before this benchmark. All four outputs passed `atol=1e-9`, `rtol=1e-8`.
+
+| Camera crop | Python median, ms | Rust median, ms | Python RSS, MiB | Rust RSS, MiB | Max RGB error |
+|---|---:|---:|---:|---:|---:|
+| Canon 5D Mark III | 450.59 | 60.89 | 465.21 | 35.96 | 2.1202e-14 |
+| Hasselblad H3D39II | 451.48 | 61.16 | 456.95 | 36.27 | 1.3993e-14 |
+| Mamiya ZD | 445.98 | 63.48 | 458.46 | 35.98 | 1.8735e-15 |
+| Nikon D750 | 448.84 | 60.87 | 458.34 | 35.87 | 1.5266e-15 |
+
+These measurements recheck the deterministic forward crop path only. They do
+not benchmark calibration, preview parity, inverse/diffusion paths or GUI memory.
+Reproduce with `.venv/bin/python tools/benchmark.py --mode deterministic --threads 4 --repeat 3`
+after the release build and crop preparation above. Timing samples, environment,
+binary and lockfile hashes are in the ignored
+`artifacts/tech-debt-audit/benchmark.json` snapshot of the generated report.
+
+## Coverage limits found in the 2026-10-13 audit
+
+The tables above are dated measurements, not evidence that all migrated paths
+have a performance/parity gate. `tools/benchmark.py` asserts the strict forward
+RGB comparison and records environment/binary/lockfile provenance.
+`tools/benchmark_core.py` currently only records max error/RMSE: it does not fail
+on a tolerance breach and does not record equivalent provenance. Review its
+reported errors against the float32 path bounds in [VALIDATION.md](VALIDATION.md)
+before accepting a result; fixing this is migration debt D7.
+
+No measurements here establish Preview → Scan → Save latency, the cost of
+rebuilding simulators on edits, full-resolution scan-cache/monitor memory,
+calibration performance, or high-resolution diffusion/inverse peak RSS. These
+are open items in [MIGRATION.md](MIGRATION.md#d8--p2-end-to-end-performance-and-memory-remain-unmeasured).
+Do not infer GUI responsiveness or whole-application speedups from crop render
+timings. Keep preparation/JIT outside processing timers and report their costs
+separately when measuring interactive use.

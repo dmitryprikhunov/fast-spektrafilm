@@ -16,6 +16,12 @@ contains negative calibration, film/print dye permutations and gamut controls.
 Config contains processing settings, monitor ICC selection, automatic preview,
 file format, settings load/save/reset and startup defaults. JSON remains the
 portable settings-file format shared with the CLI, not a user-facing editor.
+
+Detect base and device calibration use the reduced preview; CLI calibration
+uses the original resolution. The device optimizer is not yet numerically
+equivalent to the reference, and automatic neutral print-balance solving is
+absent. See [MIGRATION.md](MIGRATION.md) for calibration limits and follow-up work.
+
 Stock grain/coupler values and neutral filters are resolved into their controls;
 manual changes switch off the corresponding automatic preset so they take effect.
 
@@ -30,7 +36,12 @@ Automatic updates debounce edits by 300 ms. **Scan** processes and displays the
 original resolution. **Save** reuses the full-resolution scan when the source
 and processing settings match, or processes the original if needed. Fit and
 100/200/400% views support scrolling, and Original/Processed/Compare use the
-same display transform. Fine grain and spatial detail can differ
+same display transform. The preview uses integer-bin area averaging at 768px;
+the pinned Python preview uses anti-aliased linear resize (640px by default).
+Rust also has no upstream `preview_mode` switch that disables selected effects.
+Preview equivalence is an open processing gap, not established by the core
+framing tests; see [migration debt D2](MIGRATION.md#d2--p1-preview-resampling-and-preview-mode-differ).
+Fine grain and spatial detail can differ
 at preview scale; use Scan to inspect the full-resolution result.
 
 File dialogs run independently of the UI event loop. Image decoding, simulation,
@@ -42,6 +53,12 @@ linear as-shot RAW preview uses a bounded floating-point buffer; custom
 white balance, lens correction and other input paths decode before reduction.
 
 PNG is 16-bit, JPEG is quality 95, TIFF/EXR are float32 and NPY is float64.
+There is no bit-depth selector for the upstream TIFF8/16 or half-EXR options.
+There are also no separate saving-colour settings: changing output colour
+changes simulation settings and invalidates the scan. The original GUI can
+convert an already completed output into a separate delivery colour space.
+Manual clockwise/counterclockwise input rotation is not yet implemented; it is
+separate from automatic decoder orientation. These are migration debt D9.
 Exports retain the selected output colour representation and embed its ICC
 profile where the reference ships one. The monitor ICC profile affects display
 only; an invalid monitor profile preserves the completed scan. Image saves refuse
@@ -82,5 +99,7 @@ display server are not required for the normal tests.
 The Slint application replaces the photo-editing controls and processing
 workflows. It does not recreate Napari's general layer tooling, the decorative
 Polaroid animation/paper-back view, or import the original Qt GUI-state JSON
-schema. Its settings files use the Rust processing schema. These application
-presentation differences are separate from numerical core parity.
+schema. Its settings files use the Rust processing schema. These are intentional
+presentation/schema boundaries. Separate processing,
+preview, I/O and verification gaps remain open in [MIGRATION.md](MIGRATION.md);
+the native-control coverage test checks the Rust schema only.

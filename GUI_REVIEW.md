@@ -1,5 +1,10 @@
 # Slint branch review
 
+This is a historical record of fixes, not a complete parity sign-off. The
+2026-10-13 audit of `develop` found remaining calibration, preview, runtime and
+I/O gaps; [MIGRATION.md](MIGRATION.md) is the current backlog. In particular,
+"core controls" below means controls represented by the Rust parameter schema.
+
 Review target: `feature/slint-gui`. Baseline: `codex/core-coverage` (`f70341a`).
 Reference: experimental `28bf883e1672e884307edc75852549376e13644e`, especially
 `params_manifest.py`, `params_mapper.py`, `widget_sections.py` and the supplied

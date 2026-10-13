@@ -60,9 +60,17 @@ long side; coordinates are ordered x, y. Metering uses the full test input befor
 framing, and spatial effects retain its physical pixel scale after cropping.
 
 Configuration is JSON, with partial groups filled from defaults. Unknown fields
-and unsupported algorithms produce errors. Profile names select the original
-JSON measurement data. `--data-dir` overrides the data location. RAW input uses
-as-shot white balance; `decode` also supports daylight and half-size demosaicing.
+and unsupported algorithms produce errors. The schema is not compatible with
+Python runtime/Qt state JSON; see the mapping and open gaps in
+[MIGRATION.md](MIGRATION.md). Profile names select the original
+JSON measurement data. `--data-dir` overrides the data location. RAW input defaults to
+as-shot white balance; `raw.white_balance` selects the alternatives described
+below. `decode` also supports half-size demosaicing.
+
+Use a distinct new output path for CLI processing: unlike GUI Save, CLI writes
+directly to its destination before metadata copying and does not protect the
+source path. A failed export can leave a changed destination (migration debt D3).
+
 NPY input is an H×W×C little-endian float16/32/64 array in the configured input
 space. Simulation and NPY export use float64; TIFF export uses float32 RGB.
 
@@ -85,7 +93,9 @@ fn main() -> anyhow::Result<()> {
 
 Reuse the immutable simulator to reuse spectral and gamut tables. `process_owned`
 consumes the input and reuses its storage on the per-pixel path. `process` keeps
-the caller's input. Construct a new simulator when settings change. Rayon handles
+the caller's input. Construct a new simulator when settings change. Upstream tap
+injection, soft updates and per-stage timing do not yet have equivalent Rust
+APIs. Rayon handles
 pixel work; a local thread pool can set the library's thread count.
 
 Grain uses the reference's float32 working precision. With
@@ -149,12 +159,22 @@ PNG/JPEG/WebP without an ICC profile are interpreted as sRGB; untagged TIFF/EXR
 and NPY retain the explicitly configured input representation. RGB ICC profiles
 are honoured. PNG export is 16-bit; TIFF/EXR remain float32 and NPY float64.
 Output profiles are embedded for supported RGB spaces in PNG/JPEG/TIFF.
+These encodings differ from upstream PNG8, selectable TIFF8/16/32 and EXR16/32;
+Rust has no output bit-depth/compression selector. Ordinary image decoding
+passes through float32; use NPY for strict float64 input and stage interchange.
+One-channel BW density taps require NPY. See migration debt D6 for file-I/O
+parity limits.
 
 Set `workflow.route` to `input > convert-film > print > scan`,
 `input > convert-film > scan`, or `input > convert-film > scan-minus-base`.
 `convert` contains the scan lamp, exposure alignment and a 3×3 calibration matrix.
 `calibrate input.tiff fitted.json --config settings.json` detects/fits clear base;
 add `--device` to fit device calibration. Both operations save reusable settings.
+The device optimizer differs from
+SciPy and its fitted matrix is not reference-equivalent on the existing fixture;
+see migration debt D1. The GUI calibrates its preview, while this CLI command
+uses the original resolution. Neither action runs upstream's automatic neutral
+print-balance solver, which is not yet ported; adjust M/Y shifts manually.
 
 `raw.white_balance` accepts `as_shot`, `daylight`, `tungsten`, or `custom`;
 custom uses `raw.temperature` (kelvin) and `raw.tint`. Enable

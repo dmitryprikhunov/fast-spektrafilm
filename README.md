@@ -25,4 +25,5 @@ Open an image, adjust settings with **Preview**, then **Scan** at full resolutio
 use `--threads N` to set a limit.
 
 [App guide](GUI.md) · [Build requirements and CLI/library usage](DEVELOPMENT.md) ·
+[Migration status and technical debt](MIGRATION.md) · [Validation](VALIDATION.md) ·
 [Contributing](CONTRIBUTING.md) · [Benchmarks](BENCHMARKS.md) · [License](LICENSE)
