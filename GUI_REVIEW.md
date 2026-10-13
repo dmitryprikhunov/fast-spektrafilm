@@ -44,3 +44,41 @@ including normal/compact windows and all five tabs. The test suite exercises
 stale-result rejection, failure recovery and closing the window while the
 worker exists. Real RAW decoding was checked separately against full-frame
 area reduction. See GUI.md for commands and intentional application differences.
+
+## Import/Save review, 2026-10-13
+
+Review target: `fix/gui-import-save-threading`, PR #1 against `develop`
+(`23cf70d`). Two additional findings were reproduced and fixed:
+
+- **P1 — Reopening a source could retain the old image.** A newer preview could
+  discard the request carrying the one-time reload flag. When the same filename
+  was opened after its contents changed, the cached preview and scan survived.
+  Each preview now carries the source generation, so discarding an obsolete
+  request cannot discard the reload intent. A worker regression queues both
+  requests before starting the worker and requires the replacement dimensions.
+- **P2 — An invalid monitor ICC discarded the completed scan.** Full-resolution
+  rendering cleared the scan before opening or validating the monitor profile.
+  A failed display update then forced Save to rerender stochastic grain. Monitor
+  bytes and the transform are now checked on one pixel before releasing the
+  scan. The regression checks missing and corrupt profiles, removes the source,
+  and requires an export identical to the original scan.
+
+Both regressions failed before the fixes and passed afterward. Native file
+dialogs are covered through the shared asynchronous completion path with a
+blocked picker and cancellation; interactive desktop dialogs were not manually
+exercised in this review.
+
+The complete release suite passed 32 tests with GUI enabled, including the pinned
+reference stages, metadata round trips and Lensfun against the fixture database.
+Strict release Clippy with all targets and GUI enabled, formatting checks and
+all 235 copied-asset hashes passed.
+
+The four cached 256×256 camera crops were benchmarked against the pinned reference
+with identical Portra 400 → Endura → sRGB settings, autoexposure and spatial/
+stochastic effects disabled, four threads and three repetitions. Median processing
+times ranged from 60.52–61.01 ms for Rust and 450.07–470.60 ms for Python. Peak
+process RSS was 36.11–36.22 MiB and 456.61–465.62 MiB respectively; it includes
+startup and preparation. Maximum absolute output error was 2.1202e-14. These
+measurements cover the core crop transform; they do not measure GUI scan-cache
+memory or full-resolution RAW throughput. Detailed logs and benchmark provenance
+remain under ignored `artifacts/`.

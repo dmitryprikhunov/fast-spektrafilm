@@ -22,25 +22,30 @@ manual changes switch off the corresponding automatic preset so they take effect
 Open RAW, PNG, JPEG, TIFF, WebP, EXR or RGB NPY. Embedded RGB profiles are honoured;
 untagged PNG/JPEG/WebP use sRGB. Untagged TIFF/EXR and NPY use the selected input
 interpretation. RAW supports as-shot, daylight, tungsten and custom temperature/
-tint. Lens correction uses Lensfun 0.3 and its database, as described in README.
+tint. Lens correction uses Lensfun 0.3 and its database; see
+[DEVELOPMENT.md](DEVELOPMENT.md).
 
 **Preview** processes a full-frame source reduced to a 768-pixel long side.
 Automatic updates debounce edits by 300 ms. **Scan** processes and displays the
-original resolution. **Save** always processes the original with the current
-settings. Fit and 100/200/400% views support scrolling, and Original/Processed/
-Compare use the same display transform. Fine grain and spatial detail can differ
+original resolution. **Save** reuses the full-resolution scan when the source
+and processing settings match, or processes the original if needed. Fit and
+100/200/400% views support scrolling, and Original/Processed/Compare use the
+same display transform. Fine grain and spatial detail can differ
 at preview scale; use Scan to inspect the full-resolution result.
 
-Image decoding, simulation, calibration, metadata and export run on the worker,
-not the UI thread. Obsolete results are discarded, including after opening a
-new source. RAW/input interpretation changes invalidate the source cache. The
-common linear as-shot RAW preview uses a bounded floating-point buffer; custom
+File dialogs run independently of the UI event loop. Image decoding, simulation,
+calibration, metadata and export run on the processing worker. The GUI uses
+available CPU threads by default (or `RAYON_NUM_THREADS`); `--threads N` overrides
+it. Obsolete results are discarded, including after opening a new source.
+RAW/input interpretation changes invalidate the source cache. The common
+linear as-shot RAW preview uses a bounded floating-point buffer; custom
 white balance, lens correction and other input paths decode before reduction.
 
 PNG is 16-bit, JPEG is quality 95, TIFF/EXR are float32 and NPY is float64.
 Exports retain the selected output colour representation and embed its ICC
 profile where the reference ships one. The monitor ICC profile affects display
-only. Image saves refuse the source path and replace the destination only after
+only; an invalid monitor profile preserves the completed scan. Image saves refuse
+the source path and replace the destination only after
 successful processing, encoding and metadata copying.
 
 Copy metadata preserves source EXIF/IPTC/XMP for PNG/JPEG/TIFF and corrects the

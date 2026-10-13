@@ -35,6 +35,7 @@ export component Darkroom inherits Window {
     in property <bool> has-image;
     in property <bool> busy;
     in property <bool> exporting;
+    in property <bool> dialog-open;
     in property <bool> stale;
     in property <bool> error;
     in property <string> filename: "No image selected";
@@ -89,28 +90,28 @@ export component Darkroom inherits Window {
                     if root.tab == 0: HorizontalLayout {
                         height: 32px;
                         Text { text: root.filename; color: #dddddd; overflow: elide; vertical-alignment: center; }
-                        Button { width: 110px; text: "Select file…"; enabled: !root.exporting; clicked => { root.open-image(); } }
+                        Button { width: 110px; text: "Select file…"; enabled: !root.exporting && !root.dialog-open; clicked => { root.open-image(); } }
                     }
                     if root.tab == 0: Text { text: root.dimensions; color: #999999; height: 20px; }
                     if root.tab == 4: VerticalLayout {
                         spacing: 5px;
                         HorizontalLayout {
-                            Button { text: "Load settings…"; enabled: !root.exporting; clicked => { root.load-settings(); } }
-                            Button { text: "Save settings…"; enabled: !root.exporting; clicked => { root.save-settings(); } }
-                            Button { text: "Reset"; enabled: !root.exporting; clicked => { root.reset-settings(); } }
+                            Button { text: "Load settings…"; enabled: !root.exporting && !root.dialog-open; clicked => { root.load-settings(); } }
+                            Button { text: "Save settings…"; enabled: !root.exporting && !root.dialog-open; clicked => { root.save-settings(); } }
+                            Button { text: "Reset"; enabled: !root.exporting && !root.dialog-open; clicked => { root.reset-settings(); } }
                         }
-                        Button { text: "Use current settings at startup"; enabled: !root.exporting; clicked => { root.save-default(); } }
+                        Button { text: "Use current settings at startup"; enabled: !root.exporting && !root.dialog-open; clicked => { root.save-default(); } }
                         HorizontalLayout {
                             Text { text: root.monitor-name; color: #cccccc; overflow: elide; vertical-alignment: center; }
-                            Button { text: "Monitor ICC…"; enabled: !root.exporting; clicked => { root.monitor(true); } }
-                            Button { text: "sRGB"; enabled: !root.exporting; clicked => { root.monitor(false); } }
+                            Button { text: "Monitor ICC…"; enabled: !root.exporting && !root.dialog-open; clicked => { root.monitor(true); } }
+                            Button { text: "sRGB"; enabled: !root.exporting && !root.dialog-open; clicked => { root.monitor(false); } }
                         }
-                        CheckBox { text: "Automatic preview"; checked <=> root.auto-preview; enabled: !root.exporting; }
-                        ComboBox { model: ["TIFF · float", "PNG · 16 bit", "NPY · float", "JPEG", "EXR · float"]; current-index <=> root.export-format; enabled: !root.exporting; }
+                        CheckBox { text: "Automatic preview"; checked <=> root.auto-preview; enabled: !root.exporting && !root.dialog-open; }
+                        ComboBox { model: ["TIFF · float", "PNG · 16 bit", "NPY · float", "JPEG", "EXR · float"]; current-index <=> root.export-format; enabled: !root.exporting && !root.dialog-open; }
                     }
                     if root.tab == 3: HorizontalLayout {
-                        Button { text: "Detect film base"; enabled: root.has-image && !root.busy; clicked => { root.calibrate(false); } }
-                        Button { text: "Calibrate scanner"; enabled: root.has-image && !root.busy; clicked => { root.calibrate(true); } }
+                        Button { text: "Detect film base"; enabled: root.has-image && !root.busy && !root.dialog-open; clicked => { root.calibrate(false); } }
+                        Button { text: "Calibrate scanner"; enabled: root.has-image && !root.busy && !root.dialog-open; clicked => { root.calibrate(true); } }
                     }
                     ScrollView {
                         VerticalLayout {
@@ -125,18 +126,18 @@ export component Darkroom inherits Window {
                                 if field.kind != 3: HorizontalLayout {
                                     spacing: 8px;
                                     Text { text: field.label; width: 200px; font-size: 12px; color: #dddddd; vertical-alignment: center; wrap: word-wrap; }
-                                    if field.kind == 0: LineEdit { text: field.value; placeholder-text: field.hint; enabled: !root.exporting; accepted => { root.field-edited(field.key, self.text); } changed has-focus => { if !self.has-focus && self.text != field.value { root.field-edited(field.key, self.text); } } }
-                                    if field.kind == 1: CheckBox { checked: field.checked; enabled: !root.exporting; toggled => { root.field-edited(field.key, self.checked ? "true" : "false"); } }
-                                    if field.kind == 2: ComboBox { model: field.options; current-value: field.value; enabled: !root.exporting; selected(v) => { root.field-edited(field.key,v); } }
+                                    if field.kind == 0: LineEdit { text: field.value; placeholder-text: field.hint; enabled: !root.exporting && !root.dialog-open; accepted => { root.field-edited(field.key, self.text); } changed has-focus => { if !self.has-focus && self.text != field.value { root.field-edited(field.key, self.text); } } }
+                                    if field.kind == 1: CheckBox { checked: field.checked; enabled: !root.exporting && !root.dialog-open; toggled => { root.field-edited(field.key, self.checked ? "true" : "false"); } }
+                                    if field.kind == 2: ComboBox { model: field.options; current-value: field.value; enabled: !root.exporting && !root.dialog-open; selected(v) => { root.field-edited(field.key,v); } }
                                 }
                             }
                         }
                     }
                     HorizontalLayout {
                         height: 38px; spacing: 5px;
-                        Button { text: "PREVIEW"; enabled: !root.exporting; clicked => { root.preview(); } }
-                        Button { text: "SCAN"; enabled: root.has-image && !root.busy; clicked => { root.scan(); } }
-                        Button { text: "SAVE"; enabled: root.has-image && !root.busy; clicked => { root.export-image(); } }
+                        Button { text: "PREVIEW"; enabled: !root.exporting && !root.dialog-open; clicked => { root.preview(); } }
+                        Button { text: "SCAN"; enabled: root.has-image && !root.busy && !root.dialog-open; clicked => { root.scan(); } }
+                        Button { text: "SAVE"; enabled: root.has-image && !root.busy && !root.dialog-open; clicked => { root.export-image(); } }
                     }
                 }
             }

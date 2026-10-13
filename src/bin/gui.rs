@@ -1,7 +1,7 @@
-use anyhow::{Result, ensure};
+use anyhow::Result;
 use clap::Parser;
 use fast_spektrafilm::gui::{Options, run};
-use std::path::PathBuf;
+use std::{num::NonZeroUsize, path::PathBuf};
 
 /// A native Slint darkroom for fast-spektrafilm.
 #[derive(Parser)]
@@ -14,17 +14,34 @@ struct Cli {
     /// Load the same JSON settings accepted by the CLI.
     #[arg(long)]
     config: Option<PathBuf>,
-    #[arg(long, default_value_t = 4)]
-    threads: usize,
+    /// Processing threads (defaults to available CPUs; respects RAYON_NUM_THREADS).
+    #[arg(long)]
+    threads: Option<NonZeroUsize>,
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    ensure!(cli.threads > 0, "Thread count must be positive");
     run(Options {
         data_dir: cli.data_dir,
         input: cli.input,
         config: cli.config,
-        threads: cli.threads,
+        threads: cli.threads.map_or(0, NonZeroUsize::get),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn threads_default_to_automatic_and_accept_an_explicit_limit() {
+        assert_eq!(Cli::try_parse_from(["gui"]).unwrap().threads, None);
+        assert_eq!(
+            Cli::try_parse_from(["gui", "--threads", "12"])
+                .unwrap()
+                .threads,
+            NonZeroUsize::new(12)
+        );
+        assert!(Cli::try_parse_from(["gui", "--threads", "0"]).is_err());
+    }
 }
