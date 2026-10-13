@@ -6,6 +6,8 @@ Based on [spektrafilm](https://github.com/andreavolpato/spektrafilm/tree/28bf883
 by **Andrea Volpato and the spektrafilm contributors**. Original attribution,
 data and licenses are retained; this port is GPLv3.
 
+![Desktop interface showing a processed RAW photo and film controls](docs/images/interface.png)
+
 ## Get started
 
 Run from the repository root:
