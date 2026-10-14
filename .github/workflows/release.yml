@@ -63,8 +63,10 @@ jobs:
       - name: Build optimized CLI and GUI
         # One Cargo job bounds memory during thin LTO of the Slint application.
         run: cargo build --release --locked --features gui --bins -j1
-      - name: Test the release profile
-        run: cargo test --release --locked --features gui -j1
+      - name: Test optimized processing and CLI
+        # Rust CI covers GUI callbacks and native paths. Exercise the core with
+        # thin LTO here, and the actual GUI executable in the archive smoke test.
+        run: cargo test --release --locked -j1
       - name: Package binaries, original data, licenses and matching source
         run: bash scripts/package-linux.sh "$RELEASE_TAG"
       - name: Test the unpacked release outside the checkout

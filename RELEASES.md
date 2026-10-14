@@ -49,9 +49,11 @@ workflows. Keep the Cargo version and `releases/vVERSION.md` notes in sync, then
 push an annotated `vVERSION` tag pointing to that verified commit. Promotion to
 `main` remains a separate step.
 
-The Release workflow builds and tests the normal release profile on Ubuntu
-24.04, verifies original asset hashes, and tests data discovery, CLI rendering
-and GUI startup from an unpacked archive outside the checkout. It uploads the
+The Release workflow builds both executables and tests processing/library/CLI
+with the normal release profile on Ubuntu 24.04. Rust CI covers the GUI callback
+suite and explicit native checks. Release checks verify original asset hashes,
+data discovery, CLI rendering and GUI startup from an unpacked archive outside
+the checkout. The workflow uploads the
 Linux archive, matching source archive and SHA256 checksums as Actions artifacts.
 Tag runs publish these files to a GitHub release only after all checks pass;
 pull requests and manual workflow runs build artifacts without publishing.
