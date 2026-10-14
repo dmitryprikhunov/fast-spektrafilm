@@ -51,7 +51,7 @@ export component Darkroom inherits Window {
     callback open-image(); callback load-settings(); callback save-settings(); callback save-default(); callback reset-settings();
     callback preview(); callback scan(); callback export-image();
     callback field-edited(string,string); callback section-toggled(string); callback tab-selected(int);
-    callback calibrate(bool); callback calibrated(string); callback resolved(string); callback monitor(bool);
+    callback calibrate(bool); callback neutralize(); callback rotate(int); callback calibrated(string); callback resolved(string); callback monitor(bool);
     VerticalLayout {
         padding: 10px; spacing: 8px;
         HorizontalLayout {
@@ -93,6 +93,11 @@ export component Darkroom inherits Window {
                         Button { width: 110px; text: "Select file…"; enabled: !root.exporting && !root.dialog-open; clicked => { root.open-image(); } }
                     }
                     if root.tab == 0: Text { text: root.dimensions; color: #999999; height: 20px; }
+                    if root.tab == 0: HorizontalLayout {
+                        Button { text: "↶ Rotate"; enabled: root.has-image && !root.busy && !root.dialog-open; clicked => { root.rotate(-1); } }
+                        Button { text: "Rotate ↷"; enabled: root.has-image && !root.busy && !root.dialog-open; clicked => { root.rotate(1); } }
+                    }
+                    if root.tab == 3: Button { text: "Neutralize print filters"; enabled: !root.busy && !root.dialog-open; clicked => { root.neutralize(); } }
                     if root.tab == 4: VerticalLayout {
                         spacing: 5px;
                         HorizontalLayout {
@@ -107,7 +112,7 @@ export component Darkroom inherits Window {
                             Button { text: "sRGB"; enabled: !root.exporting && !root.dialog-open; clicked => { root.monitor(false); } }
                         }
                         CheckBox { text: "Automatic preview"; checked <=> root.auto-preview; enabled: !root.exporting && !root.dialog-open; }
-                        ComboBox { model: ["TIFF · float", "PNG · 16 bit", "NPY · float", "JPEG", "EXR · float"]; current-index <=> root.export-format; enabled: !root.exporting && !root.dialog-open; }
+                        ComboBox { model: ["TIFF", "PNG", "NPY · float", "JPEG", "EXR"]; current-index <=> root.export-format; enabled: !root.exporting && !root.dialog-open; }
                     }
                     if root.tab == 3: HorizontalLayout {
                         Button { text: "Detect film base"; enabled: root.has-image && !root.busy && !root.dialog-open; clicked => { root.calibrate(false); } }

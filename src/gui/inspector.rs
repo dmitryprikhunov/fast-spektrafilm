@@ -68,6 +68,21 @@ fn choices(key: &str, s: &State) -> Vec<(String, String)> {
                 .map(|v| (v.id.clone(), v.label.clone()))
                 .collect();
         }
+        "/workflow/saving_color_space" => {
+            return [
+                ("", "Processing colour"),
+                ("sRGB", "sRGB"),
+                ("Display P3", "Display P3"),
+                ("Adobe RGB (1998)", "Adobe RGB (1998)"),
+                ("ProPhoto RGB", "ProPhoto RGB"),
+                ("ITU-R BT.2020", "ITU-R BT.2020"),
+                ("ACES2065-1", "ACES2065-1"),
+                ("ACEScg", "ACEScg"),
+            ]
+            .into_iter()
+            .map(|(v, l)| (v.into(), l.into()))
+            .collect();
+        }
         "/io/input_color_space" | "/io/output_color_space" => &[
             "sRGB",
             "Display P3",
@@ -77,6 +92,7 @@ fn choices(key: &str, s: &State) -> Vec<(String, String)> {
             "ACES2065-1",
             "ACEScg",
         ],
+        "/io/output_compression" => &["zip", "none"],
         "/raw/white_balance" => &["as_shot", "daylight", "tungsten", "custom"],
         "/camera/auto_exposure_method" => &[
             "center_weighted",
@@ -252,6 +268,7 @@ pub fn fields(s: &State, tab: i32) -> Vec<Field> {
             (
                 "Preview and crop",
                 &[
+                    "/io/input_rotation",
                     "/io/crop",
                     "/io/crop_center",
                     "/io/crop_size",
@@ -290,6 +307,8 @@ pub fn fields(s: &State, tab: i32) -> Vec<Field> {
                     "/io/output_color_space",
                     "/io/output_cctf_encoding",
                     "/io/copy_metadata",
+                    "/io/output_bit_depth",
+                    "/io/output_compression",
                 ],
             ),
         ],
@@ -393,6 +412,12 @@ pub fn edit(s: &mut State, key: &str, text: &str) -> Result<()> {
         serde_json::from_str(raw)?
     } else if value.is_boolean() {
         Value::Bool(raw.parse()?)
+    } else if key == "/workflow/saving_color_space" {
+        if raw.is_empty() {
+            Value::Null
+        } else {
+            Value::String(raw.into())
+        }
     } else if value.is_string() {
         Value::String(raw.into())
     } else if raw.trim().is_empty() {
@@ -401,7 +426,7 @@ pub fn edit(s: &mut State, key: &str, text: &str) -> Result<()> {
         let n: f64 = raw.parse().context("Enter a number")?;
         ensure!(n.is_finite(), "Enter a finite number");
         // Preserve integer fields, while allowing normal decimal entry for floats.
-        if value.is_u64() || key.ends_with("random_seed") {
+        if value.is_u64() || key.ends_with("random_seed") || key.ends_with("output_bit_depth") {
             ensure!(
                 n >= 0. && n.fract() == 0. && n < u64::MAX as f64,
                 "Enter a non-negative whole number"

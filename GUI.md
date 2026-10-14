@@ -17,10 +17,10 @@ Config contains processing settings, monitor ICC selection, automatic preview,
 file format, settings load/save/reset and startup defaults. JSON remains the
 portable settings-file format shared with the CLI, not a user-facing editor.
 
-Detect base and device calibration use the reduced preview; CLI calibration
-uses the original resolution. The device optimizer is not yet numerically
-equivalent to the reference, and automatic neutral print-balance solving is
-absent. See [MIGRATION.md](MIGRATION.md) for calibration limits and follow-up work.
+Detect base and device calibration use the full decoded input through the same
+helper as the CLI. Device calibration applies the source sampling caps.
+Advanced also provides Neutralize print filters, which fits M/Y shifts after
+stock/base edits.
 
 Stock grain/coupler values and neutral filters are resolved into their controls;
 manual changes switch off the corresponding automatic preset so they take effect.
@@ -31,18 +31,14 @@ interpretation. RAW supports as-shot, daylight, tungsten and custom temperature/
 tint. Lens correction uses Lensfun 0.3 and its database; see
 [DEVELOPMENT.md](DEVELOPMENT.md).
 
-**Preview** processes a full-frame source reduced to a 768-pixel long side.
-Automatic updates debounce edits by 300 ms. **Scan** processes and displays the
-original resolution. **Save** reuses the full-resolution scan when the source
-and processing settings match, or processes the original if needed. Fit and
-100/200/400% views support scrolling, and Original/Processed/Compare use the
-same display transform. The preview uses integer-bin area averaging at 768px;
-the pinned Python preview uses anti-aliased linear resize (640px by default).
-Rust also has no upstream `preview_mode` switch that disables selected effects.
-Preview equivalence is an open processing gap, not established by the core
-framing tests; see [migration debt D2](MIGRATION.md#d2--p1-preview-resampling-and-preview-mode-differ).
-Fine grain and spatial detail can differ
-at preview scale; use Scan to inspect the full-resolution result.
+**Preview** reduces the full source with the pinned anti-aliased linear reducer;
+`settings.preview_max_size` defaults to a 640-pixel long side. Automatic edits
+debounce by 300 ms. Preview mode disables grain, lens/scanner sharpening and
+selected diffusion/blur operations exactly as source digestion does; halation
+and scattering remain enabled. **Scan** runs at original resolution with preview
+mode off. **Save** reuses a matching scan or processes the original if needed.
+Fit and 100/200/400% views support scrolling; Original/Processed/Compare share
+the display transform. Use Scan to inspect full-resolution grain and detail.
 
 File dialogs run independently of the UI event loop. Image decoding, simulation,
 calibration, metadata and export run on the processing worker. The GUI uses
@@ -52,18 +48,15 @@ RAW/input interpretation changes invalidate the source cache. The common
 linear as-shot RAW preview uses a bounded floating-point buffer; custom
 white balance, lens correction and other input paths decode before reduction.
 
-PNG is 16-bit, JPEG is quality 95, TIFF/EXR are float32 and NPY is float64.
-There is no bit-depth selector for the upstream TIFF8/16 or half-EXR options.
-There are also no separate saving-colour settings: changing output colour
-changes simulation settings and invalidates the scan. The original GUI can
-convert an already completed output into a separate delivery colour space.
-Manual clockwise/counterclockwise input rotation is not yet implemented; it is
-separate from automatic decoder orientation. These are migration debt D9.
-Exports retain the selected output colour representation and embed its ICC
-profile where the reference ships one. The monitor ICC profile affects display
-only; an invalid monitor profile preserves the completed scan. Image saves refuse
-the source path and replace the destination only after
-successful processing, encoding and metadata copying.
+Main supplies clockwise/counterclockwise input rotation. It applies before
+cropping, Preview and Scan, and invalidates the source/scan cache.
+Main → Output exposes output depth (PNG8/16, TIFF8/16/32, EXR16/32) and TIFF/EXR
+compression. Defaults are PNG16 and TIFF/EXR32; JPEG is quality 95 and NPY64.
+Independent saving-colour settings convert completed pixels without invalidating
+the scan. Output colour controls still affect processing. Monitor ICC affects
+display only; an invalid profile preserves the scan. Supported output ICC profiles
+are embedded. Saves refuse source aliases and replace a destination only after
+encoding and metadata copying succeed.
 
 Copy metadata preserves source EXIF/IPTC/XMP for PNG/JPEG/TIFF and corrects the
 orientation, dimensions, software, date and colour tags. This option requires
@@ -83,10 +76,10 @@ startup default is an explicit separate action.
 cargo test --release --locked -j4
 cargo test --features gui --locked --lib -j4
 # Exercise installed GExiv2, including repeated exports and ICC retention:
-SPEKTRAFILM_TEST_METADATA=1 cargo test --features gui --locked --lib -j4
+SPEKTRAFILM_TEST_METADATA=1 cargo test --release --features gui --locked --lib -j4 metadata -- --ignored
 # Optional real-RAW check and offscreen software-renderer screenshots:
 GUI_QA_RAW="$PWD/samples/RAW_CANON_EOS_5DMARK3.CR2" \
-GUI_QA_DIR="$PWD/artifacts/gui" cargo test --features gui --locked --lib -j4
+GUI_QA_DIR="$PWD/artifacts/gui" cargo test --release --features gui --locked --lib -j4 raw_preview -- --ignored
 ```
 
 Tests cover export/core equality, float TIFF and PNG16 values, full-resolution
@@ -100,6 +93,5 @@ The Slint application replaces the photo-editing controls and processing
 workflows. It does not recreate Napari's general layer tooling, the decorative
 Polaroid animation/paper-back view, or import the original Qt GUI-state JSON
 schema. Its settings files use the Rust processing schema. These are intentional
-presentation/schema boundaries. Separate processing,
-preview, I/O and verification gaps remain open in [MIGRATION.md](MIGRATION.md);
+presentation/schema boundaries. Audit fixes and verification boundaries are recorded in [MIGRATION.md](MIGRATION.md);
 the native-control coverage test checks the Rust schema only.

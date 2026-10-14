@@ -28,3 +28,7 @@ mod density_lut;
 mod framing;
 
 pub mod metadata;
+
+mod optimization;
+pub mod preview;
+pub mod print_balance;

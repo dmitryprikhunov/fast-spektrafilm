@@ -1,10 +1,11 @@
 """Compare added stages on the same cached 256-pixel sample crop, four threads."""
 from pathlib import Path
+from benchmark import provenance
 import os,sys,json,time,subprocess
 os.environ.update(NUMBA_NUM_THREADS='4',OPENBLAS_NUM_THREADS='4',OMP_NUM_THREADS='4')
 ROOT=Path(__file__).resolve().parents[1]
 import numpy as np
-folder=ROOT/'artifacts/core-benchmark';folder.mkdir(exist_ok=True)
+folder=ROOT/'artifacts/core-benchmark';folder.mkdir(parents=True,exist_ok=True)
 source=ROOT/'artifacts/crops/RAW_CANON_EOS_5DMARK3_256.npy'
 if '--worker' in sys.argv:
     from validate import init_params,digest_params,SimulationPipeline
@@ -15,7 +16,7 @@ if '--worker' in sys.argv:
     sim=SimulationPipeline(digest_params(p));image=np.load(source);sim.process(image[:8,:8]);times=[]
     for _ in range(3):
         start=time.perf_counter();out=sim.process(image);times.append(time.perf_counter()-start)
-    np.save(folder/f'{mode}-reference.npy',out);print(json.dumps(dict(process_seconds=times)));sys.exit()
+    np.save(folder/f'{mode}-reference.npy',out);print(json.dumps(dict(process_seconds=times,stage_seconds=sim.get_timings())));sys.exit()
 results=[]
 for mode in ['convert','diffusion']:
     config=dict(camera=dict(auto_exposure=False),debug=dict(deactivate_stochastic_effects=True))
@@ -29,6 +30,10 @@ for mode in ['convert','diffusion']:
     reference=run([sys.executable,__file__,'--worker',mode],'reference')
     rust=run([str(ROOT/'target/release/fast-spektrafilm'),'--threads','4','process',str(source),str(folder/f'{mode}-rust.npy'),'--config',str(path),'--repeat','3'],'rust')
     a=np.load(folder/f'{mode}-rust.npy');b=np.load(folder/f'{mode}-reference.npy')
-    record=dict(mode=mode,shape=list(a.shape),threads=4,reference=reference,rust=rust,max_abs=float(abs(a-b).max()),rmse=float(np.sqrt(np.mean((a-b)**2))))
+    assert a.shape == b.shape and np.isfinite(a).all() and np.isfinite(b).all(), 'Invalid comparison shape/values'
+    np.testing.assert_allclose(a,b,atol=2e-5 if mode=='convert' else 2e-6,rtol=0)
+    profiled=run([str(ROOT/'target/release/fast-spektrafilm'),'--threads','4','process',str(source),str(folder/f'{mode}-profiled.npy'),'--config',str(path),'--stage-timings'],'profiled')
+    np.testing.assert_allclose(np.load(folder/f'{mode}-profiled.npy'),a,atol=1e-9,rtol=1e-8)
+    record=dict(profiled=profiled,mode=mode,shape=list(a.shape),threads=4,reference=reference,rust=rust,max_abs=float(abs(a-b).max()),rmse=float(np.sqrt(np.mean((a-b)**2))))
     results.append(record);print(json.dumps(record),flush=True)
-(folder/'report.json').write_text(json.dumps(results,indent=2)+'\n')
+(folder/'report.json').write_text(json.dumps(dict(**provenance(),threads=4,repeats=3,input_sha256=__import__('hashlib').sha256(source.read_bytes()).hexdigest(),results=results),indent=2)+'\n')

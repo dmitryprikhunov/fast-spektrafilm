@@ -10,6 +10,8 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE = json.loads((ROOT / 'BASELINE.json').read_text())
+from check_baseline import verify
+verify(require_reference=True)
 sys.path.insert(0, str(ROOT / '.reference' / BASELINE['commit'] / 'src'))
 import colour
 from spektrafilm.config import STANDARD_OBSERVER_CMFS

@@ -27,3 +27,7 @@ use `--threads N` to set a limit.
 [App guide](GUI.md) · [Build requirements and CLI/library usage](DEVELOPMENT.md) ·
 [Migration status and technical debt](MIGRATION.md) · [Validation](VALIDATION.md) ·
 [Contributing](CONTRIBUTING.md) · [Benchmarks](BENCHMARKS.md) · [License](LICENSE)
+
+This product includes software developed by the University of Chicago, as
+Operator of Argonne National Laboratory (MINPACK). SciPy and OpenBLAS arithmetic
+attribution and license notices are preserved in [licenses/](licenses).
