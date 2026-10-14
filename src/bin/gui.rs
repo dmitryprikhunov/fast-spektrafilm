@@ -5,11 +5,11 @@ use std::{num::NonZeroUsize, path::PathBuf};
 
 /// A native Slint darkroom for fast-spektrafilm.
 #[derive(Parser)]
-#[command(version, about)]
+#[command(name = "fast-spektrafilm-gui", version, about)]
 struct Cli {
     /// Open a camera RAW or RGB NPY file on launch.
     input: Option<PathBuf>,
-    #[arg(long, default_value = concat!(env!("CARGO_MANIFEST_DIR"), "/data"))]
+    #[arg(long, default_value_os_t = fast_spektrafilm::default_data_dir())]
     data_dir: PathBuf,
     /// Load the same JSON settings accepted by the CLI.
     #[arg(long)]

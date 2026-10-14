@@ -3,6 +3,7 @@ pub mod chemistry;
 pub mod color;
 pub mod convert;
 mod convert_math;
+mod data_path;
 pub mod diffusion;
 pub mod file_io;
 pub mod grain;
@@ -21,6 +22,7 @@ mod scan_reference;
 pub mod spatial;
 pub mod spectral;
 
+pub use data_path::default_data_dir;
 pub use image::Image;
 pub use params::Params;
 pub use pipeline::{Simulator, Tap};
