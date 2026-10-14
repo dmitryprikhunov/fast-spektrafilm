@@ -64,9 +64,14 @@ jobs:
         if: matrix.variant == 'gui-native'
         run: |
           python3 -m venv .tools/native-ci
-          .tools/native-ci/bin/pip install --only-binary=:all: lensfunpy==1.18.0
+          .tools/native-ci/bin/pip install --only-binary=:all: lensfunpy==1.18.0 numpy==2.5.3 scipy==1.18.1
           echo "SPEKTRAFILM_LENSFUN_DATABASE=$(.tools/native-ci/bin/python -c 'import pathlib,lensfunpy; print(pathlib.Path(lensfunpy.__file__).parent / "db_files")')" >> "$GITHUB_ENV"
           echo "SPEKTRAFILM_LENSFUN_LIBRARY=$(.tools/native-ci/bin/python -c 'import pathlib,lensfunpy; print(next((pathlib.Path(lensfunpy.__file__).parent.parent / "lensfunpy.libs").glob("liblensfun*.so*")))')" >> "$GITHUB_ENV"
+      - name: Extract verified pinned reference on the same native CPU
+        if: matrix.variant == 'gui-native'
+        run: |
+          .tools/native-ci/bin/python tools/native_lens_reference.py --output .tools/native-ci/lens-reference.npy
+          echo "SPEKTRAFILM_LENSFUN_REFERENCE=$PWD/.tools/native-ci/lens-reference.npy" >> "$GITHUB_ENV"
       - name: Exercise native Lensfun path explicitly
         if: matrix.variant == 'gui-native'
         run: cargo test --release --locked --features gui --test core_coverage lensfun_matches_reference_when_available -- --ignored --exact --nocapture

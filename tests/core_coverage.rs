@@ -197,7 +197,12 @@ fn lensfun_matches_reference_when_available() -> anyhow::Result<()> {
     let matched = fast_spektrafilm::lens::correct(&mut im, &m)?;
     eprintln!("Matched lens: {matched:?}");
     assert!(matched.is_some());
-    compare(&im, &fixture("lens_output"), 2e-6, "Lensfun");
+    let expected = if let Some(path) = std::env::var_os("SPEKTRAFILM_LENSFUN_REFERENCE") {
+        Image::read_npy(Path::new(&path))?
+    } else {
+        fixture("lens_output")
+    };
+    compare(&im, &expected, 2e-6, "Lensfun");
     Ok(())
 }
 #[test]

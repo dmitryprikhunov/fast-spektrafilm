@@ -133,8 +133,11 @@ compares its bounded buffer with the full decode followed by the same reference
 reducer. File dialogs and desktop interaction still need manual UI review.
 
 Native Lensfun parity uses both the library and XML database bundled with
-pinned lensfunpy 1.18.0; matching version labels alone are insufficient for
-distribution-patched native builds.
+pinned lensfunpy 1.18.0. Its SIMD reciprocal/sqrt approximations depend on CPU
+hardware. The checked-in golden remains the local anchor; CI extracts the
+SHA-verified pinned Python lens functions and compares their output on the same
+runner, retaining the 2e-6 shape/finiteness/error gate. The reference generator
+never consumes Rust output.
 
 Cargo CI runs baseline checks, formatting, release builds/tests and strict Clippy
 for both library/CLI and GUI, then explicitly runs the native Lensfun and GExiv2
