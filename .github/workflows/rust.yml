@@ -2,7 +2,7 @@ name: Rust
 
 on:
   push:
-    branches: [main, develop, chore/experimental-tech-debt-audit]
+    branches: [main, develop]
   pull_request:
     branches: [main, develop]
   workflow_dispatch:

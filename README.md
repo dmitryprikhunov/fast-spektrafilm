@@ -10,6 +10,10 @@ data and licenses are retained; this port is GPLv3.
 
 ## Get started
 
+Linux x86_64 binaries for the CLI and desktop app are available in
+[GitHub Releases](https://github.com/dmitryprikhunov/fast-spektrafilm/releases).
+See [RELEASES.md](RELEASES.md) for installation and runtime requirements.
+
 Run from the repository root:
 
 ```sh

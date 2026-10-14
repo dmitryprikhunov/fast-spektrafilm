@@ -63,7 +63,9 @@ Configuration is JSON, with partial groups filled from defaults. Unknown fields
 and unsupported algorithms produce errors. The schema is not compatible with
 Python runtime/Qt state JSON; see the mapping and boundaries in
 [MIGRATION.md](MIGRATION.md). Profile names select the original
-JSON measurement data. `--data-dir` overrides the data location. RAW input defaults to
+JSON measurement data. CLI and GUI prefer `data/` beside the executable and
+fall back to the source checkout for Cargo builds; `--data-dir` overrides this.
+See [RELEASES.md](RELEASES.md) for binary packages. RAW input defaults to
 as-shot white balance; `raw.white_balance` selects the alternatives described
 below. `decode` also supports half-size demosaicing.
 

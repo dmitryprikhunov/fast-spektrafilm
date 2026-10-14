@@ -14,7 +14,7 @@ use std::{
 #[derive(Parser)]
 #[command(version, about)]
 struct Cli {
-    #[arg(long,global=true,default_value=concat!(env!("CARGO_MANIFEST_DIR"),"/data"))]
+    #[arg(long, global = true, default_value_os_t = fast_spektrafilm::default_data_dir())]
     data_dir: PathBuf,
     #[arg(long, global = true)]
     threads: Option<usize>,
