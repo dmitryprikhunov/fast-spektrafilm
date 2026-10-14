@@ -20,7 +20,8 @@ For GUI changes, also run the release suite and Clippy with `--features gui`.
 Optional Lensfun and metadata checks need explicit enablement; see
 [VALIDATION.md](VALIDATION.md). The Rust GitHub Actions workflow runs baseline hashes, formatting, release
 build/tests and strict Clippy for library/CLI and GUI, with explicit native
-Lensfun and metadata checks. Its Rust toolchain is pinned to 1.93.1.
+Lensfun and metadata checks. The native Lensfun check loads the pinned
+lensfunpy wheel library and its database. Its Rust toolchain is pinned to 1.93.1.
 CI disables release LTO and uses 16 codegen units to keep GUI linking bounded;
 local performance measurements retain the repository release profile.
 See [MIGRATION.md](MIGRATION.md) for audit closure evidence and compatibility

@@ -132,6 +132,10 @@ failures, monitor separation and offscreen layout. The actual RAW reducer test
 compares its bounded buffer with the full decode followed by the same reference
 reducer. File dialogs and desktop interaction still need manual UI review.
 
+Native Lensfun parity uses both the library and XML database bundled with
+pinned lensfunpy 1.18.0; matching version labels alone are insufficient for
+distribution-patched native builds.
+
 Cargo CI runs baseline checks, formatting, release builds/tests and strict Clippy
 for both library/CLI and GUI, then explicitly runs the native Lensfun and GExiv2
 paths. Ordinary runs report these dependency-dependent tests as ignored.

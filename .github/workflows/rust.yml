@@ -60,16 +60,15 @@ jobs:
         run: cargo test --release --locked ${{ matrix.features }} -j4 --verbose -- --nocapture
       - name: Clippy
         run: cargo clippy --release --locked --all-targets ${{ matrix.features }} -j4 -- -D warnings
-      - name: Prepare pinned Lensfun database in a runner-local environment
+      - name: Prepare pinned Lensfun library and database in a runner-local environment
         if: matrix.variant == 'gui-native'
         run: |
           python3 -m venv .tools/native-ci
-          .tools/native-ci/bin/pip install lensfunpy==1.18.0
+          .tools/native-ci/bin/pip install --only-binary=:all: lensfunpy==1.18.0
           echo "SPEKTRAFILM_LENSFUN_DATABASE=$(.tools/native-ci/bin/python -c 'import pathlib,lensfunpy; print(pathlib.Path(lensfunpy.__file__).parent / "db_files")')" >> "$GITHUB_ENV"
+          echo "SPEKTRAFILM_LENSFUN_LIBRARY=$(.tools/native-ci/bin/python -c 'import pathlib,lensfunpy; print(next((pathlib.Path(lensfunpy.__file__).parent.parent / "lensfunpy.libs").glob("liblensfun*.so*")))')" >> "$GITHUB_ENV"
       - name: Exercise native Lensfun path explicitly
         if: matrix.variant == 'gui-native'
-        env:
-          SPEKTRAFILM_LENSFUN_LIBRARY: /usr/lib/x86_64-linux-gnu/liblensfun.so.1
         run: cargo test --release --locked --features gui --test core_coverage lensfun_matches_reference_when_available -- --ignored --exact --nocapture
       - name: Exercise metadata path explicitly
         if: matrix.variant == 'gui-native'
