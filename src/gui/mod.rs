@@ -54,6 +54,9 @@ enum Job {
         full: bool,
         source_generation: u64,
     },
+    Neutralize {
+        params: Box<Params>,
+    },
     Calibrate {
         path: PathBuf,
         params: Box<Params>,
@@ -238,6 +241,17 @@ fn worker(
                                 session.resolved_params(&params)?,
                             )))
                         }
+                    }
+                    Job::Neutralize { params } => {
+                        let mut p = *params;
+                        let shifts = crate::print_balance::solve_neutral_filter_shifts(
+                            &session.data,
+                            &p,
+                            0.184,
+                        )?;
+                        p.enlarger.m_filter_shift = shifts[0];
+                        p.enlarger.y_filter_shift = shifts[1];
+                        Ok(Outcome::Calibrated(Box::new(p)))
                     }
                     Job::Calibrate {
                         path,
@@ -568,6 +582,51 @@ fn bind_callbacks(ui: &Darkroom, state: &Rc<RefCell<State>>) {
         } else {
             s.borrow_mut().params.io.monitor_profile = None;
             changed(&ui, &s);
+        }
+    });
+    let weak = ui.as_weak();
+    let s = state.clone();
+    ui.on_rotate(move |direction| {
+        if let Some(ui) = weak.upgrade() {
+            if ui.get_busy() {
+                return;
+            }
+            {
+                let mut state = s.borrow_mut();
+                state.params.io.input_rotation =
+                    (state.params.io.input_rotation as i32 + direction).rem_euclid(4) as u8;
+            }
+            changed(&ui, &s);
+        }
+    });
+    let weak = ui.as_weak();
+    let s = state.clone();
+    ui.on_neutralize(move || {
+        let Some(ui) = weak.upgrade() else {
+            return;
+        };
+        if ui.get_busy() {
+            return;
+        }
+        let state = s.borrow();
+        state.debounce.stop();
+        ui.set_busy(true);
+        ui.set_exporting(true);
+        ui.set_status("Balancing neutral print filters…".into());
+        let revision = state.revision.fetch_add(1, Ordering::SeqCst) + 1;
+        if state
+            .sender
+            .send(Request {
+                revision,
+                job: Job::Neutralize {
+                    params: Box::new(state.params.clone()),
+                },
+            })
+            .is_err()
+        {
+            ui.set_busy(false);
+            ui.set_exporting(false);
+            error(&ui, "Render worker stopped.");
         }
     });
     let weak = ui.as_weak();

@@ -1,0 +1,19 @@
+{
+  "baseline": "28bf883e1672e884307edc75852549376e13644e",
+  "generator": "tools/generate_debt_fixtures.py",
+  "numpy": "2.5.3",
+  "colour": "0.4.7",
+  "scipy": "1.18.1",
+  "blas": {
+    "name": "scipy-openblas",
+    "found": true,
+    "version": "0.3.34.106.0",
+    "detection method": "pkgconfig",
+    "openblas configuration": "OpenBLAS 0.3.34.106.0  USE64BITINT DYNAMIC_ARCH NO_AFFINITY Haswell MAX_THREADS=64"
+  },
+  "libc": [
+    "glibc",
+    "2.43"
+  ],
+  "binary32_log10": "CORE-MATH bc385c2"
+}

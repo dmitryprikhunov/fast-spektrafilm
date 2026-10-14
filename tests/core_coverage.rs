@@ -13,20 +13,8 @@ fn fixture(name: &str) -> Image {
     )
     .unwrap()
 }
-fn compare(a: &Image, b: &Image, tol: f64, label: &str) {
-    assert_eq!(a.data.len(), b.data.len());
-    let error = a
-        .data
-        .iter()
-        .zip(&b.data)
-        .map(|(a, b)| (a - b).abs())
-        .fold(0., f64::max);
-    eprintln!("{label}: max absolute error {error:e}");
-    assert!(
-        a.data.iter().all(|v| v.is_finite()) && error < tol,
-        "{label}: {error:e} >= {tol:e}"
-    );
-}
+mod common;
+use common::compare;
 #[test]
 fn optical_filters_match_reference() -> anyhow::Result<()> {
     for family in ["glimmerglass", "black_pro_mist", "pro_mist", "cinebloom"] {
@@ -192,9 +180,10 @@ fn temperature_and_tint_match_reference() -> anyhow::Result<()> {
     Ok(())
 }
 #[test]
+#[ignore = "requires explicit Lensfun library and pinned database"]
 fn lensfun_matches_reference_when_available() -> anyhow::Result<()> {
     if std::env::var_os("SPEKTRAFILM_LENSFUN_LIBRARY").is_none() {
-        return Ok(());
+        anyhow::bail!("Set SPEKTRAFILM_LENSFUN_LIBRARY and SPEKTRAFILM_LENSFUN_DATABASE");
     }
     let mut im = fixture("lens_input");
     let m = fast_spektrafilm::lens::Metadata {
@@ -208,7 +197,12 @@ fn lensfun_matches_reference_when_available() -> anyhow::Result<()> {
     let matched = fast_spektrafilm::lens::correct(&mut im, &m)?;
     eprintln!("Matched lens: {matched:?}");
     assert!(matched.is_some());
-    compare(&im, &fixture("lens_output"), 2e-6, "Lensfun");
+    let expected = if let Some(path) = std::env::var_os("SPEKTRAFILM_LENSFUN_REFERENCE") {
+        Image::read_npy(Path::new(&path))?
+    } else {
+        fixture("lens_output")
+    };
+    compare(&im, &expected, 2e-6, "Lensfun");
     Ok(())
 }
 #[test]
@@ -230,6 +224,11 @@ fn all_grain_classes_and_shapes_match_reference() -> anyhow::Result<()> {
                     .num_threads(threads)
                     .build()?
                     .install(|| sim.process(&image, Tap::CmyFilm))?;
+                assert_eq!(
+                    actual.data,
+                    fixture(&name).data,
+                    "{name}/{threads}: exact grain"
+                );
                 compare(
                     &actual,
                     &fixture(&name),
@@ -242,12 +241,23 @@ fn all_grain_classes_and_shapes_match_reference() -> anyhow::Result<()> {
     Ok(())
 }
 #[test]
-fn device_calibration_reduces_clear_base_error() -> anyhow::Result<()> {
+fn device_calibration_matches_reference_parameters() -> anyhow::Result<()> {
     let p = params();
     let tables = Tables::load(&root().join("data"))?;
     let sim = Simulator::new(&root().join("data"), p.clone())?;
     let c = convert::FilmConverter::new(&tables, sim.film(), &p)?;
     let fit = c.fit_calibration(&fixture("captured"))?;
+    let expected: [[f64; 3]; 3] = serde_json::from_reader(std::fs::File::open(
+        root().join("tests/fixtures/core/calibration.json"),
+    )?)?;
+    let error = fit
+        .iter()
+        .flatten()
+        .zip(expected.iter().flatten())
+        .map(|(a, b)| (a - b).abs())
+        .fold(0., f64::max);
+    eprintln!("calibration matrix max_abs={error:e}, fit={fit:?}");
+    assert!(error < 1e-4, "Calibration coefficient error {error:e}");
     let target = c.scan([0.; 3]);
     let obs = convert::sample_base(&fixture("captured"), 99.)?;
     let before: f64 = (0..3).map(|i| (obs[i] - target[i]).powi(2)).sum();

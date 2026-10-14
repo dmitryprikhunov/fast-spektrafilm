@@ -193,9 +193,10 @@ pub fn copy(
 mod tests {
     use super::*;
     #[test]
+    #[ignore = "requires explicit GExiv2 metadata enablement"]
     fn metadata_roundtrip_preserves_content_and_output_icc() -> Result<()> {
         if std::env::var_os("SPEKTRAFILM_TEST_METADATA").is_none() {
-            return Ok(());
+            anyhow::bail!("Set SPEKTRAFILM_TEST_METADATA=1");
         }
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
         let dir = root.join("artifacts/metadata-test");

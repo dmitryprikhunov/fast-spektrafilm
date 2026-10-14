@@ -1,8 +1,9 @@
 # Development workflow
 
 `main` holds the initial stable baseline. Integrate reviewed changes into
-`develop` using a dedicated `fix/<description>` or feature branch and a merge
-commit that describes the resulting behavior. Promote to `main` separately.
+`develop` using a dedicated `fix/<description>`, `feature/<description>` or
+`chore/<description>` branch and a merge commit that describes the resulting
+behavior. Promote to `main` separately.
 
 Before merging processing changes, run:
 
@@ -14,6 +15,18 @@ cargo clippy --release --locked --all-targets -j4 -- -D warnings
 Compare affected processing paths with the pinned experimental reference using
 small fixtures or crops. Keep the reference checkout read-only; see `AGENTS.md`
 and `VALIDATION.md` for the numerical contract.
+
+For GUI changes, also run the release suite and Clippy with `--features gui`.
+Optional Lensfun and metadata checks need explicit enablement; see
+[VALIDATION.md](VALIDATION.md). The Rust GitHub Actions workflow runs baseline hashes, formatting, release
+build/tests and strict Clippy for library/CLI and GUI, with explicit native
+Lensfun and metadata checks. The native Lensfun check loads the pinned
+lensfunpy wheel library and its database, comparing the verified pinned Python
+correction on the same CPU. Its Rust toolchain is pinned to 1.93.1.
+CI disables release LTO and uses 16 codegen units to keep GUI linking bounded;
+local performance measurements retain the repository release profile.
+See [MIGRATION.md](MIGRATION.md) for audit closure evidence and compatibility
+boundaries.
 
 ## Repository hygiene
 

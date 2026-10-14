@@ -13,7 +13,7 @@ use std::{
     time::Instant,
 };
 
-pub const PREVIEW_EDGE: usize = 768;
+pub const PREVIEW_EDGE: usize = 640;
 pub const ROUTES: [&str; 6] = [
     "input > film > print > scan",
     "input > film > scan",
@@ -112,7 +112,14 @@ pub struct Source {
 }
 impl Source {
     fn key(p: &Params) -> String {
-        serde_json::to_string(&(&p.raw, &p.io.input_color_space, p.io.input_cctf_decoding)).unwrap()
+        serde_json::to_string(&(
+            &p.raw,
+            &p.io.input_color_space,
+            p.io.input_cctf_decoding,
+            p.settings.preview_max_size,
+            p.io.input_rotation,
+        ))
+        .unwrap()
     }
     pub fn matches(&self, path: &Path, p: &Params) -> bool {
         self.path == path && self.key == Self::key(p)
@@ -126,11 +133,18 @@ impl Source {
             && !p.raw.lens_correction
             && !p.io.input_cctf_decoding
         {
-            let (mut image, original) = crate::image::decode_raw_preview(path, true, PREVIEW_EDGE)?;
+            let (mut image, original) =
+                crate::image::decode_raw_preview(path, true, p.settings.preview_max_size)?;
             let matrix = Tables::load(data)?.rgb_to_rgb("ACES2065-1", &p.io.input_color_space)?;
             for pixel in image.data.chunks_exact_mut(3) {
                 pixel.copy_from_slice(&mat_vec(&matrix, [pixel[0], pixel[1], pixel[2]]));
             }
+            let image = image.rotated(p.io.input_rotation)?;
+            let original = if p.io.input_rotation % 2 == 1 {
+                [original[1], original[0]]
+            } else {
+                original
+            };
             (image, original)
         } else {
             let image = file_io::read(path, data, p, None)?;
@@ -141,7 +155,7 @@ impl Source {
         Ok(Self {
             path: path.into(),
             original,
-            preview: resize_preview(&image, PREVIEW_EDGE)?,
+            preview: resize_preview(&image, p.settings.preview_max_size)?,
             key: Self::key(p),
         })
     }
@@ -159,34 +173,7 @@ impl Source {
 }
 
 pub fn resize_preview(image: &Image, edge: usize) -> Result<Image> {
-    image.validate()?;
-    ensure!(edge > 0, "Preview size must be positive");
-    if image.width.max(image.height) <= edge {
-        return Ok(image.clone());
-    }
-    let scale = edge as f64 / image.width.max(image.height) as f64;
-    let w = ((image.width as f64 * scale).round() as usize).max(1);
-    let h = ((image.height as f64 * scale).round() as usize).max(1);
-    let c = image.channels;
-    let mut data = vec![0.0; w * h * c];
-    for y in 0..h {
-        let y0 = y * image.height / h;
-        let y1 = (y + 1) * image.height / h;
-        for x in 0..w {
-            let x0 = x * image.width / w;
-            let x1 = (x + 1) * image.width / w;
-            let count = ((x1 - x0) * (y1 - y0)) as f64;
-            for sy in y0..y1 {
-                for sx in x0..x1 {
-                    for ch in 0..c {
-                        data[(y * w + x) * c + ch] +=
-                            image.data[(sy * image.width + sx) * c + ch] / count;
-                    }
-                }
-            }
-        }
-    }
-    Image::new(w, h, c, data)
+    crate::preview::resize(image, edge)
 }
 
 /// Convert the processing representation to encoded sRGB for display.
@@ -240,14 +227,24 @@ impl Session {
             scan: None,
         })
     }
+    #[cfg(test)]
+    pub(super) fn scan_output(&self) -> Option<&Image> {
+        self.scan.as_ref().map(|s| &s.output)
+    }
     pub fn set_source(&mut self, source: Source) {
         self.scan = None;
         self.source = Some(source);
     }
     fn processing_key(params: &Params) -> Result<String> {
         let mut params = params.clone();
+        params.settings.preview_mode = false;
+        params.settings.preview_max_size = PREVIEW_EDGE;
         params.io.monitor_profile = None;
         params.io.copy_metadata = false;
+        params.io.output_bit_depth = None;
+        params.io.output_compression = "zip".into();
+        params.workflow.saving_color_space = None;
+        params.workflow.saving_cctf_encoding = true;
         Ok(serde_json::to_string(&params)?)
     }
     fn scan_keys(&self, params: &Params) -> Result<[String; 2]> {
@@ -269,7 +266,9 @@ impl Session {
             return Ok(());
         }
         self.scan = None;
-        let output = Simulator::new(&self.data, params.clone())?
+        let mut scan_params = params.clone();
+        scan_params.settings.preview_mode = false;
+        let output = Simulator::new(&self.data, scan_params)?
             .process_owned(source.input(params, &self.data, true)?, Tap::RgbOut)?;
         self.scan = Some(Scan {
             path: source.path.clone(),
@@ -360,13 +359,15 @@ impl Session {
             monitor.as_deref(),
         )?;
         let before_size = [u32::try_from(input.width)?, u32::try_from(input.height)?];
+        let mut render_params = params.clone();
+        render_params.settings.preview_mode = !full;
         let output =
-            Simulator::new(&self.data, params.clone())?.process_owned(input, Tap::RgbOut)?;
+            Simulator::new(&self.data, render_params)?.process_owned(input, Tap::RgbOut)?;
         // Imported framing/upscale settings can enlarge the processed preview.
         let output = if full {
             output
         } else {
-            resize_preview(&output, PREVIEW_EDGE)?
+            resize_preview(&output, params.settings.preview_max_size)?
         };
         let after = self.display(
             &output,
@@ -391,41 +392,16 @@ impl Session {
         })
     }
     pub fn calibrate(&self, p: &Params, device: bool) -> Result<Params> {
-        let mut p = p.clone();
-        let mut image = self
+        let image = self
             .source
             .as_ref()
             .context("Open a scanned negative first")?
-            .input(&p, &self.data, false)?;
-        if p.io.input_cctf_decoding {
-            image
-                .data
-                .iter_mut()
-                .for_each(|v| *v = decode(&p.io.input_color_space, *v));
-        }
-        if device {
-            let sim = Simulator::new(&self.data, p.clone())?;
-            p.convert.calibration =
-                crate::convert::FilmConverter::new(&self.tables, sim.film(), &p)?
-                    .fit_calibration(&image)?;
-        } else {
-            let sample = crate::convert::sample_base(&image, p.convert.base_percentile)?;
-            let mut stock = crate::profile::Profile::load(&self.data, &p.film_profile)?;
-            stock.swap_dyes(p.special.film_channel_swap)?;
-            (p.film_base, p.convert.exposure_compensation_ev) =
-                crate::convert::fit_base(&self.tables, &stock, &p, sample)?;
-        }
-        Ok(p)
+            .input(p, &self.data, true)?;
+        crate::convert::calibrate(&self.data, image, p, device)
     }
     pub fn export(&mut self, params: &Params, path: &Path) -> Result<[usize; 2]> {
         let source = self.source.as_ref().context("Open an image first")?;
-        ensure!(
-            path != source.path,
-            "Choose an output path different from the source"
-        );
-        if let (Ok(a), Ok(b)) = (path.canonicalize(), source.path.canonicalize()) {
-            ensure!(a != b, "Output would overwrite the source");
-        }
+        file_io::validate_destination(&source.path, path)?;
         let ext = path
             .extension()
             .and_then(|s| s.to_str())
@@ -438,30 +414,7 @@ impl Session {
         let source_path = source.path.clone();
         self.ensure_scan(params)?;
         let output = &self.scan.as_ref().unwrap().output;
-        let temp = tempfile::Builder::new()
-            .suffix(&format!(".{ext}"))
-            .tempfile_in(
-                path.parent()
-                    .filter(|p| !p.as_os_str().is_empty())
-                    .unwrap_or(Path::new(".")),
-            )?;
-        file_io::write(
-            output,
-            temp.path(),
-            &self.data,
-            &params.io.output_color_space,
-            params.io.output_cctf_encoding,
-        )?;
-        if params.io.copy_metadata {
-            crate::metadata::copy(
-                &source_path,
-                temp.path(),
-                [output.width, output.height],
-                &params.io.output_color_space,
-                params.io.output_cctf_encoding,
-            )?;
-        }
-        temp.persist(path)?;
+        file_io::save(output, &source_path, path, &self.data, params)?;
         Ok([output.width, output.height])
     }
 }

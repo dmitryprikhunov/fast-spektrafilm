@@ -1,4 +1,5 @@
 use super::*;
+use crate::file_io;
 use crate::{
     Image, Simulator, Tap,
     color::Tables,
@@ -26,6 +27,144 @@ fn deterministic() -> Params {
 }
 
 #[test]
+fn rotation_and_delivery_colour_keep_scan_cache_consistent() -> Result<()> {
+    let dir = tempfile::tempdir()?;
+    let input = Image::new(9, 7, 3, (0..189).map(|v| v as f64 / 200.).collect())?;
+    let path = dir.path().join("source.npy");
+    input.write_npy(&path)?;
+    let mut p = deterministic();
+    p.io.input_rotation = 1;
+    let mut session = Session::new(&data())?;
+    session.set_source(Source::load(&path, &data(), &p)?);
+    assert_eq!(session.source.as_ref().unwrap().original, [7, 9]);
+    session.render_size(&p, true)?;
+    let output = session.scan_output().unwrap().clone();
+    let rotated = input.rotated(1)?;
+    assert_eq!(
+        Simulator::new(&data(), p.clone())?
+            .process(&rotated, Tap::RgbOut)?
+            .data,
+        output.data
+    );
+    std::fs::remove_file(&path)?;
+    p.workflow.saving_color_space = Some("Display P3".into());
+    p.workflow.saving_cctf_encoding = true;
+    let save = dir.path().join("delivery.npy");
+    session.export(&p, &save)?;
+    let expected = file_io::convert_color(
+        &output,
+        &Tables::load(&data())?,
+        "sRGB",
+        true,
+        "Display P3",
+        true,
+    )?;
+    assert_eq!(Image::read_npy(&save)?.data, expected.data);
+    assert_eq!(session.scan_output().unwrap().data, output.data);
+    p.io.input_rotation = 2;
+    assert!(session.export(&p, &save).is_err());
+    assert_eq!(Image::read_npy(&save)?.data, expected.data);
+    Ok(())
+}
+
+#[test]
+fn gui_calibration_uses_full_source_and_shared_cli_sampling() -> Result<()> {
+    let dir = tempfile::tempdir()?;
+    let mut p = deterministic();
+    p.settings.preview_max_size = 4;
+    let input = Image::read_npy(
+        &data()
+            .parent()
+            .unwrap()
+            .join("tests/fixtures/core/captured.npy"),
+    )?;
+    let path = dir.path().join("source.npy");
+    input.write_npy(&path)?;
+    let mut session = Session::new(&data())?;
+    session.set_source(Source::load(&path, &data(), &p)?);
+    assert_ne!(session.source.as_ref().unwrap().preview.data, input.data);
+    let expected = crate::convert::calibrate(&data(), input, &p, false)?;
+    let actual = session.calibrate(&p, false)?;
+    assert_eq!(
+        serde_json::to_string(&actual)?,
+        serde_json::to_string(&expected)?
+    );
+    Ok(())
+}
+
+/// Run in its own process with /usr/bin/time to measure the GUI's actual
+/// session operations, including setup, display buffers and cache-hit saves.
+#[test]
+#[ignore = "explicit GUI workflow benchmark; cached crop by default"]
+fn benchmark_preview_scan_save() -> Result<()> {
+    let input = std::env::var_os("GUI_BENCH_INPUT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            data()
+                .parent()
+                .unwrap()
+                .join("artifacts/crops/RAW_CANON_EOS_5DMARK3_256.npy")
+        });
+    let folder = std::env::var_os("GUI_BENCH_DIR")
+        .map(PathBuf::from)
+        .context("Set GUI_BENCH_DIR for the report")?;
+    std::fs::create_dir_all(&folder)?;
+    let mode = std::env::var("GUI_BENCH_MODE").unwrap_or_else(|_| "forward".into());
+    let mut p = deterministic();
+    p.debug.deactivate_spatial_effects = mode != "diffusion";
+    p.camera.auto_exposure = false;
+    if mode == "convert" {
+        p.workflow.route = "input > convert-film > print > scan".into();
+    }
+    if mode == "diffusion" {
+        p.camera.diffusion_filter.active = true;
+        p.enlarger.diffusion_filter.active = true;
+    }
+    p.io.monitor_profile = std::env::var("GUI_BENCH_MONITOR").ok();
+    let start = std::time::Instant::now();
+    let mut session = Session::new(&data())?;
+    let setup = start.elapsed().as_secs_f64();
+    let start = std::time::Instant::now();
+    session.set_source(Source::load(&input, &data(), &p)?);
+    let load = start.elapsed().as_secs_f64();
+    let preview = session.render(&p)?;
+    let scan = session.render_size(&p, true)?;
+    session
+        .scan_output()
+        .unwrap()
+        .write_npy(&folder.join("scan.npy"))?;
+    let start = std::time::Instant::now();
+    session.export(&p, &folder.join("scan.tiff"))?;
+    let save = start.elapsed().as_secs_f64();
+    let start = std::time::Instant::now();
+    session.export(&p, &folder.join("scan-again.tiff"))?;
+    let cache_save = start.elapsed().as_secs_f64();
+    let original = session.source.as_ref().unwrap().original;
+    let report = serde_json::json!({"mode":mode,"save_format":"TIFF32 ZIP","input":input,"monitor_profile":p.io.monitor_profile,"threads":rayon::current_num_threads(),"shape":original,"session_setup_seconds":setup,"source_load_seconds":load,"preview_seconds":preview.seconds,"scan_seconds":scan.seconds,"save_seconds":save,"cache_hit_save_seconds":cache_save});
+    std::fs::write(
+        folder.join("workflow.json"),
+        serde_json::to_string_pretty(&report)?,
+    )?;
+    eprintln!("{report}");
+    Ok(())
+}
+
+#[test]
+fn preview_respects_configured_edge() -> Result<()> {
+    let dir = tempfile::tempdir()?;
+    let path = dir.path().join("source.npy");
+    Image::new(85, 63, 3, vec![0.184; 85 * 63 * 3])?.write_npy(&path)?;
+    let mut p = deterministic();
+    p.settings.preview_max_size = 37;
+    let mut session = Session::new(&data())?;
+    session.set_source(Source::load(&path, &data(), &p)?);
+    let preview = session.render(&p)?;
+    assert_eq!(preview.before_size, [37, 27]);
+    assert_eq!(preview.after_size, [37, 27]);
+    Ok(())
+}
+
+#[test]
 fn export_matches_core_and_keeps_original_resolution() -> Result<()> {
     let dir = tempfile::tempdir()?;
     let input = Image::new(800, 2, 3, vec![0.18; 800 * 2 * 3])?;
@@ -36,9 +175,9 @@ fn export_matches_core_and_keeps_original_resolution() -> Result<()> {
     session.source = Some(Source::load(&source, &data(), &params)?);
     let cached = session.source.as_ref().unwrap();
     assert_eq!(cached.original, [800, 2]);
-    assert_eq!(cached.preview.width, 768);
+    assert_eq!(cached.preview.width, 640);
     let preview = session.render(&params)?;
-    assert_eq!(preview.after_size, [768, 2]);
+    assert_eq!(preview.after_size, [640, 1]);
     assert_eq!(session.render_size(&params, true)?.after_size, [800, 2]);
     let path = dir.path().join("result.npy");
     assert_eq!(session.export(&params, &path)?, [800, 2]);
@@ -67,7 +206,7 @@ fn export_matches_core_and_keeps_original_resolution() -> Result<()> {
         &direct
             .data
             .iter()
-            .map(|v| (v.clamp(0., 1.) * 65535.).round() as u16)
+            .map(|v| (v.clamp(0., 1.) * 65535.) as u16)
             .collect::<Vec<_>>()
     );
     let tiff = dir.path().join("result.tiff");
@@ -218,7 +357,8 @@ fn preview_preserves_full_frame_and_display_converts_colour_space() -> Result<()
     )?;
     let preview = backend::resize_preview(&image, 2)?;
     assert_eq!((preview.width, preview.height), (2, 1));
-    assert_eq!(preview.data, vec![0., 0., 0., 1., 1., 1.]);
+    assert!(preview.data[0] > 0. && preview.data[0] < 0.1);
+    assert!(preview.data[3] > 0.9 && preview.data[3] < 1.);
     let tables = Tables::load(&data())?;
     let linear = Image::new(1, 1, 3, vec![0.18; 3])?;
     assert_eq!(
@@ -271,15 +411,16 @@ fn settings_round_trip_without_quantizing_hidden_fields() -> Result<()> {
 // This explicitly opt-in check uses a real RAW only in local QA. It does not
 // require camera samples or a display server in the normal test suite.
 #[test]
-fn raw_preview_matches_full_decode_area_average() -> Result<()> {
+#[ignore = "requires explicit GUI_QA_RAW sample"]
+fn raw_preview_matches_full_decode_reference_resize() -> Result<()> {
     let Some(path) = std::env::var_os("GUI_QA_RAW") else {
-        return Ok(());
+        anyhow::bail!("Set GUI_QA_RAW to a local camera sample");
     };
     let path = PathBuf::from(path);
-    let (preview, original) = decode_raw_preview(&path, true, 768)?;
+    let (preview, original) = decode_raw_preview(&path, true, 640)?;
     let full = decode_raw(&path, false, true)?;
     assert_eq!(original, [full.width, full.height]);
-    let expected = backend::resize_preview(&full, 768)?;
+    let expected = backend::resize_preview(&full, 640)?;
     assert_eq!(preview.data, expected.data);
     Ok(())
 }

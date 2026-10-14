@@ -3,11 +3,14 @@
 The reference is experimental commit
 `28bf883e1672e884307edc75852549376e13644e`. Its archive is run under Python 3.13
 with the exact dependencies in `tools/requirements-reference.txt`. The original
-checkout is read-only. `tools/prepare_reference.py` verifies all 235 copied data
-assets against their recorded SHA-256 hashes.
+checkout is read-only. `tools/check_baseline.py` verifies all 235 copied assets,
+two derived tables and the 120 extracted Python source files against recorded
+SHA-256 hashes. `prepare_reference.py` rejects modified extracted code.
 
-Each supported stage is compared as a float64 HWC array. Shapes must match and
-all results must be finite. The acceptance condition at every element is
+The forward-stage comparison suite uses float64 HWC arrays. Diffusion and
+inverse scanning and calibration have separate bounds below. Image codec
+fixtures exercise the supported precisions separately. Shapes must match and all results must be
+finite. The acceptance condition at every element is
 `abs(actual-reference) <= 1e-9 + 1e-8 * abs(reference)`. Reports record maximum
 absolute error, mean absolute error and RMSE separately; tolerances are not
 substitutes for the measured errors.
@@ -70,39 +73,93 @@ uses controlled reference seeds and one Numba sampling thread, because arbitrary
 unseeded thread-local noise cannot be compared pixel by pixel. Default unseeded
 Rust noise varies between renders; an explicit seed makes Rust renders repeatable.
 
-This suite verifies the implemented coverage, not the outstanding workflows in
+This suite verifies the tested settings; audit fixes and remaining scope are in
 [MIGRATION.md](MIGRATION.md). Decoder parity is established for the four supplied
 RAW formats with bundled LibRaw 0.22.0. Linking a different system LibRaw or adding
 other RAW formats requires additional verification.
 
-## Additional core coverage
+## Audit fixes, 2026-10-14
 
-`tools/generate_core_fixtures.py` extracts fixtures from the same pinned source.
-`cargo test --release --locked --test core_coverage -- --nocapture` prints errors.
-The added deterministic float32 stages are tested separately: direct diffusion
-PSFs ≤ 3e-7, complete optical paths ≤ 2e-6, inverse routes/LUT ≤ 2e-5, arbitrary
-inverse inputs ≤ 2e-4. These are explicit allowances for the source's float32
-FFT/solver stores, not a relaxation of the existing float64 tests. RAW
-white-balance fixtures match exactly; base-fit parameters agree within 1e-4.
-Blind calibration is checked by reduction of the observed clear-base residual;
-its optimizer is a damped least-squares solve and is not bitwise SciPy MINPACK.
+The release suite passed **42 tests** with GUI enabled; strict release Clippy
+passed. Lensfun, GExiv2, real RAW preview and offscreen screenshots were
+explicitly exercised and passed. Calibration sampling additionally matches
+pinned NumPy linspace at integer boundaries in its 40,000-pixel cap.
 
-The Lensfun differential test is enabled with `SPEKTRAFILM_LENSFUN_LIBRARY`
-pointing to a Lensfun 0.3 library and `SPEKTRAFILM_LENSFUN_DATABASE` pointing
-to the same XML database used to generate the fixture. It exercises all native
-corrections plus Rust float32 bilinear resampling. The test used the bundled
-reference lensfunpy database. Native packages used for local validation live
-under `.tools/`; they are not installed into the base system or committed.
+The broad Python sweep was rerun: **590 comparisons passed**, including all
+profiles, four cached RAW crops/decoders and parameter/spatial/grain/gamut/LUT/
+framing variants. Maximum error was **8.0268e-11** (chemistry output RGB),
+RMSE **1.0002e-11**. Ten controlled grain-density cases were bitwise equal.
 
-The grain matrix adds 27 comparisons: three stock classes × three image shapes
-× 1/2/4 Rayon threads. All controlled fast-grain density arrays match exactly.
+The source arithmetic in inverse conversion promotes float32 inputs/tables to
+float64 at `LN10`, then promotes CMY after the first Newton step. Rust preserves
+that mixed precision, the float32 damping coefficient, Haswell OpenBLAS reduction
+order and left-looking LU. Calibration uses a Rust translation of pinned SciPy
+1.18.1 LMDER with its two-point Jacobian and stopping rules. The binary32 seed logarithm uses a Rust CORE-MATH implementation matching
+pinned glibc 2.43/NumPy rounding, avoiding the older glibc 2.39 log10f error.
+The full source fit
+residual was compared at each of the 195 evaluations in the Provia probe.
 
-## GUI integration review
+| Differential check | Measured maximum absolute error |
+|---|---:|
+| Direct inverse, captured/arbitrary inputs / original core fitted matrix | 0 / 0 |
+| Five fitted device matrices (two stocks, altered base/EV, uniform/clear-base inputs) | 3.2729e-12 |
+| Full fitted residual vectors | 1.8387e-12 |
+| Calibrated film densities / output RGB | 0 / 4.5519e-15 |
+| Anti-aliased preview input / five processing stages | 6.6614e-16 / 3.5749e-14 |
+| Film/print injection with diffusion | ≤2.3e-7 |
+| Profiled versus fused processing / validated update versus fresh simulator | 0 / 0 |
+| OpenImageIO PNG8, TIFF8/16/32, EXR16/32 input and export | 0 |
+| Independent saving-colour conversion | 3.3307e-16 |
+| Wide-gamut ICC conversion (LittleCMS versus colour-science) | 2.5795e-4 |
+| TIFF orientation / RAW white balance / Lensfun / 27 controlled grain cases | 0 / 0 / 0 / 0 |
 
-Film/print dye permutations are tested against `core/dye_swap.npy`, generated by
-`tools/generate_dye_fixture.py` from the pinned GUI mapper's exact spectrum-column
-permutation, with a maximum-error bound of 1e-8. The GUI suite verifies native
-parameter coverage, source cache invalidation, full-resolution scanning and
-colour-preserving export. Opt-in GExiv2 tests copy synthetic EXIF/IPTC/XMP into
-PNG/JPEG/TIFF, re-read the tags, and require unchanged output pixels and ICC.
-The synthetic metadata source is generated by `tools/generate_metadata_fixture.py`.
+`tests/debt.rs` consumes the five calibration fixtures. Coefficients must agree
+within 1e-4, full residual within 1e-5, calibrated density/RGB within 1e-4;
+these limits were preserved while fixing the fitted-parameter disagreement.
+Base-fit CMY/exposure comparisons require 1e-5. Neutral M/Y shifts require 1e-4
+and their final RGB requires 1e-6. Source-generated fixture provenance includes
+the NumPy/SciPy/BLAS versions. Cross-BLAS bitwise fit portability is not claimed.
+
+The core float32 allowances remain explicit: direct diffusion PSFs ≤3e-7,
+complete optical paths ≤2e-6, inverse routes/LUT ≤2e-5 and arbitrary inverse
+inputs ≤2e-4. The shared comparator rejects mismatched HWC shapes or nonfinite
+values in either array and prints measured max error/RMSE. All 27 grain matrix
+cases now additionally require exact float64 equality.
+
+The GUI suite exercises shared full-input calibration, rotation/source/scan
+invalidation, delivery-colour changes preserving completed pixels, metadata
+failures, monitor separation and offscreen layout. The actual RAW reducer test
+compares its bounded buffer with the full decode followed by the same reference
+reducer. File dialogs and desktop interaction still need manual UI review.
+
+Native Lensfun parity uses both the library and XML database bundled with
+pinned lensfunpy 1.18.0. Its SIMD reciprocal/sqrt approximations depend on CPU
+hardware. The checked-in golden remains the local anchor; CI extracts the
+SHA-verified pinned Python lens functions and compares their output on the same
+runner, retaining the 2e-6 shape/finiteness/error gate. The reference generator
+never consumes Rust output.
+
+Cargo CI runs baseline checks, formatting, release builds/tests and strict Clippy
+for both library/CLI and GUI, then explicitly runs the native Lensfun and GExiv2
+paths. Ordinary runs report these dependency-dependent tests as ignored.
+
+```sh
+python3 tools/check_baseline.py --require-reference
+cargo test --release --locked --features gui -j4 -- --nocapture
+cargo clippy --release --locked --all-targets --features gui -j4 -- -D warnings
+.venv/bin/python tools/generate_debt_fixtures.py
+SPEKTRAFILM_LENSFUN_LIBRARY="$PWD/.tools/lensfun/root/usr/lib/x86_64-linux-gnu/liblensfun.so.1" \
+SPEKTRAFILM_LENSFUN_DATABASE="$PWD/.venv/lib/python3.13/site-packages/lensfunpy/db_files" \
+  cargo test --release --locked --features gui --test core_coverage \
+  lensfun_matches_reference_when_available -- --ignored --exact --nocapture
+SPEKTRAFILM_TEST_METADATA=1 \
+  cargo test --release --locked --features gui --lib metadata -- --ignored --nocapture
+GUI_QA_RAW="$PWD/samples/RAW_CANON_EOS_5DMARK3.CR2" \
+  cargo test --release --locked --features gui --lib raw_preview -- --ignored --nocapture
+GUI_QA_DIR="$PWD/artifacts/gui" \
+  cargo test --release --locked --features gui --lib offscreen_darkroom -- --nocapture
+```
+
+These paths describe optional user-local tools, not base-system installations.
+`SPEKTRAFILM_GEXIV2_LIBRARY` selects GExiv2 outside the loader search path.
+Detailed logs and measured arrays live in ignored `artifacts/tech-debt-audit/`.

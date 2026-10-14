@@ -31,6 +31,8 @@ import numpy as np
 ROOT=Path(__file__).resolve().parents[1]
 BASELINE=json.loads((ROOT/'BASELINE.json').read_text())
 REFERENCE=ROOT/'.reference'/BASELINE['commit']
+from check_baseline import verify
+verify(require_reference=True)
 sys.path.insert(0,str(REFERENCE/'src'))
 from spektrafilm.runtime.params_builder import init_params,digest_params
 from spektrafilm.runtime.pipeline import SimulationPipeline

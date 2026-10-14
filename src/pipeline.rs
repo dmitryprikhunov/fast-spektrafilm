@@ -36,6 +36,13 @@ impl Tap {
     }
 }
 
+/// Timings belong to one call, so concurrent library callers never share state.
+pub struct ProcessReport {
+    pub image: Image,
+    pub stages: std::collections::BTreeMap<String, f64>,
+    pub total_seconds: f64,
+}
+
 struct CouplerModel {
     matrix: [[f64; 3]; 3],
     max: [f64; 3],
@@ -280,6 +287,37 @@ impl Simulator {
             .contains(&params.workflow.route.as_str()),
             "Unsupported workflow route"
         );
+        ensure!(params.io.input_rotation < 4, "Rotation must be 0..3");
+        ensure!(
+            params
+                .io
+                .output_bit_depth
+                .is_none_or(|v| [8, 16, 32].contains(&v)),
+            "Output bit depth must be 8,16 or 32"
+        );
+        ensure!(
+            ["zip", "none"].contains(&params.io.output_compression.as_str()),
+            "Unsupported output compression"
+        );
+        if let Some(space) = &params.workflow.saving_color_space {
+            tables.rgb_to_rgb(&params.io.output_color_space, space)?;
+        }
+        ensure!(
+            params.settings.preview_max_size > 0,
+            "Preview size must be positive"
+        );
+        if params.settings.preview_mode {
+            params.enlarger.lens_blur = 0.;
+            params.dir_couplers.diffusion_size_um = 0.;
+            params.grain.active = false;
+            params.grain.rms_granularity = vec![0.; 3];
+            params.grain.blur = 0.;
+            params.grain.mult_usm_amount = 0.;
+            params.print_glare.blur = 0.;
+            params.camera.lens_blur_um = 0.;
+            params.scanner.lens_blur = 0.;
+            params.scanner.unsharp_mask = [0.; 2];
+        }
         if params.debug.lut_mode {
             params.debug.deactivate_spatial_effects = true;
             params.debug.deactivate_stochastic_effects = true;
@@ -602,6 +640,193 @@ impl Simulator {
             p.copy_from_slice(&v);
         });
     }
+    /// Replace all dependent state after validation; a failed update preserves
+    /// the working simulator. Soft edits use the same explicit invalidation.
+    pub fn update(&mut self, data: &Path, params: Params) -> Result<()> {
+        let replacement = Self::new(data, params)?;
+        *self = replacement;
+        Ok(())
+    }
+    /// Resume from a stage tap. Injected arrays are already framed; callers
+    /// provide their physical pixel spacing explicitly. No hidden crop/metering.
+    pub fn process_from(
+        &self,
+        image: Image,
+        inject: Tap,
+        collect: Tap,
+        pixel_um: f64,
+    ) -> Result<Image> {
+        Ok(self
+            .process_profiled(image, inject, collect, pixel_um)?
+            .image)
+    }
+    /// Stage executor for differential injection and honest stage timings.
+    /// The fused per-pixel process_owned path remains available for throughput.
+    pub fn process_profiled(
+        &self,
+        mut image: Image,
+        inject: Tap,
+        collect: Tap,
+        pixel_um: f64,
+    ) -> Result<ProcessReport> {
+        image.validate()?;
+        ensure!(
+            pixel_um.is_finite() && pixel_um > 0.,
+            "Pixel spacing must be positive and finite"
+        );
+        let start = Instant::now();
+        let mut stages = std::collections::BTreeMap::new();
+        let mut record = |label: &str, from: Instant| {
+            stages.insert(label.into(), from.elapsed().as_secs_f64());
+        };
+        let mut tap = inject;
+        let mut auto_scale = 1.;
+        let mut spacing = pixel_um;
+        let seed = self.params.settings.random_seed.unwrap_or_else(|| {
+            use std::hash::BuildHasher;
+            std::collections::hash_map::RandomState::new().hash_one(0_u8) as u32
+        });
+        let film_scan = self.params.workflow.scan_film();
+        ensure!(
+            !(film_scan && [Tap::LogEPrint, Tap::CmyPrint].contains(&collect)),
+            "Film scan has no print taps"
+        );
+        ensure!(
+            !(self.params.workflow.convert_film() && collect == Tap::LogEFilm),
+            "Conversion has no film exposure tap"
+        );
+        loop {
+            let channels = match tap {
+                Tap::LogEFilm | Tap::CmyFilm => self.film.channels(),
+                Tap::LogEPrint | Tap::CmyPrint => self.print.channels(),
+                _ => 3,
+            };
+            ensure!(
+                image.channels == channels,
+                "Wrong channel count for {}",
+                tap.name()
+            );
+            if tap == collect {
+                break;
+            }
+            let from = Instant::now();
+            match tap {
+                Tap::RgbIn => {
+                    spacing = self.params.camera.film_format_mm * 1000.
+                        / image.width.max(image.height) as f64
+                        / self.params.io.upscale_factor;
+                    if self.params.workflow.route != "input" && !self.params.workflow.convert_film()
+                    {
+                        auto_scale = self.auto_scale(&image);
+                    }
+                    image = crate::framing::preprocess(image, &self.params.io)?;
+                    tap = Tap::RgbPre;
+                    record("preprocess", from);
+                }
+                Tap::RgbPre if self.params.workflow.route == "input" => {
+                    ensure!(collect == Tap::RgbOut, "Passthrough only provides RGB taps");
+                    image.data.par_chunks_exact_mut(3).for_each(|p| {
+                        let rgb = [p[0], p[1], p[2]].map(|v| {
+                            if self.params.io.input_cctf_decoding {
+                                decode(&self.params.io.input_color_space, v)
+                            } else {
+                                v
+                            }
+                        });
+                        let rgb = mat_vec(&self.passthrough_matrix, rgb).map(|v| {
+                            if self.params.io.output_cctf_encoding {
+                                encode(&self.params.io.output_color_space, v)
+                            } else {
+                                v
+                            }
+                        });
+                        p.copy_from_slice(&rgb);
+                    });
+                    tap = Tap::RgbOut;
+                    record("passthrough", from);
+                }
+                Tap::RgbPre if self.converter.is_some() => {
+                    let converter = self.converter.as_ref().unwrap();
+                    if self.params.io.input_cctf_decoding {
+                        image
+                            .data
+                            .iter_mut()
+                            .for_each(|v| *v = decode(&self.params.io.input_color_space, *v));
+                    }
+                    if let Some(lut) = &self.convert_lut {
+                        image.data.par_chunks_exact_mut(3).for_each(|p| {
+                            p.copy_from_slice(
+                                &lut.apply(&converter.pretransform([p[0], p[1], p[2]])),
+                            )
+                        });
+                    } else {
+                        image = converter.convert(&image);
+                    }
+                    tap = Tap::CmyFilm;
+                    record("converting.convert", from);
+                }
+                Tap::RgbPre => {
+                    if inject == Tap::RgbPre {
+                        auto_scale = self.auto_scale(&image);
+                    }
+                    image = self.process_spatial(image, Tap::LogEFilm, auto_scale, spacing)?;
+                    tap = Tap::LogEFilm;
+                    record("filming.expose", from);
+                }
+                Tap::LogEFilm => {
+                    ensure!(
+                        !self.params.workflow.convert_film()
+                            && self.params.workflow.route != "input",
+                        "Route has no film exposure stage"
+                    );
+                    image = self.develop_film(image, spacing, seed)?;
+                    tap = Tap::CmyFilm;
+                    record("filming.develop", from);
+                }
+                Tap::CmyFilm if !film_scan => {
+                    ensure!(
+                        self.params.workflow.route != "input",
+                        "Passthrough has no film stage"
+                    );
+                    image = self.finish_density(image, Tap::LogEPrint, spacing, seed)?;
+                    tap = Tap::LogEPrint;
+                    record("printing.expose", from);
+                }
+                Tap::LogEPrint => {
+                    ensure!(
+                        !film_scan && self.params.workflow.route != "input",
+                        "Route has no print stage"
+                    );
+                    image
+                        .data
+                        .par_chunks_exact_mut(image.channels)
+                        .for_each(|v| {
+                            let logs = v.to_vec();
+                            self.print.density(&logs, v);
+                        });
+                    tap = Tap::CmyPrint;
+                    record("printing.develop", from);
+                }
+                Tap::CmyFilm | Tap::CmyPrint => {
+                    ensure!(
+                        self.params.workflow.route != "input"
+                            && (film_scan == (tap == Tap::CmyFilm)),
+                        "Unavailable scan tap"
+                    );
+                    image = self.scan_density(image, seed)?;
+                    tap = Tap::RgbOut;
+                    record("scanning.scan", from);
+                }
+                Tap::RgbOut => bail!("Cannot reach {} from {}", collect.name(), inject.name()),
+            }
+        }
+        image.validate()?;
+        Ok(ProcessReport {
+            image,
+            stages,
+            total_seconds: start.elapsed().as_secs_f64(),
+        })
+    }
     pub fn process(&self, image: &Image, collect: Tap) -> Result<Image> {
         self.process_owned(image.clone(), collect)
     }
@@ -873,6 +1098,12 @@ impl Simulator {
         if collect == Tap::LogEFilm {
             return Ok(raw);
         }
+        let density = self.develop_film(raw, pixel_um, random_seed)?;
+        self.finish_density(density, collect, pixel_um, random_seed)
+    }
+    fn develop_film(&self, raw: Image, pixel_um: f64, random_seed: u32) -> Result<Image> {
+        use crate::spatial::{exponential, gaussian};
+        let (w, h, ch) = (raw.width, raw.height, raw.channels);
         let mut density = raw.clone();
         density
             .data
@@ -927,7 +1158,7 @@ impl Simulator {
                 random_seed,
             )?;
         }
-        self.finish_density(density, collect, pixel_um, random_seed)
+        Ok(density)
     }
     fn finish_density(
         &self,
@@ -1030,25 +1261,84 @@ impl Simulator {
             });
         drop(density);
         if collect == Tap::RgbOut {
-            if self.params.scanner.lens_blur > 0.0 {
-                output = gaussian(&output, &[self.params.scanner.lens_blur]);
-            }
-            let [sigma, amount] = self.params.scanner.unsharp_mask;
-            if sigma > 0.0 && amount > 0.0 {
-                let blurred = gaussian(&output, &[sigma]);
-                for (i, v) in output.data.iter_mut().enumerate() {
-                    *v += amount * (*v - blurred.data[i]);
-                }
-            }
-            if self.params.io.output_cctf_encoding {
-                output.data.par_chunks_exact_mut(3).for_each(|out| {
-                    let rgb = mat_vec(&self.output_encode_matrix, [out[0], out[1], out[2]])
-                        .map(|v| encode(&self.params.io.output_color_space, v));
-                    out.copy_from_slice(&rgb);
-                });
+            self.finish_output(output)
+        } else {
+            Ok(output)
+        }
+    }
+    fn finish_output(&self, mut output: Image) -> Result<Image> {
+        use crate::spatial::gaussian;
+        if self.params.scanner.lens_blur > 0.0 {
+            output = gaussian(&output, &[self.params.scanner.lens_blur]);
+        }
+        let [sigma, amount] = self.params.scanner.unsharp_mask;
+        if sigma > 0.0 && amount > 0.0 {
+            let blurred = gaussian(&output, &[sigma]);
+            for (i, v) in output.data.iter_mut().enumerate() {
+                *v += amount * (*v - blurred.data[i]);
             }
         }
+        if self.params.io.output_cctf_encoding {
+            output.data.par_chunks_exact_mut(3).for_each(|out| {
+                let rgb = mat_vec(&self.output_encode_matrix, [out[0], out[1], out[2]])
+                    .map(|v| encode(&self.params.io.output_color_space, v));
+                out.copy_from_slice(&rgb);
+            });
+        }
         Ok(output)
+    }
+    fn scan_density(&self, density: Image, random_seed: u32) -> Result<Image> {
+        use crate::spatial::gaussian;
+        let film_scan = self.params.workflow.scan_film();
+        let profile = if film_scan {
+            &self.scan_profile
+        } else {
+            &self.print
+        };
+        let mut output = Image::new(
+            density.width,
+            density.height,
+            3,
+            vec![0.; density.width * density.height * 3],
+        )?;
+        let g = &self.params.print_glare;
+        let glare = if !film_scan && g.active && g.percent > 0. {
+            let mut rng = crate::random::RandomState::new(random_seed.wrapping_add(0x6c617265));
+            let sigma2 = (1. + g.roughness * g.roughness).ln();
+            let mu = g.percent.ln() - sigma2 / 2.;
+            Some(gaussian(
+                &Image::new(
+                    density.width,
+                    density.height,
+                    1,
+                    (0..density.width * density.height)
+                        .map(|_| (mu + sigma2.sqrt() * rng.normal()).exp() / 100.)
+                        .collect(),
+                )?,
+                &[g.blur],
+            ))
+        } else {
+            None
+        };
+        output
+            .data
+            .par_chunks_exact_mut(3)
+            .zip(density.data.par_chunks_exact(density.channels))
+            .enumerate()
+            .for_each(|(i, (out, d))| {
+                let mut xyz = [0.; 3];
+                if let Some(lut) = &self.scanner_lut {
+                    xyz = lut.apply(d).map(|v| 10.0f64.powf(v));
+                } else {
+                    integrate(profile, d, &self.scan_weights, 3, &mut xyz);
+                }
+                out.copy_from_slice(&self.finish_scan(
+                    xyz,
+                    false,
+                    glare.as_ref().map_or(0., |g| g.data[i]),
+                ));
+            });
+        self.finish_output(output)
     }
     fn pixel(&self, mut rgb: [f64; 3], collect: Tap, auto_scale: f64) -> [f64; 3] {
         if self.params.io.input_cctf_decoding {

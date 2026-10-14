@@ -220,6 +220,12 @@ impl Default for Scanner {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Io {
+    /// Clockwise quarter turns applied to the source before crop/preview.
+    pub input_rotation: u8,
+    /// None selects PNG16, TIFF32, EXR32 and JPEG8.
+    pub output_bit_depth: Option<u8>,
+    /// Lossless TIFF/EXR compression: "zip" or "none".
+    pub output_compression: String,
     /// Optional display-only monitor ICC profile; exports retain their output profile.
     pub monitor_profile: Option<String>,
     pub copy_metadata: bool,
@@ -237,6 +243,9 @@ pub struct Io {
 impl Default for Io {
     fn default() -> Self {
         Self {
+            input_rotation: 0,
+            output_bit_depth: None,
+            output_compression: "zip".into(),
             monitor_profile: None,
             copy_metadata: true,
             input_color_space: "ProPhoto RGB".into(),
@@ -291,11 +300,16 @@ impl Default for OutputGamut {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Workflow {
+    /// None exports the completed scan in its processing representation.
+    pub saving_color_space: Option<String>,
+    pub saving_cctf_encoding: bool,
     pub route: String,
 }
 impl Default for Workflow {
     fn default() -> Self {
         Self {
+            saving_color_space: None,
+            saving_cctf_encoding: true,
             route: "input > film > print > scan".into(),
         }
     }
@@ -310,6 +324,8 @@ pub struct Debug {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Settings {
+    pub preview_mode: bool,
+    pub preview_max_size: usize,
     pub rgb_to_raw_method: String,
     pub apply_hanatos2025_adaptation_window: bool,
     pub apply_hanatos2025_adaptation_surface: bool,
@@ -329,6 +345,8 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            preview_mode: false,
+            preview_max_size: 640,
             rgb_to_raw_method: "hanatos2025".into(),
             apply_hanatos2025_adaptation_window: true,
             apply_hanatos2025_adaptation_surface: false,

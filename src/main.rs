@@ -65,6 +65,9 @@ enum Command {
         no_auto_exposure: bool,
         #[arg(long,value_enum,default_value_t=Tap::RgbOut)]
         collect: Tap,
+        /// Report individually executed stage timings (uses intermediate buffers).
+        #[arg(long)]
+        stage_timings: bool,
         #[arg(long, default_value_t = 1)]
         repeat: usize,
     },
@@ -163,7 +166,9 @@ fn main() -> Result<()> {
                 }
             }
             let secs = start.elapsed().as_secs_f64();
-            write(&image, &output)?;
+            fast_spektrafilm::file_io::transactional_save(&input, &output, |temp| {
+                write(&image, temp)
+            })?;
             eprintln!(
                 "{}",
                 serde_json::json!({"libraw":raw_version(),"decode_seconds":secs,"width":image.width,"height":image.height,"color_space":color_space})
@@ -180,6 +185,7 @@ fn main() -> Result<()> {
             no_spatial,
             no_auto_exposure,
             collect,
+            stage_timings,
             repeat,
         } => {
             ensure!(repeat > 0, "repeat must be positive");
@@ -211,27 +217,17 @@ fn main() -> Result<()> {
                 times.push(start.elapsed().as_secs_f64());
             }
             let start = Instant::now();
-            let result = sim.process_owned(image, collect)?;
+            let (result, stages) = if stage_timings {
+                let report = sim.process_profiled(image, Tap::RgbIn, collect, 1.)?;
+                (report.image, Some(report.stages))
+            } else {
+                (sim.process_owned(image, collect)?, None)
+            };
             times.push(start.elapsed().as_secs_f64());
-            fast_spektrafilm::file_io::write(
-                &result,
-                &output,
-                &cli.data_dir,
-                &sim.params().io.output_color_space,
-                sim.params().io.output_cctf_encoding,
-            )?;
-            if sim.params().io.copy_metadata {
-                fast_spektrafilm::metadata::copy(
-                    &input,
-                    &output,
-                    [result.width, result.height],
-                    &sim.params().io.output_color_space,
-                    sim.params().io.output_cctf_encoding,
-                )?;
-            }
+            fast_spektrafilm::file_io::save(&result, &input, &output, &cli.data_dir, sim.params())?;
             eprintln!(
                 "{}",
-                serde_json::json!({"setup_seconds":sim.setup_seconds,"decode_seconds":decode_seconds,"process_seconds":times,"width":result.width,"height":result.height,"channels":result.channels,"tap":collect.name(),"threads":rayon::current_num_threads()})
+                serde_json::json!({"stage_seconds":stages,"setup_seconds":sim.setup_seconds,"decode_seconds":decode_seconds,"process_seconds":times,"width":result.width,"height":result.height,"channels":result.channels,"tap":collect.name(),"threads":rayon::current_num_threads()})
             );
         }
         Command::Calibrate {
@@ -244,29 +240,13 @@ fn main() -> Result<()> {
                 input != output,
                 "Settings output must differ from the source image"
             );
-            let mut p = read_params(config)?;
-            let mut image = fast_spektrafilm::file_io::read(&input, &cli.data_dir, &p, None)?;
-            if p.io.input_cctf_decoding {
-                image.data.iter_mut().for_each(|v| {
-                    *v = fast_spektrafilm::color::decode(&p.io.input_color_space, *v)
-                });
-            }
-            let tables = Tables::load(&cli.data_dir)?;
-            if device {
-                p.workflow.route = "input > convert-film > scan".into();
-                let sim = Simulator::new(&cli.data_dir, p.clone())?;
-                p.convert.calibration =
-                    fast_spektrafilm::convert::FilmConverter::new(&tables, sim.film(), &p)?
-                        .fit_calibration(&image)?;
-            } else {
-                let sample =
-                    fast_spektrafilm::convert::sample_base(&image, p.convert.base_percentile)?;
-                let mut stock = Profile::load(&cli.data_dir, &p.film_profile)?;
-                stock.swap_dyes(p.special.film_channel_swap)?;
-                (p.film_base, p.convert.exposure_compensation_ev) =
-                    fast_spektrafilm::convert::fit_base(&tables, &stock, &p, sample)?;
-            }
-            std::fs::write(output, serde_json::to_string_pretty(&p)?)?;
+            let p = read_params(config)?;
+            let image = fast_spektrafilm::file_io::read(&input, &cli.data_dir, &p, None)?;
+            let p = fast_spektrafilm::convert::calibrate(&cli.data_dir, image, &p, device)?;
+            fast_spektrafilm::file_io::transactional_save(&input, &output, |temp| {
+                std::fs::write(temp, serde_json::to_string_pretty(&p)?)?;
+                Ok(())
+            })?;
         }
         Command::Bake {
             output,

@@ -10,7 +10,7 @@ default-run = "fast-spektrafilm"
 [features]
 default = ["bundled-libraw"]
 bundled-libraw = []
-gui = ["dep:slint", "dep:slint-build", "dep:rfd", "dep:tempfile"]
+gui = ["dep:slint", "dep:slint-build", "dep:rfd"]
 
 [[bin]]
 name = "fast-spektrafilm-gui"
@@ -32,9 +32,10 @@ half = "2"
 tiff = "0.10"
 slint = { version = "=1.18.1", optional = true, default-features = false, features = ["std", "backend-winit", "renderer-software", "compat-1-18"] }
 rfd = { version = "0.17.2", optional = true }
-tempfile = { version = "3", optional = true }
+tempfile = "3"
 rustfft = "6"
 nalgebra = "0.34"
+exr = "1"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "tiff", "webp", "exr"] }
 lcms2 = "6"
 libloading = "0.8"

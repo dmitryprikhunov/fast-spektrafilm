@@ -60,9 +60,17 @@ long side; coordinates are ordered x, y. Metering uses the full test input befor
 framing, and spatial effects retain its physical pixel scale after cropping.
 
 Configuration is JSON, with partial groups filled from defaults. Unknown fields
-and unsupported algorithms produce errors. Profile names select the original
-JSON measurement data. `--data-dir` overrides the data location. RAW input uses
-as-shot white balance; `decode` also supports daylight and half-size demosaicing.
+and unsupported algorithms produce errors. The schema is not compatible with
+Python runtime/Qt state JSON; see the mapping and boundaries in
+[MIGRATION.md](MIGRATION.md). Profile names select the original
+JSON measurement data. `--data-dir` overrides the data location. RAW input defaults to
+as-shot white balance; `raw.white_balance` selects the alternatives described
+below. `decode` also supports half-size demosaicing.
+
+CLI and GUI image saves reject source aliases (including symlinks and hard links).
+A distinct existing destination is replaced only after encoding and metadata
+copying succeed, using a temporary file in the destination directory.
+
 NPY input is an H×W×C little-endian float16/32/64 array in the configured input
 space. Simulation and NPY export use float64; TIFF export uses float32 RGB.
 
@@ -83,10 +91,18 @@ fn main() -> anyhow::Result<()> {
 }
 ```
 
-Reuse the immutable simulator to reuse spectral and gamut tables. `process_owned`
-consumes the input and reuses its storage on the per-pixel path. `process` keeps
-the caller's input. Construct a new simulator when settings change. Rayon handles
-pixel work; a local thread pool can set the library's thread count.
+Reuse the simulator to reuse spectral and gamut tables. `process_owned` consumes
+the input; `process` keeps it. `update(data, params)` validates and rebuilds all
+dependent tables before replacing the simulator, so a failed update preserves
+its previous state. It deliberately rebuilds instead of exposing a second soft
+update API.
+
+`process_from(image, inject, collect, pixel_um)` resumes from RGB, film or print
+exposure/density. Injected stages carry their physical pixel spacing explicitly;
+RGB input derives spacing and metering from framing. `process_profiled` returns
+`ProcessReport` with stage seconds and total time. CLI `process --stage-timings`
+uses that executor; normal processing retains the fused path. Rayon handles
+pixel work; a local pool can set the library thread count.
 
 Grain uses the reference's float32 working precision. With
 `settings.use_fast_stats=false`, the seeded NumPy RandomState grain stream is
@@ -145,16 +161,31 @@ processing algorithms are Rust.
 ### Additional input and negative workflows
 
 `process` opens RGB NPY, ordinary PNG/JPEG/TIFF/WebP/EXR, and camera RAW.
-PNG/JPEG/WebP without an ICC profile are interpreted as sRGB; untagged TIFF/EXR
-and NPY retain the explicitly configured input representation. RGB ICC profiles
-are honoured. PNG export is 16-bit; TIFF/EXR remain float32 and NPY float64.
-Output profiles are embedded for supported RGB spaces in PNG/JPEG/TIFF.
+PNG/JPEG/WebP without an ICC profile use sRGB; untagged TIFF/EXR and NPY retain
+the configured representation. RGB ICC profiles and decoder orientation are
+honoured. Integer 8/16-bit pixels normalize directly into float64.
+`io.output_bit_depth` selects PNG8/16, TIFF8/16/32 or EXR16/32; null defaults to
+PNG16, TIFF32 or EXR32. JPEG is 8-bit quality 95 and NPY is float64.
+`io.output_compression` selects ZIP or none for TIFF/EXR. Integer exports truncate
+as in the source. Missing expected ICC assets are errors; unsupported ACEScg
+and linear Display P3 omit ICC deliberately. One-channel BW taps require NPY.
+
+`workflow.saving_color_space` optionally converts the completed result into a
+separate delivery space, with `saving_cctf_encoding`; null retains its processing
+representation. `io.input_rotation` selects 0–3 clockwise quarter turns before
+cropping and preview reduction.
 
 Set `workflow.route` to `input > convert-film > print > scan`,
 `input > convert-film > scan`, or `input > convert-film > scan-minus-base`.
 `convert` contains the scan lamp, exposure alignment and a 3×3 calibration matrix.
 `calibrate input.tiff fitted.json --config settings.json` detects/fits clear base;
 add `--device` to fit device calibration. Both operations save reusable settings.
+Both GUI and CLI use the full decoded input and the source 40,000-pixel device
+sampling cap, then the 1,500-sample fitter. The Rust MINPACK solver preserves
+the pinned SciPy finite differences and BLAS reduction order.
+`print_balance::solve_neutral_filter_shifts(data, params, 0.184)` fits neutral M/Y
+shifts; the GUI exposes it as Neutralize print filters. Calibration does not
+automatically rebalance print filters.
 
 `raw.white_balance` accepts `as_shot`, `daylight`, `tungsten`, or `custom`;
 custom uses `raw.temperature` (kelvin) and `raw.tint`. Enable

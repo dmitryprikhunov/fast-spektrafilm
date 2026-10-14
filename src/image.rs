@@ -13,6 +13,39 @@ pub struct Image {
     pub data: Vec<f64>,
 }
 impl Image {
+    pub fn rotate_owned(self, turns: u8) -> Result<Self> {
+        if turns == 0 {
+            self.validate()?;
+            return Ok(self);
+        }
+        self.rotated(turns)
+    }
+    pub fn rotated(&self, turns: u8) -> Result<Self> {
+        self.validate()?;
+        ensure!(turns < 4, "Rotation must be 0, 1, 2 or 3 quarter turns");
+        if turns == 0 {
+            return Ok(self.clone());
+        }
+        let (w, h) = if turns % 2 == 1 {
+            (self.height, self.width)
+        } else {
+            (self.width, self.height)
+        };
+        let mut data = vec![0.; self.data.len()];
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let (dx, dy) = match turns {
+                    1 => (self.height - 1 - y, x),
+                    2 => (self.width - 1 - x, self.height - 1 - y),
+                    _ => (y, self.width - 1 - x),
+                };
+                data[(dy * w + dx) * self.channels..][..self.channels].copy_from_slice(
+                    &self.data[(y * self.width + x) * self.channels..][..self.channels],
+                );
+            }
+        }
+        Self::new(w, h, self.channels, data)
+    }
     pub fn new(width: usize, height: usize, channels: usize, data: Vec<f64>) -> Result<Self> {
         ensure!(
             width > 0 && height > 0 && channels > 0,
@@ -273,30 +306,11 @@ fn decode_raw_impl(
     );
     let pixels = unsafe { std::slice::from_raw_parts(sf_raw_pixels(p), bytes) };
     if let Some(edge) = max_edge.filter(|edge| *edge < w.max(h)) {
-        let scale = edge as f64 / w.max(h) as f64;
-        let pw = ((w as f64 * scale).round() as usize).max(1);
-        let ph = ((h as f64 * scale).round() as usize).max(1);
-        let mut data = vec![0.0; pw * ph * c];
-        for y in 0..ph {
-            let y0 = y * h / ph;
-            let y1 = (y + 1) * h / ph;
-            for x in 0..pw {
-                let x0 = x * w / pw;
-                let x1 = (x + 1) * w / pw;
-                let count = ((y1 - y0) * (x1 - x0)) as f64;
-                for sy in y0..y1 {
-                    for sx in x0..x1 {
-                        for channel in 0..c {
-                            let i = ((sy * w + sx) * c + channel) * 2;
-                            let value = u16::from_ne_bytes([pixels[i], pixels[i + 1]]);
-                            data[(y * pw + x) * c + channel] +=
-                                (value as f32 / 65535.0_f32) as f64 / count;
-                        }
-                    }
-                }
-            }
-        }
-        return Ok((Image::new(pw, ph, c, data)?, [w, h]));
+        let preview = crate::preview::sampled(w, h, c, edge, |x, y, channel| {
+            let i = ((y * w + x) * c + channel) * 2;
+            (u16::from_ne_bytes([pixels[i], pixels[i + 1]]) as f32 / 65535.0_f32) as f64
+        })?;
+        return Ok((preview, [w, h]));
     }
     // Match reference rawpy's uint16 -> float32 -> normalized float32 path.
     let cw = crop_size.unwrap_or(w).min(w);

@@ -15,6 +15,7 @@ fn sources(dir: &Path, build: &mut cc::Build) {
     }
 }
 fn main() {
+    println!("cargo:rerun-if-changed=ui/darkroom.slint");
     #[cfg(feature = "gui")]
     slint_build::compile_with_config(
         "ui/darkroom.slint",
