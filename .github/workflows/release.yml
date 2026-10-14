@@ -90,7 +90,7 @@ jobs:
 
   publish:
     name: Publish verified release
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     needs: linux
     runs-on: ubuntu-24.04
     permissions:
