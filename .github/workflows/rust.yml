@@ -1,0 +1,78 @@
+name: Rust
+
+on:
+  push:
+    branches: [main, develop, chore/experimental-tech-debt-audit]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTUP_TOOLCHAIN: 1.93.1
+  RAYON_NUM_THREADS: 4
+  # Keep optimized numerical checks; avoid expensive whole-GUI LTO in CI.
+  CARGO_PROFILE_RELEASE_LTO: false
+  CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 16
+
+jobs:
+  build-and-test:
+    name: Cargo (${{ matrix.variant }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: library-cli
+            features: ''
+          - variant: gui-native
+            features: '--features gui'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Install runner build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y liblcms2-dev libfontconfig1-dev libgexiv2-2 liblensfun1
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.93.1 --profile minimal --component rustfmt --component clippy
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-rust-1.93.1-${{ matrix.variant }}-${{ hashFiles('Cargo.lock') }}
+      - name: Verify pinned measurement assets and derived tables
+        run: python3 tools/check_baseline.py
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Build
+        run: cargo build --release --locked --all-targets ${{ matrix.features }} -j4 --verbose
+      - name: Test including checked-in reference comparisons
+        run: cargo test --release --locked ${{ matrix.features }} -j4 --verbose -- --nocapture
+      - name: Clippy
+        run: cargo clippy --release --locked --all-targets ${{ matrix.features }} -j4 -- -D warnings
+      - name: Prepare pinned Lensfun database in a runner-local environment
+        if: matrix.variant == 'gui-native'
+        run: |
+          python3 -m venv .tools/native-ci
+          .tools/native-ci/bin/pip install lensfunpy==1.18.0
+          echo "SPEKTRAFILM_LENSFUN_DATABASE=$(.tools/native-ci/bin/python -c 'import pathlib,lensfunpy; print(pathlib.Path(lensfunpy.__file__).parent / "db_files")')" >> "$GITHUB_ENV"
+      - name: Exercise native Lensfun path explicitly
+        if: matrix.variant == 'gui-native'
+        env:
+          SPEKTRAFILM_LENSFUN_LIBRARY: /usr/lib/x86_64-linux-gnu/liblensfun.so.1
+        run: cargo test --release --locked --features gui --test core_coverage lensfun_matches_reference_when_available -- --ignored --exact --nocapture
+      - name: Exercise metadata path explicitly
+        if: matrix.variant == 'gui-native'
+        env:
+          SPEKTRAFILM_TEST_METADATA: '1'
+        run: cargo test --release --locked --features gui --lib metadata_roundtrip_preserves_content_and_output_icc -- --ignored --nocapture
