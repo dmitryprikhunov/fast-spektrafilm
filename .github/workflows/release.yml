@@ -36,10 +36,11 @@ jobs:
       - name: Install runner dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y liblcms2-dev libfontconfig1-dev libgexiv2-2 liblensfun1 xvfb xauth ripgrep jq
+          sudo apt-get install -y liblcms2-dev libfontconfig1-dev libxkbcommon-x11-0 libgexiv2-2 liblensfun1 xvfb xauth ripgrep jq
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.93.1 --profile minimal
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        id: cargo-cache
         with:
           path: |
             ~/.cargo/registry
@@ -67,6 +68,14 @@ jobs:
         # Rust CI covers GUI callbacks and native paths. Exercise the core with
         # thin LTO here, and the actual GUI executable in the archive smoke test.
         run: cargo test --release --locked -j1
+      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        if: steps.cargo-cache.outputs.cache-hit != 'true'
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
       - name: Package binaries, original data, licenses and matching source
         run: bash scripts/package-linux.sh "$RELEASE_TAG"
       - name: Test the unpacked release outside the checkout

@@ -12,14 +12,15 @@ the pinned LibRaw source and Cargo lockfile.
 The binaries are built on Ubuntu 24.04 with Rust 1.93.1, using the normal release
 profile (thin LTO, one codegen unit) and a generic x86_64 CPU target. They require
 glibc 2.39 or newer and system LittleCMS, OpenMP and C++ runtimes. GUI startup
-also needs Fontconfig and an X11 or Wayland desktop; native file dialogs use the
+also needs Fontconfig, xkbcommon (including its X11 library) and an X11 or Wayland
+desktop; native file dialogs use the
 desktop's XDG portal. `DYNAMIC-LIBRARIES.txt` lists linked libraries.
 Windows, macOS and Linux ARM packages are not included in v0.1.0.
 
 On Ubuntu 24.04, the runtime packages are:
 
 ```sh
-sudo apt-get install liblcms2-2 libgomp1 libstdc++6 libfontconfig1 libgexiv2-2 liblensfun1
+sudo apt-get install liblcms2-2 libgomp1 libstdc++6 libfontconfig1 libxkbcommon-x11-0 libgexiv2-2 liblensfun1
 ```
 
 GExiv2 is used for PNG/JPEG/TIFF metadata copying, enabled by default. The GUI's
