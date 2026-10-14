@@ -2,6 +2,7 @@ pub mod base;
 pub mod chemistry;
 pub mod color;
 pub mod convert;
+mod convert_math;
 pub mod diffusion;
 pub mod file_io;
 pub mod grain;

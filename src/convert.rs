@@ -250,7 +250,8 @@ impl FilmConverter {
         self.bounded(
             self.center.cast::<f64>()
                 + self.seed_inverse
-                    * (self.log_center - y.map(|v| (v as f32).max(1e-12).log10() as f64)),
+                    * (self.log_center
+                        - y.map(|v| crate::convert_math::log10_f32((v as f32).max(1e-12)) as f64)),
         )
     }
     fn invert_vectors(&self, y: &[Vector3<f32>]) -> Vec<Vector3<f64>> {

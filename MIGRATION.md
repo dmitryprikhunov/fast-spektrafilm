@@ -96,7 +96,7 @@ extracted from the pinned source, never Rust-generated expected values.
 
 | Finding | Change | Verification |
 |---|---|---|
-| D1: calibration | Rust MINPACK LM; source mixed float32/64 arithmetic, finite differences and BLAS reduction order; shared full-input GUI/CLI sampling | `tests/debt.rs`: five stock/base/exposure/degenerate cases, coefficients <1e-4, full residual <1e-5, fitted density/RGB <1e-4; original core matrix also consumed. GUI uses shared calibration helper. |
+| D1: calibration | Rust MINPACK LM; source mixed float32/64 arithmetic, finite differences and BLAS reduction order and portable correctly-rounded seed log10; shared full-input GUI/CLI sampling | `tests/debt.rs`: five stock/base/exposure/degenerate cases, coefficients <1e-4, full residual <1e-5, fitted density/RGB <1e-4; original core matrix also consumed. GUI uses shared calibration helper. |
 | D2: preview | Anti-aliased order-1 mirror reducer, truncated dimensions, default edge 640; source preview-mode digestion | Odd aspect/bright-edge input and all five output stages; actual RAW preview versus full decode/reduce. Scan forces preview mode off. |
 | D3: file preservation | Shared transactional saves; reject canonical and hard-link source aliases; replace distinct existing destinations only on success | Failed encoding/metadata leaves destination unchanged, CLI failure test, symlink/hard-link tests. |
 | D4: neutral filters | Rust neutral-M/Y helper and GUI action | Three stock/base cases compare fitted shifts and final neutral RGB. |

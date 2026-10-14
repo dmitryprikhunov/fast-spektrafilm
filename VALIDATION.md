@@ -80,7 +80,7 @@ other RAW formats requires additional verification.
 
 ## Audit fixes, 2026-10-14
 
-The release suite passed **41 tests** with GUI enabled; strict release Clippy
+The release suite passed **42 tests** with GUI enabled; strict release Clippy
 passed. Lensfun, GExiv2, real RAW preview and offscreen screenshots were
 explicitly exercised and passed. Calibration sampling additionally matches
 pinned NumPy linspace at integer boundaries in its 40,000-pixel cap.
@@ -94,7 +94,9 @@ The source arithmetic in inverse conversion promotes float32 inputs/tables to
 float64 at `LN10`, then promotes CMY after the first Newton step. Rust preserves
 that mixed precision, the float32 damping coefficient, Haswell OpenBLAS reduction
 order and left-looking LU. Calibration uses a Rust translation of pinned SciPy
-1.18.1 LMDER with its two-point Jacobian and stopping rules. The full source fit
+1.18.1 LMDER with its two-point Jacobian and stopping rules. The binary32 seed logarithm uses a Rust CORE-MATH implementation matching
+pinned glibc 2.43/NumPy rounding, avoiding the older glibc 2.39 log10f error.
+The full source fit
 residual was compared at each of the 195 evaluations in the Provia probe.
 
 | Differential check | Measured maximum absolute error |

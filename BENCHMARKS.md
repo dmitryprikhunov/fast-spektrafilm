@@ -203,4 +203,6 @@ cannot be used to predict its memory use. These measurements include the
 selected monitor transform and exclude OS dialogs, UI painting and worker
 preset-resolution time. Reports with binary, lockfile and input hashes are in
 ignored `artifacts/workflow-benchmark`, `artifacts/core-benchmark` and
-`artifacts/workflow-full`.
+`artifacts/workflow-full`. These performance reports use commit `337965b`;
+the subsequent seed-logarithm portability fix preserves its glibc 2.43 rounding
+but was not included in these timing runs.

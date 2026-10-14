@@ -10,5 +10,10 @@
     "version": "0.3.34.106.0",
     "detection method": "pkgconfig",
     "openblas configuration": "OpenBLAS 0.3.34.106.0  USE64BITINT DYNAMIC_ARCH NO_AFFINITY Haswell MAX_THREADS=64"
-  }
+  },
+  "libc": [
+    "glibc",
+    "2.43"
+  ],
+  "binary32_log10": "CORE-MATH bc385c2"
 }

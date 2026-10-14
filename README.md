@@ -30,4 +30,4 @@ use `--threads N` to set a limit.
 
 This product includes software developed by the University of Chicago, as
 Operator of Argonne National Laboratory (MINPACK). SciPy and OpenBLAS arithmetic
-attribution and license notices are preserved in [licenses/](licenses).
+and CORE-MATH attribution and license notices are preserved in [licenses/](licenses).

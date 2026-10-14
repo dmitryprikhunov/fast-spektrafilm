@@ -64,6 +64,8 @@ for stock, cmy in [('kodak_portra_400', (1.,1.,1.)), ('kodak_portra_400', (1.2,.
 from spektrafilm.model.convert import fit_base_params, sample_base_rgb, format_calibration_matrix
 from spektrafilm.model.illuminants import standard_illuminant
 import dataclasses
+import platform
+assert platform.libc_ver() == ("glibc", "2.43"), "Regenerate pinned fits with glibc 2.43"
 calibrations = []
 for idx, (stock, cmy, ev) in enumerate([
     ('kodak_portra_400', (1.,1.,1.), 0.),
@@ -147,3 +149,12 @@ for total, count in [(1,1),(2,1),(40536,40000),(80000,40000),(88000,1500),(22000
     points = sorted(set([0,count-1,count//2] + np.flatnonzero(expected != rational).tolist()))
     sampling.append(dict(total=total,count=count,samples=[[i,int(expected[i])] for i in points]))
 (folder/'sampling.json').write_text(json.dumps(sampling,indent=2)+'\n')
+
+# Binary32 inverse-seed logarithms from the pinned, correctly-rounded libm.
+rng = np.random.default_rng(27)
+core = np.load(ROOT/'tests/fixtures/core/captured.npy').reshape(-1,3)
+core_matrix = np.asarray(json.loads((ROOT/'tests/fixtures/core/calibration.json').read_text()))
+y = np.clip(core @ core_matrix, 0, None).astype(np.float32)
+x = np.concatenate([y.ravel().clip(1e-12), rng.integers(1,0x7f7fffff,1024,dtype=np.uint32).view(np.float32), 10.**np.arange(0,11,dtype=np.float32)]).astype(np.float32)
+logs = np.log10(x)
+(folder/'log10_f32.json').write_text(json.dumps(np.stack([x.view(np.uint32),logs.view(np.uint32)],axis=1).tolist(),indent=2)+'\n')
