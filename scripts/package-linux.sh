@@ -31,6 +31,14 @@ cp -a docs "$package/"
 cp README.md GUI.md DEVELOPMENT.md RELEASES.md MIGRATION.md VALIDATION.md BENCHMARKS.md \
     LICENSE SPEKTRAFILM_LICENSE.txt BASELINE.json REFERENCE_MANIFEST.json Cargo.lock "$package/"
 cp vendor/libraw/{COPYRIGHT,LICENSE.LGPL,LICENSE.CDDL,PROVENANCE.json} "$package/licenses/libraw/"
+rust_notices=${SPEKTRAFILM_RUST_NOTICES:-$(rustc --print sysroot)/share/doc/rust}
+[[ -f "$rust_notices/COPYRIGHT-library.html" ]] || {
+    echo 'Rust library notices are required; use rustup or set SPEKTRAFILM_RUST_NOTICES to their directory' >&2
+    exit 1
+}
+mkdir -p "$package/licenses/rust-standard-library"
+cp "$rust_notices/COPYRIGHT-library.html" "$package/licenses/rust-standard-library/"
+cp -a "$rust_notices/licenses" "$package/licenses/rust-standard-library/"
 
 # Retain crate notices verbatim, including nested LICENSES and native vendor files.
 jq -r '.packages[] | select(.source != null) | [.manifest_path,.name,.version] | @tsv' "$metadata" |
