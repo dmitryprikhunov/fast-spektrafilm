@@ -59,9 +59,10 @@ Linux archive, matching source archive and SHA256 checksums as Actions artifacts
 Tag runs publish these files to a GitHub release only after all checks pass;
 pull requests and manual workflow runs build artifacts without publishing.
 
-Local packaging after `cargo build --release --locked --features gui --bins`:
-use a rustup toolchain, which includes the standard library's copyright and
-license files. For another compiler installation, `SPEKTRAFILM_RUST_NOTICES` can
+For local packaging, commit the sources and data, then build with
+`cargo build --release --locked --features gui --bins`. Use a rustup toolchain,
+which includes the standard library's copyright and license files.
+For another compiler installation, `SPEKTRAFILM_RUST_NOTICES` can
 point to its matching `share/doc/rust` notice directory.
 
 ```sh

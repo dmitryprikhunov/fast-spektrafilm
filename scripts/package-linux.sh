@@ -7,6 +7,10 @@ cd "$repo"
 tag=${1:?Usage: scripts/package-linux.sh vVERSION [binary-dir] [output-dir]}
 [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid release tag: $tag" >&2; exit 1; }
 [[ $(uname -sm) == 'Linux x86_64' ]] || { echo 'Requires native Linux x86_64' >&2; exit 1; }
+[[ -z $(git status --porcelain) ]] || {
+    echo 'Commit the release sources and data before packaging their matching source archive' >&2
+    exit 1
+}
 binary_dir=$(realpath "${2:-target/release}")
 output=${3:-artifacts/release/dist}
 mkdir -p "$output"
@@ -28,7 +32,7 @@ done
 cp -a data "$package/"
 cp -a licenses/. "$package/licenses/"
 cp -a docs "$package/"
-cp README.md GUI.md DEVELOPMENT.md RELEASES.md MIGRATION.md VALIDATION.md BENCHMARKS.md \
+cp README.md GUI.md GUI_REVIEW.md CONTRIBUTING.md DEVELOPMENT.md RELEASES.md MIGRATION.md VALIDATION.md BENCHMARKS.md \
     LICENSE SPEKTRAFILM_LICENSE.txt BASELINE.json REFERENCE_MANIFEST.json Cargo.lock "$package/"
 cp vendor/libraw/{COPYRIGHT,LICENSE.LGPL,LICENSE.CDDL,PROVENANCE.json} "$package/licenses/libraw/"
 rust_notices=${SPEKTRAFILM_RUST_NOTICES:-$(rustc --print sysroot)/share/doc/rust}
