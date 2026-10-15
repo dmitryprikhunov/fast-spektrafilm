@@ -69,7 +69,7 @@ pub struct Illuminant {
     pub spectrum: Vec<f64>,
     pub xy: [f64; 2],
 }
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct Tables {
     pub baseline_commit: String,
     pub cmfs: Vec<[f64; 3]>,
@@ -88,9 +88,24 @@ pub struct Tables {
 }
 impl Tables {
     pub fn load(path: &Path) -> Result<Self> {
-        Ok(serde_json::from_reader(std::fs::File::open(
-            path.join("reference_tables.json"),
-        )?)?)
+        Ok((*Self::shared(path)?).clone())
+    }
+    pub(crate) fn shared(path: &Path) -> Result<Arc<Self>> {
+        static CACHE: OnceLock<Mutex<crate::cache::ByteCache<Tables>>> = OnceLock::new();
+        let path = path.join("reference_tables.json");
+        let key = crate::cache::file_key(&path)?;
+        let cache =
+            CACHE.get_or_init(|| Mutex::new(crate::cache::ByteCache::new(16 * 1024 * 1024)));
+        if let Some(value) = cache.lock().unwrap().get(&key) {
+            return Ok(value);
+        }
+        let bytes = std::fs::read(path)?;
+        let tables: Arc<Self> = Arc::new(serde_json::from_slice(&bytes)?);
+        cache
+            .lock()
+            .unwrap()
+            .insert(key, bytes.len() * 4, tables.clone());
+        Ok(tables)
     }
     pub fn space(&self, name: &str) -> Result<&ColorSpace> {
         self.spaces

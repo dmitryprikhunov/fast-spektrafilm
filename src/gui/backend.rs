@@ -217,6 +217,7 @@ pub struct Session {
     tables: Tables,
     pub source: Option<Source>,
     scan: Option<Scan>,
+    simulator: Option<Simulator>,
 }
 impl Session {
     pub fn new(data: &Path) -> Result<Self> {
@@ -225,6 +226,7 @@ impl Session {
             tables: Tables::load(data)?,
             source: None,
             scan: None,
+            simulator: None,
         })
     }
     #[cfg(test)]
@@ -247,12 +249,12 @@ impl Session {
         params.workflow.saving_cctf_encoding = true;
         Ok(serde_json::to_string(&params)?)
     }
-    fn scan_keys(&self, params: &Params) -> Result<[String; 2]> {
+    fn scan_keys(params: &Params, resolved: &Params) -> Result<[String; 2]> {
         // The UI resolves stock presets after rendering. Accept both the request
         // and its resolved settings without constructing a simulator on Save.
         Ok([
             Self::processing_key(params)?,
-            Self::processing_key(&self.resolved_params(params)?)?,
+            Self::processing_key(resolved)?,
         ])
     }
     fn ensure_scan(&mut self, params: &Params) -> Result<()> {
@@ -268,34 +270,27 @@ impl Session {
         self.scan = None;
         let mut scan_params = params.clone();
         scan_params.settings.preview_mode = false;
-        let output = Simulator::new(&self.data, scan_params)?
-            .process_owned(source.input(params, &self.data, true)?, Tap::RgbOut)?;
-        self.scan = Some(Scan {
-            path: source.path.clone(),
-            keys: self.scan_keys(params)?,
-            output,
-        });
+        let input = source.input(params, &self.data, true)?;
+        let path = source.path.clone();
+        let sim = self.prepare(scan_params)?;
+        let output = sim.process_owned(input, Tap::RgbOut)?;
+        let keys = Self::scan_keys(params, sim.params())?;
+        self.scan = Some(Scan { path, keys, output });
         Ok(())
+    }
+    fn prepare(&mut self, params: Params) -> Result<&Simulator> {
+        if let Some(sim) = &mut self.simulator {
+            sim.update(&self.data, params)?;
+        } else {
+            self.simulator = Some(Simulator::new(&self.data, params)?);
+        }
+        Ok(self.simulator.as_ref().unwrap())
     }
     pub fn resolved_params(&self, p: &Params) -> Result<Params> {
-        let sim = Simulator::new(&self.data, p.clone())?;
-        let mut out = p.clone();
-        if p.settings.apply_grain_presets {
-            crate::grain::apply_presets(&self.data, sim.film(), &mut out.grain)?;
-        }
-        if p.settings.apply_coupler_presets {
-            crate::pipeline::apply_coupler_presets(&self.data, sim.film(), &mut out.dir_couplers)?;
-        }
-        if p.settings.neutral_print_filters_from_database {
-            out.enlarger.y_filter_neutral = sim.params().enlarger.y_filter_neutral;
-            out.enlarger.m_filter_neutral = sim.params().enlarger.m_filter_neutral;
-            out.enlarger.c_filter_neutral = sim.params().enlarger.c_filter_neutral;
-        }
-        Ok(out)
+        crate::pipeline::resolve_params(&self.data, p.clone())
     }
     pub fn validate_params(&self, params: &Params) -> Result<()> {
-        Simulator::new(&self.data, params.clone())?;
-        Ok(())
+        crate::pipeline::validate_params(&self.data, params)
     }
     pub fn render(&mut self, params: &Params) -> Result<Preview> {
         self.render_size(params, false)
@@ -361,8 +356,10 @@ impl Session {
         let before_size = [u32::try_from(input.width)?, u32::try_from(input.height)?];
         let mut render_params = params.clone();
         render_params.settings.preview_mode = !full;
-        let output =
-            Simulator::new(&self.data, render_params)?.process_owned(input, Tap::RgbOut)?;
+        let source_path = source.path.clone();
+        let sim = self.prepare(render_params)?;
+        let output = sim.process_owned(input, Tap::RgbOut)?;
+        let keys = Self::scan_keys(params, sim.params())?;
         // Imported framing/upscale settings can enlarge the processed preview.
         let output = if full {
             output
@@ -378,8 +375,8 @@ impl Session {
         let after_size = [u32::try_from(output.width)?, u32::try_from(output.height)?];
         if full {
             self.scan = Some(Scan {
-                path: source.path.clone(),
-                keys: self.scan_keys(params)?,
+                path: source_path,
+                keys,
                 output,
             });
         }

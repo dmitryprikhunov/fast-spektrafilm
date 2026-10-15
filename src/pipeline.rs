@@ -162,11 +162,11 @@ impl CouplerModel {
 pub struct Simulator {
     params: Params,
     converter: Option<crate::convert::FilmConverter>,
-    convert_lut: Option<crate::density_lut::DensityLut>,
+    convert_lut: Option<std::sync::Arc<crate::density_lut::DensityLut>>,
     scan_profile: Profile,
     film: Profile,
     print: Profile,
-    response: FilmResponse,
+    response: std::sync::Arc<FilmResponse>,
     input_matrix: Matrix,
     output_matrix: Matrix,
     passthrough_matrix: Matrix,
@@ -179,8 +179,8 @@ pub struct Simulator {
     compressor: Compressor,
     scan_white_xyz: [f64; 3],
     scan_reference: crate::scan_reference::ScanReference,
-    enlarger_lut: Option<crate::density_lut::DensityLut>,
-    scanner_lut: Option<crate::density_lut::DensityLut>,
+    enlarger_lut: Option<std::sync::Arc<crate::density_lut::DensityLut>>,
+    scanner_lut: Option<std::sync::Arc<crate::density_lut::DensityLut>>,
     pub setup_seconds: f64,
 }
 impl Simulator {
@@ -194,211 +194,17 @@ impl Simulator {
     pub fn print(&self) -> &Profile {
         &self.print
     }
-    pub fn new(data: &Path, mut params: Params) -> Result<Self> {
+    pub fn new(data: &Path, params: Params) -> Result<Self> {
         let start = Instant::now();
-        params.validate_numeric()?;
-        crate::framing::validate(&params.io)?;
-        crate::diffusion::validate(&params.camera.diffusion_filter)?;
-        crate::diffusion::validate(&params.enlarger.diffusion_filter)?;
-        ensure!(
-            [
-                "average",
-                "center_weighted",
-                "median",
-                "partial",
-                "matrix",
-                "multi_zone",
-                "highlight_weighted"
-            ]
-            .contains(&params.camera.auto_exposure_method.as_str()),
-            "Unknown autoexposure method"
-        );
-        let input_gamut = &params.io.input_gamut_compress;
-        ensure!(
-            input_gamut.algorithm == "xy",
-            "Input gamut compression supports xy"
-        );
-        ensure!(
-            ["locus", "inscribed_hull"].contains(&input_gamut.boundary.as_str()),
-            "Unknown input gamut boundary"
-        );
-        ensure!(
-            input_gamut.hull_detail.is_finite() && input_gamut.hull_detail > 0.0,
-            "Hull detail must be positive and finite"
-        );
-        for knee in [
-            Some(input_gamut.knee),
-            Some(params.io.output_gamut_compress.knee),
-            params.io.output_gamut_compress.lightness_compression,
-        ]
-        .into_iter()
-        .flatten()
-        {
-            ensure!(
-                knee.iter().all(|v| v.is_finite())
-                    && (0.0..1.0).contains(&knee[0])
-                    && knee[1] > 0.0
-                    && knee[2] > 0.0,
-                "Invalid gamut compression knee"
-            );
-        }
-        ensure!(
-            params.camera.film_format_mm.is_finite() && params.camera.film_format_mm > 0.0,
-            "Film format must be positive and finite"
-        );
-        ensure!(
-            params.halation.boost_ev.is_finite() && params.halation.boost_ev >= 0.0,
-            "Highlight boost must be finite and nonnegative"
-        );
-        let tables = Tables::load(data)?;
-        ensure!(
-            tables.baseline_commit == "28bf883e1672e884307edc75852549376e13644e",
-            "Colour tables do not match the pinned experimental baseline"
-        );
-        let mut film = Profile::load_development(
-            data,
-            &params.film_profile,
-            params.film_chemistry.development_time,
-        )?;
-        let mut print = Profile::load_development(
-            data,
-            &params.print_profile,
-            params.print_chemistry.development_time,
-        )?;
-        film.swap_dyes(params.special.film_channel_swap)?;
-        print.swap_dyes(params.special.print_channel_swap)?;
-        let stock_film_base = film.base.clone();
-        let stock_print_base = print.base.clone();
-        ensure!(
-            params.print_base.tilt == 0.0,
-            "Print base does not support spectral tilt"
-        );
-        crate::base::apply(&mut film, &params.film_base, true);
-        crate::base::apply(&mut print, &params.print_base, false);
-        crate::chemistry::apply(&mut film, &params.film_chemistry)?;
-        ensure!(
-            [
-                "input",
-                "input > film > scan",
-                "input > film > print > scan",
-                "input > convert-film > print > scan",
-                "input > convert-film > scan",
-                "input > convert-film > scan-minus-base"
-            ]
-            .contains(&params.workflow.route.as_str()),
-            "Unsupported workflow route"
-        );
-        ensure!(params.io.input_rotation < 4, "Rotation must be 0..3");
-        ensure!(
-            params
-                .io
-                .output_bit_depth
-                .is_none_or(|v| [8, 16, 32].contains(&v)),
-            "Output bit depth must be 8,16 or 32"
-        );
-        ensure!(
-            ["zip", "none"].contains(&params.io.output_compression.as_str()),
-            "Unsupported output compression"
-        );
-        if let Some(space) = &params.workflow.saving_color_space {
-            tables.rgb_to_rgb(&params.io.output_color_space, space)?;
-        }
-        ensure!(
-            params.settings.preview_max_size > 0,
-            "Preview size must be positive"
-        );
-        if params.settings.preview_mode {
-            params.enlarger.lens_blur = 0.;
-            params.dir_couplers.diffusion_size_um = 0.;
-            params.grain.active = false;
-            params.grain.rms_granularity = vec![0.; 3];
-            params.grain.blur = 0.;
-            params.grain.mult_usm_amount = 0.;
-            params.print_glare.blur = 0.;
-            params.camera.lens_blur_um = 0.;
-            params.scanner.lens_blur = 0.;
-            params.scanner.unsharp_mask = [0.; 2];
-        }
-        if params.debug.lut_mode {
-            params.debug.deactivate_spatial_effects = true;
-            params.debug.deactivate_stochastic_effects = true;
-            params.camera.auto_exposure = false;
-            params.camera.exposure_compensation_ev = 0.0;
-            params.enlarger.print_exposure_compensation = false;
-            params.enlarger.print_exposure = 1.0;
-            params.enlarger.y_filter_shift = 0.0;
-            params.enlarger.m_filter_shift = 0.0;
-            params.enlarger.preflash_exposure = 0.0;
-            params.halation.boost_ev = 0.0;
-            params.scanner.black_correction = false;
-            params.scanner.white_correction = false;
-            // Framing would crop/resample the cube grid rather than an image.
-            params.io.crop = false;
-            params.io.upscale_factor = 1.0;
-            // Bake the exact spectral transform, without embedding a second
-            // layer of interpolation from the interactive acceleration LUTs.
-            params.settings.use_convert_lut = false;
-            params.settings.use_enlarger_lut = false;
-            params.settings.use_scanner_lut = false;
-        }
-        if params.debug.deactivate_spatial_effects {
-            params.camera.diffusion_filter.active = false;
-            params.enlarger.diffusion_filter.active = false;
-            params.scanner.lens_blur = 0.0;
-            params.scanner.unsharp_mask = [0.0, 0.0];
-            params.camera.lens_blur_um = 0.0;
-            params.enlarger.lens_blur = 0.0;
-            params.dir_couplers.diffusion_size_um = 0.0;
-            params.grain.blur = 0.0;
-            params.grain.blur_dye_clouds_um = 0.0;
-            params.grain.mult_usm_amount = 0.0;
-            params.print_glare.blur = 0.0;
-        }
-        if params.settings.neutral_print_filters_from_database {
-            let db: serde_json::Value = serde_json::from_reader(std::fs::File::open(
-                data.join("filters/neutral_print_filters.json"),
-            )?)?;
-            let pack = db
-                .get(&params.print_profile)
-                .and_then(|v| v.get(&params.enlarger.illuminant))
-                .and_then(|v| v.get(&params.film_profile));
-            let pack = pack
-                .and_then(|v| v.as_array())
-                .map(|v| v.iter().map(|n| n.as_f64().unwrap()).collect::<Vec<_>>())
-                .unwrap_or_else(|| vec![0.0, 50.0, 50.0]);
-            params.enlarger.c_filter_neutral = pack[0];
-            params.enlarger.m_filter_neutral = pack[1];
-            params.enlarger.y_filter_neutral = pack[2];
-        }
-        if params.settings.apply_coupler_presets {
-            apply_coupler_presets(data, &film, &mut params.dir_couplers)?;
-        }
-        if params.settings.apply_grain_presets {
-            crate::grain::apply_presets(data, &film, &mut params.grain)?;
-        }
-        ensure!(
-            params.grain.density_min.len() >= film.channels()
-                && params.grain.density_min.iter().all(|v| v.is_finite()),
-            "Missing or invalid grain density-floor channels"
-        );
-        if params.debug.deactivate_stochastic_effects {
-            params.grain.active = false;
-            params.print_glare.active = false;
-        }
-        if film.info.support == "film" {
-            params.halation.halation_first_sigma_um = [if film.info.usage == "cine" {
-                50.0
-            } else {
-                65.0
-            }; 3];
-            params.halation.halation_strength = match film.info.antihalation.as_str() {
-                "strong" => [0.015, 0.005, 0.0],
-                "weak" => [0.08, 0.02, 0.0],
-                "no" => [0.30, 0.10, 0.015],
-                _ => params.halation.halation_strength,
-            };
-        }
-        let response = FilmResponse::new(data, &tables, &film, &params)?;
+        let PreparedParams {
+            params,
+            tables,
+            mut film,
+            mut print,
+            stock_film_base,
+            stock_print_base,
+        } = prepare_params(data, params)?;
+        let response = FilmResponse::shared(data, &tables, &film, &params)?;
         let input_matrix =
             tables.rgb_to_xyz(&params.io.input_color_space, response.projection_white)?;
         let midgray_matrix = tables.rgb_to_xyz("sRGB", response.projection_white)?;
@@ -543,19 +349,33 @@ impl Simulator {
             .map(|c| -params.grain.density_min[c])
             .collect();
         let enlarger_lut = if params.settings.use_enlarger_lut {
-            Some(crate::density_lut::DensityLut::new(
-                film_min.clone(),
+            let key = serde_json::to_string(&(
+                "enlarger",
+                &film.dyes,
+                &film.base,
+                &film_min,
                 film.max(),
+                &print_weights,
                 print.channels(),
+                print_factor,
+                preflash,
                 params.settings.lut_resolution,
-                |d| {
-                    let mut raw = [0.0; 3];
-                    integrate(&film, d, &print_weights, print.channels(), &mut raw);
-                    std::array::from_fn(|c| {
-                        ((raw[c] * print_factor + preflash[c]).max(0.0) + 1e-10).log10()
-                    })
-                },
-            )?)
+            ))?;
+            Some(crate::density_lut::DensityLut::shared(key, || {
+                crate::density_lut::DensityLut::new(
+                    film_min.clone(),
+                    film.max(),
+                    print.channels(),
+                    params.settings.lut_resolution,
+                    |d| {
+                        let mut raw = [0.0; 3];
+                        integrate(&film, d, &print_weights, print.channels(), &mut raw);
+                        std::array::from_fn(|c| {
+                            ((raw[c] * print_factor + preflash[c]).max(0.0) + 1e-10).log10()
+                        })
+                    },
+                )
+            })?)
         } else {
             None
         };
@@ -566,17 +386,28 @@ impl Simulator {
             } else {
                 print.min()
             };
-            Some(crate::density_lut::DensityLut::new(
-                minimum,
+            let key = serde_json::to_string(&(
+                "scanner",
+                &profile.dyes,
+                &profile.base,
+                &minimum,
                 profile.max(),
-                3,
+                &scan_weights,
                 params.settings.lut_resolution,
-                |d| {
-                    let mut raw = [0.0; 3];
-                    integrate(profile, d, &scan_weights, 3, &mut raw);
-                    raw.map(|v| (v.max(0.0) + 1e-10).log10())
-                },
-            )?)
+            ))?;
+            Some(crate::density_lut::DensityLut::shared(key, || {
+                crate::density_lut::DensityLut::new(
+                    minimum,
+                    profile.max(),
+                    3,
+                    params.settings.lut_resolution,
+                    |d| {
+                        let mut raw = [0.0; 3];
+                        integrate(profile, d, &scan_weights, 3, &mut raw);
+                        raw.map(|v| (v.max(0.0) + 1e-10).log10())
+                    },
+                )
+            })?)
         } else {
             None
         };
@@ -596,10 +427,23 @@ impl Simulator {
         };
         let convert_lut = if params.settings.use_convert_lut {
             if let Some(converter) = &converter {
-                Some(crate::density_lut::DensityLut::inverse(
-                    converter,
-                    params.settings.convert_lut_resolution,
-                )?)
+                let key = crate::cache::data_key(data)?
+                    + &serde_json::to_string(&(
+                        "convert",
+                        &params.film_profile,
+                        &params.film_base,
+                        &params.film_chemistry,
+                        &params.special.film_channel_swap,
+                        &params.convert.scan_illuminant,
+                        &params.io.input_color_space,
+                        params.settings.convert_lut_resolution,
+                    ))?;
+                Some(crate::density_lut::DensityLut::shared(key, || {
+                    crate::density_lut::DensityLut::inverse(
+                        converter,
+                        params.settings.convert_lut_resolution,
+                    )
+                })?)
             } else {
                 None
             }
@@ -1514,5 +1358,282 @@ pub(crate) fn apply_coupler_presets(
     }
     merge(presets.get(&film.info.stock))?;
     *couplers = serde_json::from_value(current)?;
+    Ok(())
+}
+
+/// Stock preset digestion does not construct spectral tables or render buffers.
+pub fn resolve_params(data: &Path, mut params: Params) -> Result<Params> {
+    params.validate_numeric()?;
+    let film = Profile::load(data, &params.film_profile)?;
+    resolve_presets(data, &film, &mut params)?;
+    Ok(params)
+}
+fn resolve_presets(data: &Path, film: &Profile, params: &mut Params) -> Result<()> {
+    if params.settings.neutral_print_filters_from_database {
+        let db: serde_json::Value = serde_json::from_reader(std::fs::File::open(
+            data.join("filters/neutral_print_filters.json"),
+        )?)?;
+        let pack = db
+            .get(&params.print_profile)
+            .and_then(|v| v.get(&params.enlarger.illuminant))
+            .and_then(|v| v.get(&params.film_profile));
+        let pack = pack
+            .and_then(|v| v.as_array())
+            .map(|v| v.iter().map(|n| n.as_f64().unwrap()).collect::<Vec<_>>())
+            .unwrap_or_else(|| vec![0.0, 50.0, 50.0]);
+        params.enlarger.c_filter_neutral = pack[0];
+        params.enlarger.m_filter_neutral = pack[1];
+        params.enlarger.y_filter_neutral = pack[2];
+    }
+    if params.settings.apply_coupler_presets {
+        apply_coupler_presets(data, film, &mut params.dir_couplers)?;
+    }
+    if params.settings.apply_grain_presets {
+        crate::grain::apply_presets(data, film, &mut params.grain)?;
+    }
+    Ok(())
+}
+
+struct PreparedParams {
+    params: Params,
+    tables: std::sync::Arc<Tables>,
+    film: Profile,
+    print: Profile,
+    stock_film_base: Vec<f64>,
+    stock_print_base: Vec<f64>,
+}
+fn prepare_params(data: &Path, mut params: Params) -> Result<PreparedParams> {
+    params.validate_numeric()?;
+    crate::framing::validate(&params.io)?;
+    crate::diffusion::validate(&params.camera.diffusion_filter)?;
+    crate::diffusion::validate(&params.enlarger.diffusion_filter)?;
+    ensure!(
+        [
+            "average",
+            "center_weighted",
+            "median",
+            "partial",
+            "matrix",
+            "multi_zone",
+            "highlight_weighted"
+        ]
+        .contains(&params.camera.auto_exposure_method.as_str()),
+        "Unknown autoexposure method"
+    );
+    let input_gamut = &params.io.input_gamut_compress;
+    ensure!(
+        input_gamut.algorithm == "xy",
+        "Input gamut compression supports xy"
+    );
+    ensure!(
+        ["locus", "inscribed_hull"].contains(&input_gamut.boundary.as_str()),
+        "Unknown input gamut boundary"
+    );
+    ensure!(
+        input_gamut.hull_detail.is_finite() && input_gamut.hull_detail > 0.0,
+        "Hull detail must be positive and finite"
+    );
+    for knee in [
+        Some(input_gamut.knee),
+        Some(params.io.output_gamut_compress.knee),
+        params.io.output_gamut_compress.lightness_compression,
+    ]
+    .into_iter()
+    .flatten()
+    {
+        ensure!(
+            knee.iter().all(|v| v.is_finite())
+                && (0.0..1.0).contains(&knee[0])
+                && knee[1] > 0.0
+                && knee[2] > 0.0,
+            "Invalid gamut compression knee"
+        );
+    }
+    ensure!(
+        params.camera.film_format_mm.is_finite() && params.camera.film_format_mm > 0.0,
+        "Film format must be positive and finite"
+    );
+    ensure!(
+        params.halation.boost_ev.is_finite() && params.halation.boost_ev >= 0.0,
+        "Highlight boost must be finite and nonnegative"
+    );
+    let tables = Tables::shared(data)?;
+    ensure!(
+        tables.baseline_commit == "28bf883e1672e884307edc75852549376e13644e",
+        "Colour tables do not match the pinned experimental baseline"
+    );
+    let mut film = Profile::load_development(
+        data,
+        &params.film_profile,
+        params.film_chemistry.development_time,
+    )?;
+    let mut print = Profile::load_development(
+        data,
+        &params.print_profile,
+        params.print_chemistry.development_time,
+    )?;
+    film.swap_dyes(params.special.film_channel_swap)?;
+    print.swap_dyes(params.special.print_channel_swap)?;
+    let stock_film_base = film.base.clone();
+    let stock_print_base = print.base.clone();
+    ensure!(
+        params.print_base.tilt == 0.0,
+        "Print base does not support spectral tilt"
+    );
+    crate::base::apply(&mut film, &params.film_base, true);
+    crate::base::apply(&mut print, &params.print_base, false);
+    crate::chemistry::apply(&mut film, &params.film_chemistry)?;
+    ensure!(
+        [
+            "input",
+            "input > film > scan",
+            "input > film > print > scan",
+            "input > convert-film > print > scan",
+            "input > convert-film > scan",
+            "input > convert-film > scan-minus-base"
+        ]
+        .contains(&params.workflow.route.as_str()),
+        "Unsupported workflow route"
+    );
+    ensure!(params.io.input_rotation < 4, "Rotation must be 0..3");
+    ensure!(
+        params
+            .io
+            .output_bit_depth
+            .is_none_or(|v| [8, 16, 32].contains(&v)),
+        "Output bit depth must be 8,16 or 32"
+    );
+    ensure!(
+        ["zip", "none"].contains(&params.io.output_compression.as_str()),
+        "Unsupported output compression"
+    );
+    if let Some(space) = &params.workflow.saving_color_space {
+        tables.rgb_to_rgb(&params.io.output_color_space, space)?;
+    }
+    ensure!(
+        params.settings.preview_max_size > 0,
+        "Preview size must be positive"
+    );
+    if params.settings.preview_mode {
+        params.enlarger.lens_blur = 0.;
+        params.dir_couplers.diffusion_size_um = 0.;
+        params.grain.active = false;
+        params.grain.rms_granularity = vec![0.; 3];
+        params.grain.blur = 0.;
+        params.grain.mult_usm_amount = 0.;
+        params.print_glare.blur = 0.;
+        params.camera.lens_blur_um = 0.;
+        params.scanner.lens_blur = 0.;
+        params.scanner.unsharp_mask = [0.; 2];
+    }
+    if params.debug.lut_mode {
+        params.debug.deactivate_spatial_effects = true;
+        params.debug.deactivate_stochastic_effects = true;
+        params.camera.auto_exposure = false;
+        params.camera.exposure_compensation_ev = 0.0;
+        params.enlarger.print_exposure_compensation = false;
+        params.enlarger.print_exposure = 1.0;
+        params.enlarger.y_filter_shift = 0.0;
+        params.enlarger.m_filter_shift = 0.0;
+        params.enlarger.preflash_exposure = 0.0;
+        params.halation.boost_ev = 0.0;
+        params.scanner.black_correction = false;
+        params.scanner.white_correction = false;
+        // Framing would crop/resample the cube grid rather than an image.
+        params.io.crop = false;
+        params.io.upscale_factor = 1.0;
+        // Bake the exact spectral transform, without embedding a second
+        // layer of interpolation from the interactive acceleration LUTs.
+        params.settings.use_convert_lut = false;
+        params.settings.use_enlarger_lut = false;
+        params.settings.use_scanner_lut = false;
+    }
+    if params.debug.deactivate_spatial_effects {
+        params.camera.diffusion_filter.active = false;
+        params.enlarger.diffusion_filter.active = false;
+        params.scanner.lens_blur = 0.0;
+        params.scanner.unsharp_mask = [0.0, 0.0];
+        params.camera.lens_blur_um = 0.0;
+        params.enlarger.lens_blur = 0.0;
+        params.dir_couplers.diffusion_size_um = 0.0;
+        params.grain.blur = 0.0;
+        params.grain.blur_dye_clouds_um = 0.0;
+        params.grain.mult_usm_amount = 0.0;
+        params.print_glare.blur = 0.0;
+    }
+    resolve_presets(data, &film, &mut params)?;
+    ensure!(
+        params.grain.density_min.len() >= film.channels()
+            && params.grain.density_min.iter().all(|v| v.is_finite()),
+        "Missing or invalid grain density-floor channels"
+    );
+    if params.debug.deactivate_stochastic_effects {
+        params.grain.active = false;
+        params.print_glare.active = false;
+    }
+    if film.info.support == "film" {
+        params.halation.halation_first_sigma_um = [if film.info.usage == "cine" {
+            50.0
+        } else {
+            65.0
+        }; 3];
+        params.halation.halation_strength = match film.info.antihalation.as_str() {
+            "strong" => [0.015, 0.005, 0.0],
+            "weak" => [0.08, 0.02, 0.0],
+            "no" => [0.30, 0.10, 0.015],
+            _ => params.halation.halation_strength,
+        };
+    }
+    Ok(PreparedParams {
+        params,
+        tables,
+        film,
+        print,
+        stock_film_base,
+        stock_print_base,
+    })
+}
+/// Validate settings and profiles without building the spectral response or LUTs.
+pub fn validate_params(data: &Path, params: &Params) -> Result<()> {
+    let prepared = prepare_params(data, params.clone())?;
+    for name in [&params.io.input_color_space, &params.io.output_color_space] {
+        prepared.tables.space(name)?;
+    }
+    for name in [&params.convert.scan_illuminant, &params.enlarger.illuminant] {
+        prepared.tables.illuminant(name)?;
+    }
+    ensure!(
+        [
+            "hanatos2025",
+            "arctic2026beta04",
+            "jakob2019",
+            "mallett2019",
+            "otsu2018",
+            "gauss-lasers"
+        ]
+        .contains(&params.settings.rgb_to_raw_method.as_str()),
+        "Unknown spectral method"
+    );
+    ensure!(
+        prepared
+            .tables
+            .camera_filters
+            .contains_key(&params.camera.color_filter),
+        "Unknown camera filter"
+    );
+    ensure!(
+        ["oklch", "oklrab", "jzazbz", "cam16ucs", "none"]
+            .contains(&params.io.output_gamut_compress.algorithm.as_str()),
+        "Unknown output gamut algorithm"
+    );
+    ensure!(
+        (1..=256).contains(&params.settings.lut_resolution)
+            && (1..=256).contains(&params.settings.convert_lut_resolution),
+        "LUT resolution must be 1..256"
+    );
+    ensure!(
+        !params.workflow.convert_film() || prepared.film.channels() == 3,
+        "Conversion requires three-channel film"
+    );
     Ok(())
 }

@@ -16,6 +16,39 @@ pub struct FilmResponse {
     pub projection_white: [f64; 2],
 }
 impl FilmResponse {
+    pub(crate) fn shared(
+        data: &Path,
+        t: &Tables,
+        film: &Profile,
+        p: &Params,
+    ) -> Result<std::sync::Arc<Self>> {
+        use std::sync::{Arc, Mutex, OnceLock};
+        static CACHE: OnceLock<Mutex<crate::cache::ByteCache<FilmResponse>>> = OnceLock::new();
+        let key = crate::cache::data_key(data)?
+            + &serde_json::to_string(&(
+                &film.sensitivity,
+                &film.window,
+                &film.surface,
+                &film.info.reference_illuminant,
+                &p.settings.rgb_to_raw_method,
+                p.settings.apply_hanatos2025_adaptation_window,
+                p.settings.apply_hanatos2025_adaptation_surface,
+                p.settings.spectral_gaussian_blur,
+                &p.camera.color_filter,
+                &p.io.input_gamut_compress,
+            ))?;
+        let cache =
+            CACHE.get_or_init(|| Mutex::new(crate::cache::ByteCache::new(64 * 1024 * 1024)));
+        if let Some(value) = cache.lock().unwrap().get(&key) {
+            return Ok(value);
+        }
+        let response = Arc::new(Self::new(data, t, film, p)?);
+        cache
+            .lock()
+            .unwrap()
+            .insert(key, response.lut.data.len() * 8, response.clone());
+        Ok(response)
+    }
     pub fn new(data: &Path, t: &Tables, film: &Profile, p: &Params) -> Result<Self> {
         let method = &p.settings.rgb_to_raw_method;
         ensure!(
