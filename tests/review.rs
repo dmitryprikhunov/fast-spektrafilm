@@ -108,3 +108,45 @@ fn conversion_seed_contract_across_executors_and_threads() -> anyhow::Result<()>
     );
     Ok(())
 }
+
+#[test]
+fn gaussian_sigma_sweep_and_threads_match_reference() -> anyhow::Result<()> {
+    let dir = root().join("tests/fixtures/review/filters");
+    let input = Image::read_npy(&dir.join("input.npy"))?;
+    let cases: serde_json::Value =
+        serde_json::from_reader(std::fs::File::open(dir.join("manifest.json"))?)?;
+    for threads in [1, 2, 4] {
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()?;
+        for case in cases.as_array().unwrap() {
+            let mut input = input.clone();
+            let f32 = case["float32"].as_bool().unwrap();
+            if f32 {
+                input.data.iter_mut().for_each(|v| *v = *v as f32 as f64);
+            }
+            let sigma = case["sigma"].as_f64().unwrap();
+            let actual = pool.install(|| {
+                if f32 {
+                    fast_spektrafilm::spatial::gaussian_f32(&input, &[sigma])
+                } else {
+                    fast_spektrafilm::spatial::gaussian(&input, &[sigma])
+                }
+            });
+            let expected =
+                Image::read_npy(&dir.join(format!("{}.npy", case["name"].as_str().unwrap())))?;
+            let policy = if f32 {
+                numerical::contract("grain_exact")
+            } else {
+                numerical::contract("strict")
+            };
+            let report = numerical::compare(&actual, &expected, policy)?;
+            assert_eq!(
+                report.failures, 0,
+                "{} threads={threads}: {report:?}",
+                case["name"]
+            );
+        }
+    }
+    Ok(())
+}
