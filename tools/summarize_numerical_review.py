@@ -29,6 +29,24 @@ def measured(rows):
     return result
 
 
+def compact_json(value, level=0):
+    """Keep metrics/samples on one line while preserving navigable containers."""
+    scalar = not isinstance(value,(dict,list))
+    vector = isinstance(value,list) and all(not isinstance(v,(dict,list)) for v in value)
+    record = isinstance(value,dict) and ('max_abs' in value or 'seconds' in value)
+    if scalar or vector or record:
+        return json.dumps(value,separators=(',',':'),allow_nan=False)
+    indent='  '*(level+1)
+    if isinstance(value,dict):
+        parts=[json.dumps(k)+': '+compact_json(v,level+1) for k,v in value.items()]
+        opening,closing='{','}'
+    else:
+        parts=[compact_json(v,level+1) for v in value]
+        opening,closing='[',']'
+    if not parts:return opening+closing
+    return opening+'\n'+indent+(',\n'+indent).join(parts)+'\n'+'  '*level+closing
+
+
 def main():
     broad=read(ROOT/'artifacts/parity/report.json')
     assert len(broad['results'])==590
@@ -64,7 +82,9 @@ def main():
     payload=dict(validation=validation,cli=cli,instrumented_revisions=revision,
                  revised_preview=preview,workspace_capacity=read(ART/'workspaces.json'),
                  gui_workflow=workflow)
-    OUT.write_text(json.dumps(payload,indent=2)+'\n')
+    encoded=compact_json(payload)+'\n'
+    assert json.loads(encoded)==payload
+    OUT.write_text(encoded)
     print(OUT,OUT.stat().st_size)
     print('core/gui:',validation['core'],validation['gui'])
     for row in cli['results']:
