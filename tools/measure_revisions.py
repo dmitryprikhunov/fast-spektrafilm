@@ -52,6 +52,7 @@ def build():
                   compiler=subprocess.check_output(['rustc','--version'],text=True).strip(),
                   command='cargo build --release --locked --example review_performance -j4',
                   overrides=dict(lto=False,codegen_units=16),
+                  measurement_source_sha256=hashlib.sha256(example).hexdigest(),
                   cargo_lock_sha256=hashlib.sha256((SCRATCH/'Cargo.lock').read_bytes()).hexdigest())
         (folder/'build.json').write_text(json.dumps(info,indent=2)+'\n')
         print('Built',label,sha,flush=True)

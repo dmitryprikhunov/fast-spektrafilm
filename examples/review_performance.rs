@@ -65,10 +65,12 @@ fn measure<T, U>(
         let start = Instant::now();
         let output = run(input)?;
         let seconds = start.elapsed().as_secs_f64();
+        let allocation_calls = CALLS.load(Ordering::Relaxed) - calls;
+        let allocated_bytes = BYTES.load(Ordering::Relaxed) - bytes;
+        let peak_additional_live_bytes = PEAK.load(Ordering::Relaxed).saturating_sub(base);
         samples.push(json!({"warmup":iteration==0,"seconds":seconds,
-            "allocation_calls":CALLS.load(Ordering::Relaxed)-calls,
-            "allocated_bytes":BYTES.load(Ordering::Relaxed)-bytes,
-            "peak_additional_live_bytes":PEAK.load(Ordering::Relaxed).saturating_sub(base)}));
+            "allocation_calls":allocation_calls,"allocated_bytes":allocated_bytes,
+            "peak_additional_live_bytes":peak_additional_live_bytes}));
         result = Some(output);
     }
     Ok((
