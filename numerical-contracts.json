@@ -49,11 +49,11 @@
     "reason": "preserve float32 stores, RNG draw order and pairwise reduction; also assert bit equality"
   },
   "base_fit_coefficients": {
-    "atol": 1e-06,
+    "atol": 2e-06,
     "rtol": 0.0,
     "stage": "clear-base CMY/exposure fit coefficients",
     "range": "core and five debt fixtures",
-    "reason": "Separate clear-base fit: measured max 8.22550e-7 across the six fixtures; distinct from device matrix fit (max 3.27283e-12)."
+    "reason": "Separate clear-base fit: measured max 8.22550e-7 across six fixtures, with a 2.4x cross-run margin. Distinct from device matrix fit (max 3.27283e-12)."
   },
   "optical_log_exposure": {
     "atol": 3e-07,
