@@ -215,8 +215,8 @@ pub fn apply(
             *v = if d <= 0.0 {
                 0.0
             } else {
-                (d.max(1e-6).powf((1.0 + params.mult_usm_amount) as f32)
-                    / b.powf(params.mult_usm_amount as f32))
+                d.max(1e-6).powf((1.0 + params.mult_usm_amount) as f32)
+                    / b.powf(params.mult_usm_amount as f32)
             };
         }
         for c in 0..ch {

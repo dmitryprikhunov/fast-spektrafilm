@@ -173,22 +173,41 @@ fn filter<T: Scalar>(
                             values[y * width + x] = output[(y * w + x0 + x) * c + ch];
                         }
                     }
+                    let mut state = [[0.; COLUMNS]; 3];
                     for x in 0..width {
-                        let mut state = [values[x].get(); 3];
-                        for y in 0..h {
-                            let i = y * width + x;
-                            let value =
-                                b * values[i].get() + b1 * state[0] + b2 * state[1] + b3 * state[2];
-                            values[i] = store(value);
-                            state = [value, state[0], state[1]];
+                        for lane in &mut state {
+                            lane[x] = values[x].get();
                         }
-                        let mut state = [values[(h - 1) * width + x].get(); 3];
-                        for y in (0..h).rev() {
+                    }
+                    for y in 0..h {
+                        for x in 0..width {
                             let i = y * width + x;
-                            let value =
-                                b * values[i].get() + b1 * state[0] + b2 * state[1] + b3 * state[2];
+                            let value = b * values[i].get()
+                                + b1 * state[0][x]
+                                + b2 * state[1][x]
+                                + b3 * state[2][x];
                             values[i] = store(value);
-                            state = [value, state[0], state[1]];
+                            state[2][x] = state[1][x];
+                            state[1][x] = state[0][x];
+                            state[0][x] = value;
+                        }
+                    }
+                    for x in 0..width {
+                        for lane in &mut state {
+                            lane[x] = values[(h - 1) * width + x].get();
+                        }
+                    }
+                    for y in (0..h).rev() {
+                        for x in 0..width {
+                            let i = y * width + x;
+                            let value = b * values[i].get()
+                                + b1 * state[0][x]
+                                + b2 * state[1][x]
+                                + b3 * state[2][x];
+                            values[i] = store(value);
+                            state[2][x] = state[1][x];
+                            state[1][x] = state[0][x];
+                            state[0][x] = value;
                         }
                     }
                 });
