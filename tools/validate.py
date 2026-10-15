@@ -7,6 +7,7 @@ import subprocess
 import sys
 import time
 import dataclasses
+import hashlib
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser()
@@ -116,12 +117,17 @@ def run_case(image,name,film,paper,options=None,taps=None,controlled_glare=False
         np.save(folder/f'reference_{tap}.npy',expected)
         metrics=rust(folder/'input.npy',folder/f'rust_{tap}.npy',folder/'config.json',tap)
         record=compare(np.load(folder/f'rust_{tap}.npy'),expected,f'{name}/{tap}')
-        record.update(rust_seconds=metrics['process_seconds'][0],reference_seconds=sim.get_total_elapsed_time())
+        record.update(rust_seconds=metrics['process_seconds'][0],reference_seconds=sim.get_total_elapsed_time(),
+            input_sha256=hashlib.sha256((folder/'input.npy').read_bytes()).hexdigest(),
+            config_sha256=hashlib.sha256((folder/'config.json').read_bytes()).hexdigest(),
+            executor=metrics.get('executor'),warmups=len(metrics.get('warmup_seconds',[])))
         records.append(record)
         print(json.dumps(record),flush=True)
     return records
 
 def main():
+    from benchmark import provenance
+    run_provenance=provenance()
     results=[]
     ramp=np.broadcast_to(np.linspace(0.01,1.0,16)[None,:,None],(16,16,3)).copy()
     results+=run_case(ramp,'portra_ramp','kodak_portra_400','kodak_portra_endura')
@@ -255,7 +261,8 @@ def main():
                 print(json.dumps(record),flush=True)
             if ARGS.samples: results+=run_case(image,path.stem,'kodak_portra_400','kodak_portra_endura')
     report=ROOT/'artifacts/parity/report.json'
-    report.write_text(json.dumps(dict(baseline_commit=BASELINE['commit'],rtol=1e-8,atol=1e-9,results=results),indent=2)+'\n')
+    assert run_provenance['binary_sha256']==provenance()['binary_sha256'], 'Processor binary changed during validation'
+    report.write_text(json.dumps(dict(**run_provenance,rtol=1e-8,atol=1e-9,results=results),indent=2)+'\n')
     print('PASS:',len(results),'stage comparisons. Report:',report)
 
 if __name__=='__main__':
