@@ -54,6 +54,9 @@ pub(crate) fn sampled(
         .for_each_init(
             || vec![0.; 2 * width * channels],
             |rows, (y, out)| {
+                // Establish the fixed scratch extent once, so inner indexing
+                // retains the bounds information of the original local buffer.
+                let rows = &mut rows[..2 * width * channels];
                 let center = (y as f64 + 0.5) * fy - 0.5;
                 let y0 = center.floor() as isize;
                 let dy = center - y0 as f64;
