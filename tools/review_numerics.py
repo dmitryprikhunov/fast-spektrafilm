@@ -48,12 +48,15 @@ def reference(config):
             continue
         parent = p
         name = group
-        if group in ("halation", "grain", "dir_couplers"):
+        if group in ("halation", "grain", "dir_couplers", "convert"):
             parent = p.film_render
+        elif group in ("film_chemistry", "film_base"):
+            parent, name = p.film_render, group.split('_', 1)[1]
+        elif group in ("print_chemistry", "print_base"):
+            parent, name = p.print_render, group.split('_', 1)[1]
         elif group == "print_glare":
             parent, name = p.print_render, "glare"
-        elif group == "convert":
-            parent = p.film_render
+        if group == "convert":
             values = dict(values)
             if "calibration" in values:
                 values["calibration"] = " ".join(str(x) for row in values["calibration"] for x in row)
@@ -61,15 +64,7 @@ def reference(config):
     return SimulationPipeline(digest_params(p))
 
 
-def metrics(a, b):
-    if a.shape != b.shape or not np.isfinite(a).all() or not np.isfinite(b).all():
-        return dict(valid=False, actual_shape=list(a.shape), reference_shape=list(b.shape))
-    error = abs(a - b)
-    scaled = error / (1e-9 + 1e-8 * abs(b))
-    index = np.unravel_index(error.argmax(), error.shape)
-    return dict(valid=True, max_abs=float(error.max()), rmse=float(np.sqrt(np.mean(error**2))),
-                strict_failures=int((scaled > 1).sum()), max_tolerance_ratio=float(scaled.max()),
-                worst_index=[int(i) for i in index], actual=float(a[index]), reference=float(b[index]))
+from numerical import metrics
 
 
 def rust(folder, tap, suffix="rust", profiled=False):

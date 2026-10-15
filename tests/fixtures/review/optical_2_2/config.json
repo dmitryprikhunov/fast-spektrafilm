@@ -1,0 +1,26 @@
+{
+  "camera": {
+    "auto_exposure": false,
+    "film_format_mm": 0.111328125,
+    "lens_blur_um": 17.578130859375,
+    "diffusion_filter": {
+      "active": true,
+      "filter_family": "glimmerglass",
+      "strength": 1.0,
+      "halo_warmth": 0.0
+    }
+  },
+  "debug": {
+    "deactivate_stochastic_effects": true
+  },
+  "io": {
+    "copy_metadata": false
+  },
+  "settings": {
+    "random_seed": 12345
+  },
+  "film_profile": "kodak_doublex",
+  "halation": {
+    "active": false
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "camera": {
+    "auto_exposure": false,
+    "film_format_mm": 0.375,
+    "lens_blur_um": 17.578125,
+    "diffusion_filter": {
+      "active": true,
+      "strength": 1.0
+    }
+  },
+  "debug": {
+    "deactivate_stochastic_effects": true
+  },
+  "io": {
+    "copy_metadata": false
+  },
+  "settings": {
+    "random_seed": 12345
+  },
+  "halation": {
+    "active": false
+  }
+}

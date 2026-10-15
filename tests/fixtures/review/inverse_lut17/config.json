@@ -1,0 +1,40 @@
+{
+  "camera": {
+    "auto_exposure": false,
+    "film_format_mm": 0.111328125
+  },
+  "debug": {
+    "deactivate_stochastic_effects": true,
+    "deactivate_spatial_effects": true
+  },
+  "io": {
+    "copy_metadata": false
+  },
+  "settings": {
+    "random_seed": 12345,
+    "use_convert_lut": true,
+    "convert_lut_resolution": 17
+  },
+  "workflow": {
+    "route": "input > convert-film > print > scan"
+  },
+  "convert": {
+    "calibration": [
+      [
+        1.07,
+        -0.03,
+        0.012
+      ],
+      [
+        0.017,
+        0.94,
+        -0.021
+      ],
+      [
+        -0.011,
+        0.025,
+        1.04
+      ]
+    ]
+  }
+}

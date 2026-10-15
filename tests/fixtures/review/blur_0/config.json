@@ -1,0 +1,19 @@
+{
+  "camera": {
+    "auto_exposure": false,
+    "film_format_mm": 0.111328125,
+    "lens_blur_um": 0.0
+  },
+  "debug": {
+    "deactivate_stochastic_effects": true
+  },
+  "io": {
+    "copy_metadata": false
+  },
+  "settings": {
+    "random_seed": 12345
+  },
+  "halation": {
+    "active": false
+  }
+}
