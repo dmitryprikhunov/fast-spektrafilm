@@ -1,6 +1,6 @@
 # Binary releases
 
-The first release provides the CLI and Slint desktop app for **Linux x86_64**.
+The release provides the CLI and Slint desktop app for **Linux x86_64**.
 Download the Linux archive and `SHA256SUMS` from
 [GitHub Releases](https://github.com/dmitryprikhunov/fast-spektrafilm/releases).
 The archive includes both executables, the original film/filter/LUT/ICC data,
@@ -15,7 +15,7 @@ glibc 2.39 or newer and system LittleCMS, OpenMP and C++ runtimes. GUI startup
 also needs Fontconfig, xkbcommon (including its X11 library) and an X11 or Wayland
 desktop; native file dialogs use the
 desktop's XDG portal. `DYNAMIC-LIBRARIES.txt` lists linked libraries.
-Windows, macOS and Linux ARM packages are not included in v0.1.0.
+Windows, macOS and Linux ARM packages are not included.
 
 On Ubuntu 24.04, the runtime packages are:
 
@@ -32,8 +32,8 @@ library overrides. No Python interpreter is needed to run the release.
 ```sh
 # Keep both archives alongside SHA256SUMS to verify all release files.
 sha256sum -c SHA256SUMS
-tar -xzf fast-spektrafilm-0.1.0-linux-x86_64.tar.gz
-cd fast-spektrafilm-0.1.0-linux-x86_64
+tar -xzf fast-spektrafilm-0.1.1-linux-x86_64.tar.gz
+cd fast-spektrafilm-0.1.1-linux-x86_64
 ./fast-spektrafilm-gui
 ./fast-spektrafilm profiles
 ./fast-spektrafilm process /path/to/input.tiff /path/to/output.tiff
@@ -66,8 +66,8 @@ For another compiler installation, `SPEKTRAFILM_RUST_NOTICES` can
 point to its matching `share/doc/rust` notice directory.
 
 ```sh
-bash scripts/package-linux.sh v0.1.0
-bash scripts/smoke-release.sh artifacts/release/dist/fast-spektrafilm-0.1.0-linux-x86_64.tar.gz
+bash scripts/package-linux.sh v0.1.1
+bash scripts/smoke-release.sh artifacts/release/dist/fast-spektrafilm-0.1.1-linux-x86_64.tar.gz
 ```
 
 Local artifacts inherit the host's glibc requirements. Use the workflow artifacts
