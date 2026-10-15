@@ -24,7 +24,7 @@ fn optical_filters_match_reference() -> anyhow::Result<()> {
         compare(
             &diffusion::apply(&fixture("input"), &p, 55.)?,
             &fixture(&format!("diffusion_{family}")),
-            3e-7,
+            fast_spektrafilm::numerical::contract("diffusion").atol,
             family,
         );
     }
@@ -150,7 +150,7 @@ fn optical_filter_stage_order_matches_reference() -> anyhow::Result<()> {
                 compare(
                     &sim.process(&fixture("input"), tap)?,
                     &fixture(&format!("{stage}_{}", tap.name())),
-                    2e-6,
+                    fast_spektrafilm::numerical::contract("optical").atol,
                     &format!("{stage}/{}", tap.name()),
                 );
             }
@@ -281,10 +281,9 @@ fn inverse_lut_and_blackbody_match_reference() -> anyhow::Result<()> {
     let pool = rayon::ThreadPoolBuilder::new().num_threads(4).build()?;
     pool.install(|| -> anyhow::Result<()> {
         let sim = Simulator::new(&root().join("data"), p)?;
-        compare(
+        strict(
             &sim.process(&fixture("captured"), Tap::RgbOut)?,
             &fixture("convert_lut"),
-            2e-5,
             "inverse LUT",
         );
         Ok(())
