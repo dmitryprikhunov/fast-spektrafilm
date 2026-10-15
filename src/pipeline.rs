@@ -1614,7 +1614,12 @@ fn prepare_params(data: &Path, mut params: Params) -> Result<PreparedParams> {
 }
 /// Validate settings and profiles without building the spectral response or LUTs.
 pub fn validate_params(data: &Path, params: &Params) -> Result<()> {
-    let prepared = prepare_params(data, params.clone())?;
+    let mut prepared = prepare_params(data, params.clone())?;
+    crate::chemistry::apply(&mut prepared.print, &params.print_chemistry)?;
+    ensure!(
+        params.settings.spectral_gaussian_blur >= 0.,
+        "Invalid spectral smoothing width"
+    );
     for name in [&params.io.input_color_space, &params.io.output_color_space] {
         prepared.tables.space(name)?;
     }

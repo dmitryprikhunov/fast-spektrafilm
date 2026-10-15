@@ -225,3 +225,18 @@ fn cli_repetition_series_use_one_executor_and_explicit_warmups() -> anyhow::Resu
     }
     Ok(())
 }
+
+#[test]
+fn cheap_validation_rejects_print_chemistry_and_spectral_numeric_errors() -> anyhow::Result<()> {
+    use fast_spektrafilm::{Params, Simulator, pipeline};
+    let data = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data");
+    let mut p = Params::default();
+    p.print_chemistry.gamma_factor = -1.;
+    assert!(pipeline::validate_params(&data, &p).is_err());
+    assert!(Simulator::new(&data, p).is_err());
+    let mut p = Params::default();
+    p.settings.spectral_gaussian_blur = -0.1;
+    assert!(pipeline::validate_params(&data, &p).is_err());
+    assert!(Simulator::new(&data, p).is_err());
+    Ok(())
+}
