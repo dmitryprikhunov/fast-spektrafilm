@@ -63,6 +63,8 @@ pub(crate) fn gaussian_f32_data(
 ) -> Vec<f32> {
     filter(data, w, h, c, sigmas, true)
 }
+// Keep the reference state[lag][column] layout explicit for contiguous SIMD.
+#[allow(clippy::needless_range_loop)]
 fn filter<T: Scalar>(
     input: &[T],
     w: usize,
