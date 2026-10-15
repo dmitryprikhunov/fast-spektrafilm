@@ -48,6 +48,9 @@ pub(crate) fn sampled(
     let mut data = vec![0.; w * h * channels];
     data.par_chunks_exact_mut(w * channels)
         .enumerate()
+        // Reuse row scratch across useful batches while retaining enough work
+        // for narrow/asymmetric images and the caller's thread count.
+        .with_min_len((h / (rayon::current_num_threads() * 4)).clamp(1, 8))
         .for_each_init(
             || vec![0.; 2 * width * channels],
             |rows, (y, out)| {
