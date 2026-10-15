@@ -81,6 +81,12 @@ fn filter<T: Scalar>(
             for i in 0..w * h {
                 output[i * c + ch] = input[i * c + ch];
             }
+        } else if sigma < 3. && (3. * sigma + 0.5) as usize == 0 {
+            // A one-tap physical kernel needs both reference stores, but no
+            // strip scratch or parallel convolution scheduling.
+            for i in 0..w * h {
+                output[i * c + ch] = store(0. + store(0. + input[i * c + ch].get()).get());
+            }
         } else if sigma < 3. {
             let radius = (3. * sigma + 0.5) as isize;
             let mut kernel: Vec<_> = (-radius..=radius)
