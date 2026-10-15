@@ -164,3 +164,64 @@ fn invalid_numeric_settings_and_nonfinite_outputs_are_errors() -> anyhow::Result
     );
     Ok(())
 }
+
+#[test]
+fn cli_repetition_series_use_one_executor_and_explicit_warmups() -> anyhow::Result<()> {
+    let scratch = Scratch::new("timing-series")?;
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let config = scratch.0.join("config.json");
+    std::fs::write(
+        &config,
+        serde_json::to_vec(&json!({
+            "camera":{"auto_exposure":false},"io":{"copy_metadata":false},
+            "debug":{"deactivate_spatial_effects":true,"deactivate_stochastic_effects":true}
+        }))?,
+    )?;
+    for profiled in [false, true] {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_fast-spektrafilm"));
+        command
+            .args(["--threads", "2", "process"])
+            .arg(root.join("tests/fixtures/review/blur_0/input.npy"))
+            .arg(scratch.0.join("output.npy"))
+            .arg("--config")
+            .arg(&config)
+            .args(["--repeat", "3", "--warmup", "1"]);
+        if profiled {
+            command.arg("--stage-timings");
+        }
+        let result = command.output()?;
+        anyhow::ensure!(
+            result.status.success(),
+            "{}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+        let report: Value = serde_json::from_str(
+            String::from_utf8_lossy(&result.stderr)
+                .lines()
+                .last()
+                .unwrap(),
+        )?;
+        assert_eq!(
+            report["executor"],
+            if profiled { "profiled" } else { "fused" }
+        );
+        assert_eq!(report["warmup_seconds"].as_array().unwrap().len(), 1);
+        let times = report["process_seconds"].as_array().unwrap();
+        let stages = report["stage_samples_seconds"].as_array().unwrap();
+        assert_eq!(times.len(), 3);
+        assert_eq!(stages.len(), 3);
+        for (seconds, stages) in times.iter().zip(stages) {
+            if profiled {
+                let stages = stages.as_object().unwrap();
+                assert_eq!(stages.len(), 6);
+                assert!(
+                    stages.values().map(|v| v.as_f64().unwrap()).sum::<f64>()
+                        <= seconds.as_f64().unwrap()
+                );
+            } else {
+                assert!(stages.is_null());
+            }
+        }
+    }
+    Ok(())
+}

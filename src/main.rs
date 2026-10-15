@@ -236,6 +236,7 @@ fn main() -> Result<()> {
             let mut stage_samples = Vec::new();
             let mut result = None;
             for _ in 0..repeat {
+                drop(result.take());
                 let input = image.clone();
                 let start = Instant::now();
                 let (output, stages) = render(input)?;
