@@ -1026,10 +1026,12 @@ impl Simulator {
                 }
             }
         }
+        // The pinned camera model diffuses before lens blur. Boundary rules and
+        // float32 FFT stores make these operations noncommutative.
+        raw = crate::diffusion::apply(&raw, &self.params.camera.diffusion_filter, pixel_um)?;
         if self.params.camera.lens_blur_um > 0.0 {
             raw = gaussian(&raw, &[self.params.camera.lens_blur_um / pixel_um]);
         }
-        raw = crate::diffusion::apply(&raw, &self.params.camera.diffusion_filter, pixel_um)?;
         if hal.active && !self.params.debug.deactivate_spatial_effects {
             let core_sigma = hal.scatter_core_um[..ch]
                 .iter()
