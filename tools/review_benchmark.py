@@ -65,6 +65,7 @@ def main():
         start=time.perf_counter(); sim=reference(config(args.worker)); setup=time.perf_counter()-start
         warmups=[]; times=[]
         for i in range(args.warmup+args.repeat):
+            output=None  # Release the preceding result before the measured call.
             start=time.perf_counter(); output=sim.process(image); seconds=time.perf_counter()-start
             (warmups if i<args.warmup else times).append(seconds)
         assert np.isfinite(output).all()

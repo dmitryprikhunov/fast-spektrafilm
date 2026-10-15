@@ -71,6 +71,7 @@ def reference_worker(input_path,output_path,repeats,mode,film_format_mm):
     warmup=time.perf_counter()-start
     times=[]
     for _ in range(repeats):
+        result=None
         start=time.perf_counter()
         result=sim.process(image)
         times.append(time.perf_counter()-start)
