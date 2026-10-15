@@ -643,8 +643,9 @@ impl Simulator {
                         .data
                         .par_chunks_exact_mut(image.channels)
                         .for_each(|v| {
-                            let logs = v.to_vec();
-                            self.print.density(&logs, v);
+                            let mut logs = [0.; 3];
+                            logs[..v.len()].copy_from_slice(v);
+                            self.print.density(&logs[..v.len()], v);
                         });
                     tap = Tap::CmyPrint;
                     record("printing.develop", from);
@@ -948,12 +949,7 @@ impl Simulator {
     fn develop_film(&self, raw: Image, pixel_um: f64, random_seed: u32) -> Result<Image> {
         use crate::spatial::{exponential, gaussian};
         let (w, h, ch) = (raw.width, raw.height, raw.channels);
-        let mut density = raw.clone();
-        density
-            .data
-            .par_chunks_exact_mut(ch)
-            .zip(raw.data.par_chunks_exact(ch))
-            .for_each(|(out, logs)| self.film.density(logs, out));
+        let mut density = raw;
         if self.couplers.active {
             let mut correction = Image {
                 width: w,
@@ -965,8 +961,10 @@ impl Simulator {
                 .data
                 .par_chunks_exact_mut(ch)
                 .zip(density.data.par_chunks_exact(ch))
-                .for_each(|(out, d)| {
-                    out.copy_from_slice(&self.couplers.correction_raw(d, ch)[..ch])
+                .for_each(|(out, logs)| {
+                    let mut d = [0.; 3];
+                    self.film.density(logs, &mut d[..ch]);
+                    out.copy_from_slice(&self.couplers.correction_raw(&d[..ch], ch)[..ch]);
                 });
             let cp = &self.params.dir_couplers;
             if cp.diffusion_size_um > 0.0 {
@@ -981,17 +979,23 @@ impl Simulator {
             density
                 .data
                 .par_chunks_exact_mut(ch)
-                .zip(raw.data.par_chunks_exact(ch))
                 .zip(correction.data.par_chunks_exact_mut(ch))
-                .for_each(|((out, logs), corr)| {
+                .for_each(|(out, corr)| {
+                    let mut logs = [0.; 3];
+                    logs[..ch].copy_from_slice(out);
                     self.couplers.receive(corr);
                     for c in 0..ch {
                         out[c] =
                             linear(logs[c] - corr[c], &self.film.axis, &self.couplers.curves[c]);
                     }
                 });
+        } else {
+            density.data.par_chunks_exact_mut(ch).for_each(|out| {
+                let mut logs = [0.; 3];
+                logs[..ch].copy_from_slice(out);
+                self.film.density(&logs[..ch], out);
+            });
         }
-        drop(raw);
         if self.params.grain.active {
             density = crate::grain::apply(
                 &density,
@@ -1042,8 +1046,9 @@ impl Simulator {
                 return Ok(raw);
             }
             raw.data.par_chunks_exact_mut(raw.channels).for_each(|v| {
-                let logs = v.to_vec();
-                self.print.density(&logs, v);
+                let mut logs = [0.; 3];
+                logs[..v.len()].copy_from_slice(v);
+                self.print.density(&logs[..v.len()], v);
             });
             if collect == Tap::CmyPrint {
                 return Ok(raw);
