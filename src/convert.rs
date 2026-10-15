@@ -259,52 +259,45 @@ impl FilmConverter {
             .iter()
             .map(|v| self.seed(v.cast()).map(|v| v as f32 as f64))
             .collect();
+        // Candidate densities cost 24 bytes/pixel. Each worker holds only one
+        // RGB/Jacobian pair on its stack, instead of a 96-byte/pixel fj array.
+        // Commit candidates only after the residual of the whole logical batch
+        // requires another iteration; converged pixels are never stopped alone.
+        let mut candidate = x.clone();
         for iteration in 0..8 {
-            let fj: Vec<_> = x
-                .par_iter()
+            let maximum_residual = candidate
+                .par_iter_mut()
+                .zip(x.par_iter())
+                .zip(y.par_iter())
                 .enumerate()
-                .map(|(i, v)| {
-                    self.forward(
-                        *v,
-                        iteration == 0,
-                        if y.len() == 1 {
-                            0
-                        } else if y.len() % 2 == 1 && i == y.len() - 1 {
-                            2
-                        } else {
-                            1
-                        },
-                    )
-                })
-                .collect();
-            if fj
-                .iter()
-                .zip(y)
-                .map(|((f, _), y)| (f - y.cast::<f64>()).abs().max())
-                .fold(0.0f64, f64::max)
-                < 1e-6
-            {
-                break;
-            }
-            x.par_iter_mut()
-                .zip(fj)
-                .zip(y)
-                .for_each(|((x, (f, j)), y)| {
+                .map(|(i, ((next, current), target))| {
+                    let mode = if y.len() == 1 {
+                        0
+                    } else if y.len() % 2 == 1 && i == y.len() - 1 {
+                        2
+                    } else {
+                        1
+                    };
+                    let (f, j) = self.forward(*current, iteration == 0, mode);
+                    let residual = f - target.cast::<f64>();
                     let h = Matrix3::from_fn(|r, c| {
                         (j[(0, r)] * j[(0, c)] + j[(2, r)] * j[(2, c)])
                             + j[(1, r)] * j[(1, c)]
                             + if r == c { 1e-7f32 as f64 } else { 0. }
                     });
-                    if let Some(dx) = solve_pinned(
-                        h,
-                        &(Vector3::from_fn(|c, _| {
-                            let r = f - y.cast::<f64>();
-                            (j[(0, c)] * r[0] + j[(2, c)] * r[2]) + j[(1, c)] * r[1]
-                        })),
-                    ) {
-                        *x = self.bounded(*x - dx);
-                    }
-                });
+                    let gradient = Vector3::from_fn(|c, _| {
+                        (j[(0, c)] * residual[0] + j[(2, c)] * residual[2])
+                            + j[(1, c)] * residual[1]
+                    });
+                    *next = solve_pinned(h, &gradient)
+                        .map_or(*current, |dx| self.bounded(*current - dx));
+                    residual.abs().max()
+                })
+                .reduce(|| 0.0f64, f64::max);
+            if maximum_residual < 1e-6 {
+                break;
+            }
+            std::mem::swap(&mut x, &mut candidate);
         }
         x
     }
