@@ -45,6 +45,25 @@ fn reflect(i: isize, n: usize) -> usize {
         (period - j) as usize
     }
 }
+// RustFFT has efficient radix-2/3/5 kernels. A smooth transform length keeps
+// the same linear convolution and boundaries while avoiding power-of-two cliffs.
+fn fft_len(minimum: usize) -> Result<usize> {
+    let mut n = minimum;
+    loop {
+        let mut remainder = n;
+        for radix in [2, 3, 5] {
+            while remainder > 1 && remainder % radix == 0 {
+                remainder /= radix;
+            }
+        }
+        if remainder == 1 {
+            return Ok(n);
+        }
+        n = n
+            .checked_add(1)
+            .ok_or_else(|| anyhow::anyhow!("FFT dimensions overflow"))?;
+    }
+}
 struct Plans {
     rows: [Arc<dyn Fft<f32>>; 2],
     columns: [Arc<dyn Fft<f32>>; 2],
@@ -260,8 +279,8 @@ fn apply_impl(mut image: Image, p: &DiffusionFilter, pixel_um: f64, cached: bool
     .clamp(0., 0.99);
     let pw = image.width + 2 * radius;
     let ph = image.height + 2 * radius;
-    let fw = (pw + side - 1).next_power_of_two();
-    let fh = (ph + side - 1).next_power_of_two();
+    let fw = fft_len(pw + side - 1)?;
+    let fh = fft_len(ph + side - 1)?;
     let plans = Plans::get(fw, fh);
     let mut scratch = Scratch::new(&plans, fh);
     static TRANSFORMS: OnceLock<Mutex<crate::cache::ByteCache<Vec<Complex<f32>>>>> =
@@ -319,6 +338,7 @@ fn apply_impl(mut image: Image, p: &DiffusionFilter, pixel_um: f64, cached: bool
             }
         }
     }
+    image.validate()?;
     Ok(image)
 }
 
@@ -358,12 +378,16 @@ pub fn workspace_estimate(
         / pixel_um;
     let radius = ((8. * lambda).max(5.).ceil() as usize)
         .min((width.min(height) / 2).saturating_sub(1).max(1));
-    let w = (width + 4 * radius)
-        .checked_next_power_of_two()
-        .ok_or_else(|| anyhow::anyhow!("FFT dimensions overflow"))?;
-    let h = (height + 4 * radius)
-        .checked_next_power_of_two()
-        .ok_or_else(|| anyhow::anyhow!("FFT dimensions overflow"))?;
+    let w = fft_len(
+        width
+            .checked_add(4 * radius)
+            .ok_or_else(|| anyhow::anyhow!("FFT dimensions overflow"))?,
+    )?;
+    let h = fft_len(
+        height
+            .checked_add(4 * radius)
+            .ok_or_else(|| anyhow::anyhow!("FFT dimensions overflow"))?,
+    )?;
     let plans = Plans::get(w, h);
     let scratch = plans
         .rows
