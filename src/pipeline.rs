@@ -196,6 +196,7 @@ impl Simulator {
     }
     pub fn new(data: &Path, mut params: Params) -> Result<Self> {
         let start = Instant::now();
+        params.validate_numeric()?;
         crate::framing::validate(&params.io)?;
         crate::diffusion::validate(&params.camera.diffusion_filter)?;
         crate::diffusion::validate(&params.enlarger.diffusion_filter)?;
@@ -835,14 +836,14 @@ impl Simulator {
     pub fn process(&self, image: &Image, collect: Tap) -> Result<Image> {
         self.process_owned(image.clone(), collect)
     }
-    pub fn process_owned(&self, mut image: Image, collect: Tap) -> Result<Image> {
-        let seed = self.render_seed();
+    pub fn process_owned(&self, image: Image, collect: Tap) -> Result<Image> {
+        let output = self.process_owned_inner(image, collect, self.render_seed())?;
+        output.validate()?;
+        Ok(output)
+    }
+    fn process_owned_inner(&self, mut image: Image, collect: Tap, seed: u32) -> Result<Image> {
         image.validate()?;
         ensure!(image.channels == 3, "Input must be RGB");
-        ensure!(
-            image.data.iter().all(|v| v.is_finite()),
-            "Input contains nonfinite values"
-        );
         if collect == Tap::RgbIn {
             return Ok(image);
         }

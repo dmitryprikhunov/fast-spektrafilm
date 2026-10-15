@@ -120,3 +120,47 @@ fn bt2020_decode_matches_reference_near_toe() {
         );
     }
 }
+
+#[test]
+fn numerical_contract_rejects_perturbation_and_invalid_arrays() -> anyhow::Result<()> {
+    use fast_spektrafilm::{Image, numerical};
+    let reference = Image::new(1, 1, 3, vec![0., -1e-12, 4.])?;
+    let mut actual = reference.clone();
+    actual.data[1] += 1e-6;
+    let report = numerical::compare(&actual, &reference, numerical::contract("strict"))?;
+    assert_eq!(report.failures, 1);
+    assert_eq!(report.worst_index, [0, 0, 1]);
+    actual.data[0] = f64::NAN;
+    assert!(numerical::compare(&actual, &reference, numerical::contract("strict")).is_err());
+    actual = reference.clone();
+    actual.width = 2;
+    assert!(numerical::compare(&actual, &reference, numerical::contract("strict")).is_err());
+    Ok(())
+}
+
+#[test]
+fn invalid_numeric_settings_and_nonfinite_outputs_are_errors() -> anyhow::Result<()> {
+    use fast_spektrafilm::{Image, Params, Simulator, Tap};
+    let data = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data");
+    for field in ["camera", "scanner", "optional"] {
+        let mut p = Params::default();
+        match field {
+            "camera" => p.camera.exposure_compensation_ev = f64::NAN,
+            "scanner" => p.scanner.lens_blur = f64::INFINITY,
+            _ => p.film_chemistry.development_time = Some(f64::NAN),
+        }
+        assert!(Simulator::new(&data, p).is_err());
+    }
+    let mut p = Params::default();
+    p.workflow.route = "input".into();
+    p.io.input_cctf_decoding = true;
+    p.io.input_color_space = "ProPhoto RGB".into();
+    let sim = Simulator::new(&data, p)?;
+    let image = Image::new(1, 1, 3, vec![f64::MAX; 3])?;
+    assert!(sim.process(&image, Tap::RgbOut).is_err());
+    assert!(
+        sim.process_profiled(image, Tap::RgbIn, Tap::RgbOut, 1.)
+            .is_err()
+    );
+    Ok(())
+}

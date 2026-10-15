@@ -53,14 +53,9 @@ def reference_params(film,paper):
     return digest_params(p)
 
 def compare(actual,expected,label):
-    assert actual.shape==expected.shape,(label,actual.shape,expected.shape)
-    assert np.all(np.isfinite(actual)),label
-    diff=np.abs(actual-expected)
-    record=dict(case=label,max_abs=float(diff.max()),mean_abs=float(diff.mean()),rmse=float(np.sqrt(np.mean(diff**2))))
-    if label.startswith('grain_') and label.endswith('/cmy_film'):
-        record['bitwise_equal']=np.array_equal(actual.astype(np.float64).view(np.uint64),expected.astype(np.float64).view(np.uint64))
-    np.testing.assert_allclose(actual,expected,rtol=1e-8,atol=1e-9,err_msg=label)
-    return record
+    from numerical import require
+    return dict(case=label, **require(actual,expected,label,
+        bitwise=label.startswith('grain_') and label.endswith('/cmy_film')))
 
 def run_case(image,name,film,paper,options=None,taps=None,controlled_glare=False,controlled_grain=False):
     folder=ROOT/'artifacts/parity'/name

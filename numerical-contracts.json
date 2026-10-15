@@ -1,0 +1,9 @@
+{
+  "strict": {"atol": 1e-9, "rtol": 1e-8, "stage": "deterministic forward, direct inverse, calibrated output and inverse nodes", "range": "finite float64 arrays on the pinned environment", "reason": "2026-10-14 broad sweep max 8.02678e-11; direct inverse max 2.91375e-13"},
+  "diffusion": {"atol": 3e-7, "rtol": 0.0, "stage": "standalone optical diffusion", "range": "reference fixtures, four filter families", "reason": "reference float32 FFT working arrays; independent FFT backend roundoff"},
+  "optical": {"atol": 2e-6, "rtol": 0.0, "stage": "combined camera/enlarger optical paths", "range": "cached crop spatial probes", "reason": "propagated float32 FFT roundoff; 2026-10-14 diffusion max 6.53482e-7"},
+  "inverse_lut": {"atol": 2e-5, "rtol": 0.0, "stage": "same-resolution inverse LUT port comparison", "range": "reference 9/17/32 node grids and cached crops", "reason": "historical acceptance ceiling; node comparisons independently require strict; LUT versus direct is a separate metric"},
+  "calibration_coefficients": {"atol": 1e-10, "rtol": 0.0, "stage": "fitted calibration coefficients", "range": "five pinned calibration fixtures", "reason": "2026-10-14 max 3.27283e-12 with cross-run margin"},
+  "calibration_residuals": {"atol": 1e-10, "rtol": 0.0, "stage": "calibration residual vector", "range": "five pinned calibration fixtures", "reason": "2026-10-14 max 1.83867e-12 with cross-run margin"},
+  "grain_exact": {"atol": 0.0, "rtol": 0.0, "stage": "controlled grain density", "range": "controlled seeds including microstructure and signed count overflow", "reason": "preserve float32 stores, RNG draw order and pairwise reduction; also assert bit equality"}
+}

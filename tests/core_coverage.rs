@@ -14,7 +14,7 @@ fn fixture(name: &str) -> Image {
     .unwrap()
 }
 mod common;
-use common::compare;
+use common::{compare, strict};
 #[test]
 fn optical_filters_match_reference() -> anyhow::Result<()> {
     for family in ["glimmerglass", "black_pro_mist", "pro_mist", "cinebloom"] {
@@ -44,16 +44,14 @@ fn inverse_scan_and_routes_match_reference() -> anyhow::Result<()> {
     let data = root().join("data");
     let sim = Simulator::new(&data, p.clone())?;
     let converter = convert::FilmConverter::new(&Tables::load(&data)?, sim.film(), &p)?;
-    compare(
+    strict(
         &converter.convert(&fixture("captured")),
         &fixture("convert"),
-        2e-5,
         "inverse captured",
     );
-    compare(
+    strict(
         &converter.convert(&fixture("input")),
         &fixture("convert_arbitrary"),
-        2e-4,
         "inverse arbitrary",
     );
     for (route, name) in [
@@ -64,10 +62,9 @@ fn inverse_scan_and_routes_match_reference() -> anyhow::Result<()> {
         let mut p = params();
         p.workflow.route = route.into();
         let sim = Simulator::new(&data, p)?;
-        compare(
+        strict(
             &sim.process(&fixture("captured"), Tap::RgbOut)?,
             &fixture(name),
-            2e-5,
             route,
         );
         assert!(sim.process(&fixture("captured"), Tap::LogEFilm).is_err());
