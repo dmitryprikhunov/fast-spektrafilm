@@ -90,12 +90,16 @@ fn base_fit_matches_reference() -> anyhow::Result<()> {
         ("magenta", b.magenta),
         ("yellow", b.yellow),
     ] {
+        let error = (v - expected["base"][name].as_f64().unwrap()).abs();
+        eprintln!("base fit {name}: max_abs={error:e}");
         assert!(
-            (v - expected["base"][name].as_f64().unwrap()).abs() < 1e-4,
+            error < fast_spektrafilm::numerical::contract("base_fit_coefficients").atol,
             "{name}: {v}"
         );
     }
-    assert!((ev - expected["exposure"].as_f64().unwrap()).abs() < 1e-4);
+    let error = (ev - expected["exposure"].as_f64().unwrap()).abs();
+    eprintln!("base fit exposure: max_abs={error:e}");
+    assert!(error < fast_spektrafilm::numerical::contract("base_fit_coefficients").atol);
     Ok(())
 }
 #[test]
@@ -254,7 +258,10 @@ fn device_calibration_matches_reference_parameters() -> anyhow::Result<()> {
         .map(|(a, b)| (a - b).abs())
         .fold(0., f64::max);
     eprintln!("calibration matrix max_abs={error:e}, fit={fit:?}");
-    assert!(error < 1e-4, "Calibration coefficient error {error:e}");
+    assert!(
+        error < fast_spektrafilm::numerical::contract("calibration_coefficients").atol,
+        "Calibration coefficient error {error:e}"
+    );
     let target = c.scan([0.; 3]);
     let obs = convert::sample_base(&fixture("captured"), 99.)?;
     let before: f64 = (0..3).map(|i| (obs[i] - target[i]).powi(2)).sum();

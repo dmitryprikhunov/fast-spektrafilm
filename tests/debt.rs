@@ -77,9 +77,13 @@ fn calibration_parameters_residuals_and_outputs_match_reference() -> anyhow::Res
             ("magenta", base.magenta),
             ("yellow", base.yellow),
         ] {
-            assert!((v - case["base"][key].as_f64().unwrap()).abs() < 1e-5);
+            let error = (v - case["base"][key].as_f64().unwrap()).abs();
+            eprintln!("base fit {i}/{key}: max_abs={error:e}");
+            assert!(error < fast_spektrafilm::numerical::contract("base_fit_coefficients").atol);
         }
-        assert!((ev - case["base_ev"].as_f64().unwrap()).abs() < 1e-5);
+        let error = (ev - case["base_ev"].as_f64().unwrap()).abs();
+        eprintln!("base fit {i}/exposure: max_abs={error:e}");
+        assert!(error < fast_spektrafilm::numerical::contract("base_fit_coefficients").atol);
         assert!(fast_spektrafilm::convert::fit_base(&tables, &stock, &p, [0.; 3]).is_err());
     }
     Ok(())
