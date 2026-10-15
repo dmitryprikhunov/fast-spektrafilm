@@ -174,9 +174,9 @@ fn filter<T: Scalar>(
                         }
                     }
                     let mut state = [[0.; COLUMNS]; 3];
-                    for x in 0..width {
-                        for lane in &mut state {
-                            lane[x] = values[x].get();
+                    for lane in &mut state {
+                        for (x, value) in lane.iter_mut().enumerate().take(width) {
+                            *value = values[x].get();
                         }
                     }
                     for y in 0..h {
@@ -192,9 +192,9 @@ fn filter<T: Scalar>(
                             state[0][x] = value;
                         }
                     }
-                    for x in 0..width {
-                        for lane in &mut state {
-                            lane[x] = values[(h - 1) * width + x].get();
+                    for lane in &mut state {
+                        for (x, value) in lane.iter_mut().enumerate().take(width) {
+                            *value = values[(h - 1) * width + x].get();
                         }
                     }
                     for y in (0..h).rev() {

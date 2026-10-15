@@ -52,7 +52,7 @@ fn fft_len(minimum: usize) -> Result<usize> {
     loop {
         let mut remainder = n;
         for radix in [2, 3, 5] {
-            while remainder > 1 && remainder % radix == 0 {
+            while remainder > 1 && remainder.is_multiple_of(radix) {
                 remainder /= radix;
             }
         }
