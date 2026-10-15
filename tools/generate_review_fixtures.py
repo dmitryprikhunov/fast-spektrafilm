@@ -3,6 +3,7 @@
 No simulation is run on a full RAW. Re-run validate.py --samples first to cache.
 """
 import hashlib
+import io
 import json
 from pathlib import Path
 import os
@@ -15,9 +16,25 @@ OUT = ROOT / 'tests/fixtures/review'
 OUT.mkdir(parents=True, exist_ok=True)
 crop = np.load(SOURCE)
 records = []
+inputs = {}
+for item in json.loads((ROOT/'tests/fixtures/raw_crops/manifest.json').read_text())['crops']:
+    inputs[item['sha256']] = '../raw_crops/' + item['path']
 base = dict(camera=dict(auto_exposure=False, film_format_mm=0.111328125),
             debug=dict(deactivate_stochastic_effects=True), io=dict(copy_metadata=False),
             settings=dict(random_seed=12345))
+
+
+def fixture_input(name, image):
+    buffer = io.BytesIO()
+    np.save(buffer, image)
+    payload = buffer.getvalue()
+    digest = hashlib.sha256(payload).hexdigest()
+    if digest not in inputs:
+        path = OUT/'inputs'/f'{name}.npy'
+        path.parent.mkdir(exist_ok=True)
+        path.write_bytes(payload)
+        inputs[digest] = str(path.relative_to(OUT))
+    return inputs[digest]
 
 
 def case(name, config, image, policy='strict', taps=TAPS, glare=False):
@@ -25,7 +42,7 @@ def case(name, config, image, policy='strict', taps=TAPS, glare=False):
     folder.mkdir(exist_ok=True)
     cfg = merge(json.loads(json.dumps(base)), config)
     (folder / 'config.json').write_text(json.dumps(cfg, indent=2) + '\n')
-    np.save(folder / 'input.npy', image)
+    input_path = fixture_input(name, image)
     sim = reference(cfg)
     for tap in taps:
         if glare:
@@ -40,12 +57,16 @@ def case(name, config, image, policy='strict', taps=TAPS, glare=False):
         finally:
             if glare:
                 numba.set_num_threads(4)
-    records.append(dict(name=name, policy=policy, taps=taps))
+    records.append(dict(name=name, input=input_path, policy=policy, taps=taps))
     print(name, flush=True)
 
 
 stress = crop[96:160,96:160].copy() if crop.shape[0] > 64 else crop.copy()
 small = stress[23:40,22:41].copy()
+fixture_input('canon_17x19', small)
+bright_corner = small.copy()
+bright_corner[0, 0] *= 8
+fixture_input('canon_17x19_bright_corner', bright_corner)
 for i, family in enumerate(('black_pro_mist', 'pro_mist', 'glimmerglass', 'cinebloom')):
     for j, sigma in enumerate((2.999999, 3., 3.000001)):
         stock = ('kodak_portra_400', 'kodak_doublex', 'fujifilm_provia_100f')[(i+j) % 3]
@@ -98,15 +119,11 @@ for axis in (0,1):
     case(f'framing_axis{axis}', dict(io=dict(upscale_factor=1.7)), image)
 manifest = dict(baseline_commit=BASELINE['commit'], source_sha256=hashlib.sha256(SOURCE.read_bytes()).hexdigest(),
                 source='cached Canon 256x256 center crop', cases=records)
-manifest['files'] = {str(p.relative_to(OUT)): hashlib.sha256(p.read_bytes()).hexdigest()
-                     for p in sorted(OUT.rglob('*')) if p.is_file() and p.name != 'manifest.json'}
-(OUT / 'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
-
 # Filter-only sweeps make scheduling and quantization regressions localizable.
 from spektrafilm.utils.fast_gaussian_filter import fast_gaussian_filter
 filters = OUT / 'filters'
 filters.mkdir(exist_ok=True)
-np.save(filters/'input.npy', small)
+filter_input = fixture_input('filters', small)
 filter_cases=[]
 for sigma in (0., .1666666, .1666667, .4999999, .5, 1., 2.999999, 3., 3.000001, 25.):
     for dtype in (np.float64, np.float32):
@@ -115,7 +132,7 @@ for sigma in (0., .1666666, .1666667, .4999999, .5, 1., 2.999999, 3., 3.000001, 
         name=f'{sigma:g}_{np.dtype(dtype).name}_{len(filter_cases)}'
         np.save(filters/f'{name}.npy', output.astype(np.float64))
         filter_cases.append(dict(name=name,sigma=sigma,float32=dtype==np.float32))
-(filters/'manifest.json').write_text(json.dumps(filter_cases,indent=2)+'\n')
+(filters/'manifest.json').write_text(json.dumps(dict(input=filter_input, cases=filter_cases),indent=2)+'\n')
 
 # Include every compact fixture in the final durable manifest.
 manifest['files'] = {str(p.relative_to(OUT)): hashlib.sha256(p.read_bytes()).hexdigest()

@@ -1,0 +1,131 @@
+{
+  "reference_commit": "28bf883e1672e884307edc75852549376e13644e",
+  "reviewed_commit": "b47ce1ff7d7e365ef279b177f3c75c2dd2f3d3be",
+  "archived_evidence_commit": "9b8d78bdcb509ff6d48ded574761f94068208f1b",
+  "full_reports": [
+    {"url":"https://github.com/dmitryprikhunov/fast-spektrafilm/blob/9b8d78bdcb509ff6d48ded574761f94068208f1b/docs/reviews/numerical-2026-10-14-evidence.json","sha256":"63620b175628851e5519b0ae3d57b627aafeb345e661136dae44c0f1d5aba3f0","bytes":169329},
+    {"url":"https://github.com/dmitryprikhunov/fast-spektrafilm/blob/9b8d78bdcb509ff6d48ded574761f94068208f1b/docs/reviews/numerical-implementation-2026-10-15-evidence.json","sha256":"cdaf14bdbc38b71106389e02fabd44023124dd6d72bfaa2fe9ee3268e8a4b10c","bytes":805433}
+  ],
+  "reproduction": "See numerical-implementation-2026-10-15.md; full per-case diagnostics and raw repetitions stay under ignored artifacts/.",
+  "environment": {
+    "cpu": "Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz",
+    "system": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+    "rust_version": "rustc 1.93.1 (01f6ddf75 2026-02-11) (built from a source tarball)",
+    "python_version": "3.13.16",
+    "dependencies": {
+      "numpy": "2.5.3",
+      "scipy": "1.18.1",
+      "numba": "0.68.0",
+      "colour-science": "0.4.7",
+      "rawpy": "0.26.1"
+    },
+    "thread_environment": {
+      "OPENBLAS_CORETYPE": "Haswell",
+      "OPENBLAS_NUM_THREADS": "4",
+      "OMP_NUM_THREADS": "4",
+      "NUMBA_NUM_THREADS": "4",
+      "NUMBA_CPU_NAME": "haswell",
+      "NUMBA_CPU_FEATURES": null,
+      "RAYON_NUM_THREADS": null
+    },
+    "binary_sha256": "2b06195fcf6a4d47f5f2dfd9d59c50c9c4040ca2e0e0d9133577809cc6d578b2",
+    "cargo_lock_sha256": "b5f5b7e96004ee0e776efbca0bb1a9ceed023b84da40c0f9ece0fed635221906",
+    "rust_sources_sha256": "731007e2febc1a12a0d74d17f2d291de282bff74b34f918bb5e4f411cb1b89a7",
+    "assets_manifest_sha256": "86c5ed23131458bb02fafbb11d633bb7d5c712d6783d322bc1837c5eb0f969c7",
+    "reference_manifest_sha256": "a02570b2180e1891c821126e60db0b37e84a70b7fe4744088d5e9e33f64af674",
+    "numerical_contracts_sha256": "54f65289f3e828f930853cacc414af831810143d241b5e277f551462c3e376d4",
+    "source_sha256": "0894a0f58cb39c97a8bcf99f4551fa5187d4374fa65ebcc141177fdf7399216d"
+  },
+  "validation": {
+    "core": {
+      "passed": 39,
+      "ignored": 2
+    },
+    "gui": {
+      "passed": 54,
+      "ignored": 4
+    },
+    "native_metadata": {
+      "passed": 1,
+      "ignored": 0
+    },
+    "native_lensfun": {
+      "passed": 1,
+      "ignored": 0
+    },
+    "raw_preview": {
+      "passed": 1,
+      "ignored": 0
+    },
+    "clippy": "Rust 1.93 Clippy, all targets + gui, -D warnings",
+    "baseline_assets_verified": 235,
+    "broad": {
+      "comparisons": 590,
+      "failures": 0,
+      "worst": {"case":"chemistry/rgb_out","max_abs":8.026776465719365e-11,"rmse":1.0002001229034915e-11,"worst_index":[14,5,0]},
+      "bitwise_equal": 10
+    },
+    "interactions": {
+      "comparisons": 129,
+      "failures": 0,
+      "worst": {"case":"optical_0_2/cmy_film","max_abs":1.1112569975324504e-07,"rmse":3.324549421773365e-08,"worst_index":[16,3,2]}
+    },
+    "pinned_fixture_recheck": {
+      "comparisons": 129,
+      "failures": 0,
+      "worst": {"case":"optical_stress64","tap":"cmy_print","max_abs":3.6637359812630166e-14,"rmse":8.799940213716064e-15,"worst_index":[2,7,2]},
+      "bitwise_equal": 1
+    },
+    "inverse_nodes": {
+      "inverse_nodes8/cmy_film": 0.0,
+      "inverse_nodes9/cmy_film": 0.0,
+      "inverse_nodes17/cmy_film": 0.0,
+      "inverse_nodes32/cmy_film": 0.0
+    }
+  },
+  "cli": {
+    "threads": 4,
+    "warmups": 1,
+    "measured_repeats": 3,
+    "release_profile": {
+      "lto": "thin",
+      "codegen-units": 1
+    },
+    "release_build": {
+      "compiler": "rustc 1.93.1 (01f6ddf75 2026-02-11) (built from a source tarball)",
+      "debug": "false",
+      "encoded_rustflags": "",
+      "host": "x86_64-unknown-linux-gnu",
+      "opt_level": "3",
+      "profile": "release",
+      "release_codegen_units_override": "",
+      "release_lto_override": "",
+      "rustflags": "",
+      "target": "x86_64-unknown-linux-gnu"
+    },
+    "note": "Seconds are median/minimum/maximum; RSS includes setup and retained buffers. Stage allocator results and analytical full-frame estimates are in the implementation report.",
+    "results": [
+      {"mode":"forward","shape":[64,64,3],"rust_seconds":{"median":0.00597009,"minimum":0.005748146,"maximum":0.005988434},"reference_seconds":{"median":0.03453643800003192,"minimum":0.0339739949995419,"maximum":0.03513646100054757},"rust_peak_rss_kib":34444,"reference_peak_rss_kib":335576,"max_abs":4.191091917959966e-15,"rmse":8.391297870388711e-16},
+      {"mode":"spatial-fine","shape":[64,64,3],"rust_seconds":{"median":0.01045266,"minimum":0.010227727,"maximum":0.010888882},"reference_seconds":{"median":0.038155911000103515,"minimum":0.03755290800017974,"maximum":0.03846791199975996},"rust_peak_rss_kib":33904,"reference_peak_rss_kib":337400,"max_abs":4.3021142204224816e-15,"rmse":9.503237648018992e-16},
+      {"mode":"legacy-fine","shape":[64,64,3],"rust_seconds":{"median":0.035872044,"minimum":0.033617568,"maximum":0.037250024},"reference_seconds":{"median":0.049872184000378184,"minimum":0.049618353999903775,"maximum":0.049907378000170866},"rust_peak_rss_kib":34584,"reference_peak_rss_kib":338348,"max_abs":3.858025010572419e-15,"rmse":8.447595365455817e-16},
+      {"mode":"diffusion","shape":[64,64,3],"rust_seconds":{"median":0.015039004,"minimum":0.014551124,"maximum":0.01525605},"reference_seconds":{"median":0.04214483899977495,"minimum":0.041915127999345714,"maximum":0.043004020999433124},"rust_peak_rss_kib":33916,"reference_peak_rss_kib":336952,"max_abs":2.52611030648886e-07,"rmse":3.053122188978133e-08},
+      {"mode":"diffusion-fine","shape":[64,64,3],"rust_seconds":{"median":0.023417931,"minimum":0.020578998,"maximum":0.02513363},"reference_seconds":{"median":0.04565894099960133,"minimum":0.045550562999778776,"maximum":0.04583578599977045},"rust_peak_rss_kib":34040,"reference_peak_rss_kib":337800,"max_abs":1.0327597377290942e-07,"rmse":1.6153773895012603e-08},
+      {"mode":"inverse","shape":[64,64,3],"rust_seconds":{"median":0.047168842,"minimum":0.046732616,"maximum":0.047293246},"reference_seconds":{"median":0.11755468499995914,"minimum":0.11692086400034896,"maximum":0.11898690999987593},"rust_peak_rss_kib":34184,"reference_peak_rss_kib":340628,"max_abs":2.865555015496568e-13,"rmse":4.3074412993219873e-14},
+      {"mode":"inverse-lut","shape":[64,64,3],"rust_seconds":{"median":0.003634421,"minimum":0.003594889,"maximum":0.003674398},"reference_seconds":{"median":0.03463578100036102,"minimum":0.034558106000076805,"maximum":0.03470069000013609},"rust_peak_rss_kib":34328,"reference_peak_rss_kib":433240,"max_abs":2.8926860906608454e-13,"rmse":4.3403314728925304e-14},
+      {"mode":"forward","shape":[128,128,3],"rust_seconds":{"median":0.017367427,"minimum":0.015575467,"maximum":0.01890929},"reference_seconds":{"median":0.1191403380007614,"minimum":0.11819909399946482,"maximum":0.12064760399971419},"rust_peak_rss_kib":34732,"reference_peak_rss_kib":358300,"max_abs":6.918077222195507e-15,"rmse":8.151832372252722e-16},
+      {"mode":"spatial-fine","shape":[128,128,3],"rust_seconds":{"median":0.030898091,"minimum":0.028669341,"maximum":0.033374411},"reference_seconds":{"median":0.1299658529997032,"minimum":0.12842622300013318,"maximum":0.13011698800073646},"rust_peak_rss_kib":34544,"reference_peak_rss_kib":359036,"max_abs":1.1601830607332886e-14,"rmse":2.0957165108294106e-15},
+      {"mode":"legacy-fine","shape":[128,128,3],"rust_seconds":{"median":0.134376371,"minimum":0.12992056,"maximum":0.139234662},"reference_seconds":{"median":0.17274602399993455,"minimum":0.17117406599936658,"maximum":0.17276996900000086},"rust_peak_rss_kib":34744,"reference_peak_rss_kib":361352,"max_abs":4.6074255521944e-15,"rmse":8.023819736497357e-16},
+      {"mode":"diffusion","shape":[128,128,3],"rust_seconds":{"median":0.063868216,"minimum":0.05896146,"maximum":0.066626684},"reference_seconds":{"median":0.1361072099998637,"minimum":0.13595337700007804,"maximum":0.13640648100044928},"rust_peak_rss_kib":34768,"reference_peak_rss_kib":359860,"max_abs":3.7601061153580417e-07,"rmse":3.742864667670341e-08},
+      {"mode":"diffusion-fine","shape":[128,128,3],"rust_seconds":{"median":0.11226029,"minimum":0.102205116,"maximum":0.112634102},"reference_seconds":{"median":0.15315676700083714,"minimum":0.15149247699991975,"maximum":0.15334729099959077},"rust_peak_rss_kib":34740,"reference_peak_rss_kib":360428,"max_abs":8.854782096445746e-08,"rmse":1.3591202682701444e-08},
+      {"mode":"inverse","shape":[128,128,3],"rust_seconds":{"median":0.182169763,"minimum":0.180807422,"maximum":0.182523934},"reference_seconds":{"median":0.5026885379993473,"minimum":0.5015799339998921,"maximum":0.5027547449999474},"rust_peak_rss_kib":34712,"reference_peak_rss_kib":380412,"max_abs":2.913745633659204e-13,"rmse":4.143523084945658e-14},
+      {"mode":"inverse-lut","shape":[128,128,3],"rust_seconds":{"median":0.014176767,"minimum":0.014077605,"maximum":0.014290165},"reference_seconds":{"median":0.1031681459999163,"minimum":0.10311812999952963,"maximum":0.10491643999921507},"rust_peak_rss_kib":35036,"reference_peak_rss_kib":434316,"max_abs":2.912600716165059e-13,"rmse":4.1626772810178725e-14},
+      {"mode":"forward","shape":[256,256,3],"rust_seconds":{"median":0.060279079,"minimum":0.059843223,"maximum":0.060617319},"reference_seconds":{"median":0.4547575679998772,"minimum":0.4507807310001226,"maximum":0.4552453690002949},"rust_peak_rss_kib":35260,"reference_peak_rss_kib":467424,"max_abs":2.1201790323388536e-14,"rmse":8.233325620122833e-16},
+      {"mode":"spatial-fine","shape":[256,256,3],"rust_seconds":{"median":0.097897426,"minimum":0.096112033,"maximum":0.104663124},"reference_seconds":{"median":0.479792259999158,"minimum":0.47888249100014946,"maximum":0.4840939949999665},"rust_peak_rss_kib":35428,"reference_peak_rss_kib":469968,"max_abs":6.42264019745653e-14,"rmse":1.1502801696360253e-14},
+      {"mode":"legacy-fine","shape":[256,256,3],"rust_seconds":{"median":0.355229124,"minimum":0.354047743,"maximum":0.356239727},"reference_seconds":{"median":0.6307924909997382,"minimum":0.6305214559997694,"maximum":0.6308664090001912},"rust_peak_rss_kib":35544,"reference_peak_rss_kib":473008,"max_abs":4.385380947269368e-15,"rmse":7.886798872240524e-16},
+      {"mode":"diffusion","shape":[256,256,3],"rust_seconds":{"median":0.237587907,"minimum":0.234259932,"maximum":0.238073976},"reference_seconds":{"median":0.5120876199998747,"minimum":0.5109129649999886,"maximum":0.5126942509996297},"rust_peak_rss_kib":35304,"reference_peak_rss_kib":470676,"max_abs":4.281801774252969e-07,"rmse":3.583646864092105e-08},
+      {"mode":"diffusion-fine","shape":[256,256,3],"rust_seconds":{"median":0.346095789,"minimum":0.338538563,"maximum":0.347222878},"reference_seconds":{"median":0.6022762949996832,"minimum":0.6005799710001156,"maximum":0.6023142789999838},"rust_peak_rss_kib":38656,"reference_peak_rss_kib":469404,"max_abs":1.0808654477001411e-07,"rmse":1.531407827274946e-08},
+      {"mode":"inverse","shape":[256,256,3],"rust_seconds":{"median":0.733309577,"minimum":0.732483084,"maximum":0.733339713},"reference_seconds":{"median":2.0628956440004913,"minimum":2.062765870000476,"maximum":2.065325417999702},"rust_peak_rss_kib":35640,"reference_peak_rss_kib":550120,"max_abs":2.913745633659204e-13,"rmse":3.715744735741491e-14},
+      {"mode":"inverse-lut","shape":[256,256,3],"rust_seconds":{"median":0.055451428,"minimum":0.055408274,"maximum":0.055634369},"reference_seconds":{"median":0.42322669599980145,"minimum":0.42171590799989644,"maximum":0.42498890400020173},"rust_peak_rss_kib":35824,"reference_peak_rss_kib":503312,"max_abs":2.9326194250778315e-13,"rmse":3.739176097966934e-14}
+    ]
+  }
+}

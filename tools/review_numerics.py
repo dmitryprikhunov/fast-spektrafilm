@@ -18,7 +18,7 @@ OUT = ROOT / "artifacts/numerical-review/probes"
 OUT.mkdir(parents=True, exist_ok=True)
 SOURCE = ROOT / "artifacts/crops/RAW_CANON_EOS_5DMARK3_256.npy"
 if not SOURCE.exists():
-    SOURCE = ROOT / "tests/fixtures/review/optical_stress64/input.npy"
+    SOURCE = ROOT / "tests/fixtures/raw_crops/RAW_CANON_EOS_5DMARK3_64.npy"
 CLI = ROOT / "target/release/fast-spektrafilm"
 
 

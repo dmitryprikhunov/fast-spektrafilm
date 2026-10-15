@@ -181,7 +181,7 @@ fn cli_repetition_series_use_one_executor_and_explicit_warmups() -> anyhow::Resu
         let mut command = Command::new(env!("CARGO_BIN_EXE_fast-spektrafilm"));
         command
             .args(["--threads", "2", "process"])
-            .arg(root.join("tests/fixtures/review/blur_0/input.npy"))
+            .arg(root.join("tests/fixtures/review/inputs/canon_17x19.npy"))
             .arg(scratch.0.join("output.npy"))
             .arg("--config")
             .arg(&config)

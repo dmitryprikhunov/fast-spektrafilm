@@ -90,6 +90,15 @@ still applies. Benchmark separately after builds/tests/reference validation end:
 .venv/bin/python tools/review_benchmark.py --sizes 64 128 256
 ```
 
+Full generated reports stay under ignored `artifacts/`. After completing all
+validation/benchmark runs, `tools/summarize_numerical_review.py` assembles the full
+implementation report there. To recover the archived reports and regenerate
+the checked-in summary from the original measurements:
+
+```sh
+python3 tools/summarize_numerical_review.py --archive-commit 9b8d78bdcb509ff6d48ded574761f94068208f1b
+```
+
 The revision harness uses identical allocator instrumentation and explicit
 `lto=false, codegen-units=16` for its historical snapshots. Its stage timings and
 Rust allocator counters are distinct from the ordinary CLI release benchmark
@@ -107,9 +116,14 @@ arrays; the Gaussian sweep adds 20 arrays at 1/2/4 threads. Pinned Haswell Pytho
 rechecked all interaction golden arrays. Formatting, pinned Clippy with warnings
 denied, workflow lint and asset/fixture hashes passed.
 
-[The committed evidence](numerical-implementation-2026-10-15-evidence.json) retains
-per-array diagnostics, input/config/build/asset hashes, BLAS/compiler/dependency
+[The compact summary](numerical-2026-10-15-summary.json) retains validation counts,
+worst errors, timing ranges, RSS, environment/build hashes and checksums of the
+full reports. [The archived implementation report](https://github.com/dmitryprikhunov/fast-spektrafilm/blob/9b8d78bdcb509ff6d48ded574761f94068208f1b/docs/reviews/numerical-implementation-2026-10-15-evidence.json)
+retains per-array diagnostics, input/config hashes, full BLAS/compiler/dependency
 provenance, raw repetitions, stage timings, allocator counts and capacity estimates.
+Its commit permalink preserves the original measurements without including them
+in the current PR diff. Fixture manifests share byte-identical inputs; all 35
+interaction cases, 129 stage golden arrays and 20 filter golden arrays remain.
 Validation-run timings are diagnostic; only the separately isolated benchmark
 sections support performance claims.
 The broad sweep's worst error was **8.02678e-11** (chemistry/rgb_out, RMSE 1.0002e-11).
@@ -194,4 +208,4 @@ assuming the setup and Preview components contain identical work.
 
 The final preview scheduling follow-up has its own build/hash and measurements.
 All numerical gates, observed ranges and individual repetitions are in the
-evidence JSON; small timing differences are not generalized into speed claims.
+archived implementation report; small timing differences are not generalized into speed claims.

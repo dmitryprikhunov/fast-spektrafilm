@@ -12,7 +12,7 @@ reports=[]
 for case in manifest['cases']:
     directory=folder/case['name']
     sim=reference(json.loads((directory/'config.json').read_text()))
-    image=np.load(directory/'input.npy')
+    image=np.load(folder/case['input'])
     for tap in case['taps']:
         if case['name']=='convert_glare':
             import numba

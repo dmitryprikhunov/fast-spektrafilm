@@ -27,7 +27,7 @@ fn interactions_match_reference_and_executors() -> anyhow::Result<()> {
             let p: Params = serde_json::from_reader(std::fs::File::open(dir.join("config.json"))?)?;
             let spacing = p.camera.film_format_mm * 1000. / p.io.upscale_factor;
             let sim = Simulator::new(&root().join("data"), p)?;
-            let input = Image::read_npy(&dir.join("input.npy"))?;
+            let input = Image::read_npy(&folder.join(case["input"].as_str().unwrap()))?;
             let spacing = spacing / input.width.max(input.height) as f64;
             let contract = numerical::contract(case["policy"].as_str().unwrap());
             for name_tap in case["taps"].as_array().unwrap() {
@@ -82,9 +82,18 @@ fn interactions_match_reference_and_executors() -> anyhow::Result<()> {
 }
 #[test]
 fn conversion_seed_contract_across_executors_and_threads() -> anyhow::Result<()> {
-    let dir = root().join("tests/fixtures/review/convert_glare");
+    let folder = root().join("tests/fixtures/review");
+    let manifest: serde_json::Value =
+        serde_json::from_reader(std::fs::File::open(folder.join("manifest.json"))?)?;
+    let case = manifest["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["name"] == "convert_glare")
+        .unwrap();
+    let dir = folder.join("convert_glare");
     let mut p: Params = serde_json::from_reader(std::fs::File::open(dir.join("config.json"))?)?;
-    let image = Image::read_npy(&dir.join("input.npy"))?;
+    let image = Image::read_npy(&folder.join(case["input"].as_str().unwrap()))?;
     let sim = Simulator::new(&root().join("data"), p.clone())?;
     let mut outputs = Vec::new();
     for n in [1, 2, 4] {
@@ -116,15 +125,16 @@ fn conversion_seed_contract_across_executors_and_threads() -> anyhow::Result<()>
 
 #[test]
 fn gaussian_sigma_sweep_and_threads_match_reference() -> anyhow::Result<()> {
-    let dir = root().join("tests/fixtures/review/filters");
-    let input = Image::read_npy(&dir.join("input.npy"))?;
-    let cases: serde_json::Value =
+    let folder = root().join("tests/fixtures/review");
+    let dir = folder.join("filters");
+    let manifest: serde_json::Value =
         serde_json::from_reader(std::fs::File::open(dir.join("manifest.json"))?)?;
+    let input = Image::read_npy(&folder.join(manifest["input"].as_str().unwrap()))?;
     for threads in [1, 2, 4] {
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(threads)
             .build()?;
-        for case in cases.as_array().unwrap() {
+        for case in manifest["cases"].as_array().unwrap() {
             let mut input = input.clone();
             let f32 = case["float32"].as_bool().unwrap();
             if f32 {

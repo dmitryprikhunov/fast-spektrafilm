@@ -87,8 +87,10 @@ calibration unless explicitly marked otherwise.
 ![Spatial distribution of camera-order RGB error](numerical-2026-10-14-optics.png)
 
 Exact configs, worst component coordinates/values, tolerance ratios, and machine
-provenance are retained in [the evidence JSON](numerical-2026-10-14-evidence.json). Large arrays and logs
-remain under ignored `artifacts/numerical-review/`. The figure is a measured
+provenance remain downloadable in [the archived review JSON](https://github.com/dmitryprikhunov/fast-spektrafilm/blob/9b8d78bdcb509ff6d48ded574761f94068208f1b/docs/reviews/numerical-2026-10-14-evidence.json).
+The [compact implementation summary](numerical-2026-10-15-summary.json) records archive
+checksums and final results. Large arrays and logs remain under ignored
+`artifacts/numerical-review/`. The figure is a measured
 error map, not a simulation or visual judgment of acceptable accuracy.
 
 ## Isolated timing and memory measurements
@@ -104,7 +106,7 @@ Black Pro-Mist in camera and enlarger plus stock spatial effects, with camera
 lens blur at its zero default. Forward/inverse rows disable spatial effects.
 
 One full **cached-crop** warmup precedes three measured renders per processor.
-The table gives medians; arrays in the evidence retain the warmup and all raw
+The table gives medians; arrays in the archived evidence retain the warmup and all raw
 samples. Reading/RAW decoding, setup/JIT warmup, Rust repetition input cloning
 and output writing are outside the render timer. Python's internal preprocessing
 copies remain part of its timed `process` call. RSS is `/usr/bin/time` peak for
