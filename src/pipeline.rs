@@ -678,10 +678,7 @@ impl Simulator {
         let mut tap = inject;
         let mut auto_scale = 1.;
         let mut spacing = pixel_um;
-        let seed = self.params.settings.random_seed.unwrap_or_else(|| {
-            use std::hash::BuildHasher;
-            std::collections::hash_map::RandomState::new().hash_one(0_u8) as u32
-        });
+        let seed = self.render_seed();
         let film_scan = self.params.workflow.scan_film();
         ensure!(
             !(film_scan && [Tap::LogEPrint, Tap::CmyPrint].contains(&collect)),
@@ -768,7 +765,8 @@ impl Simulator {
                     if inject == Tap::RgbPre {
                         auto_scale = self.auto_scale(&image);
                     }
-                    image = self.process_spatial(image, Tap::LogEFilm, auto_scale, spacing)?;
+                    image =
+                        self.process_spatial(image, Tap::LogEFilm, auto_scale, spacing, seed)?;
                     tap = Tap::LogEFilm;
                     record("filming.expose", from);
                 }
@@ -826,10 +824,19 @@ impl Simulator {
             total_seconds: start.elapsed().as_secs_f64(),
         })
     }
+    /// One seed per render for fast grain and glare. None chooses fresh entropy;
+    /// legacy grain retains its reference layer/channel seeds independently.
+    fn render_seed(&self) -> u32 {
+        self.params.settings.random_seed.unwrap_or_else(|| {
+            use std::hash::BuildHasher;
+            std::collections::hash_map::RandomState::new().hash_one(0_u8) as u32
+        })
+    }
     pub fn process(&self, image: &Image, collect: Tap) -> Result<Image> {
         self.process_owned(image.clone(), collect)
     }
     pub fn process_owned(&self, mut image: Image, collect: Tap) -> Result<Image> {
+        let seed = self.render_seed();
         image.validate()?;
         ensure!(image.channels == 3, "Input must be RGB");
         ensure!(
@@ -895,19 +902,14 @@ impl Simulator {
             } else {
                 converter.convert_owned(image)
             };
-            return self.finish_density(
-                density,
-                collect,
-                pixel_um,
-                self.params.settings.random_seed.unwrap_or(0),
-            );
+            return self.finish_density(density, collect, pixel_um, seed);
         }
         if !self.params.debug.deactivate_spatial_effects
             || self.params.grain.active
             || self.params.print_glare.active
             || self.params.halation.boost_ev > 0.0
         {
-            return self.process_spatial(image, collect, auto_scale, pixel_um);
+            return self.process_spatial(image, collect, auto_scale, pixel_um, seed);
         }
         let channels = match collect {
             Tap::LogEFilm | Tap::CmyFilm => self.film.channels(),
@@ -963,14 +965,9 @@ impl Simulator {
         collect: Tap,
         auto_scale: f64,
         pixel_um: f64,
+        random_seed: u32,
     ) -> Result<Image> {
         use crate::spatial::{exponential, gaussian};
-        // Unseeded fast grain / glare vary on each render, as in the reference.
-        // Explicit seeds produce the same streams across runs and thread counts.
-        let random_seed = self.params.settings.random_seed.unwrap_or_else(|| {
-            use std::hash::BuildHasher;
-            std::collections::hash_map::RandomState::new().hash_one(0_u8) as u32
-        });
         let w = image.width;
         let h = image.height;
         let ch = self.film.channels();
