@@ -21,6 +21,7 @@ if __name__=='__main__':
     parser.add_argument('--framing',action='store_true')
     parser.add_argument('--all-profiles',action='store_true')
     parser.add_argument('--samples',action='store_true')
+    parser.add_argument('--cached-crops',type=Path,help='Already decoded NPY crops (no RAW files required)')
     parser.add_argument('--crop-size',type=int,default=256,dest='sample_size')
     ARGS=parser.parse_args()
     os.environ['NUMBA_NUM_THREADS']=str(ARGS.threads)
@@ -219,6 +220,11 @@ def main():
             info=json.loads(profile.read_text())['info']
             if info['stage']=='filming':
                 results+=run_case(image,profile.stem,profile.stem,'kodak_portra_endura')
+    if ARGS.cached_crops:
+        for path in sorted(ARGS.cached_crops.glob('RAW*.npy')):
+            image=np.load(path)
+            assert max(image.shape[:2]) <= ARGS.sample_size, (path,image.shape)
+            results+=run_case(image,path.stem,'kodak_portra_400','kodak_portra_endura')
     if ARGS.samples or ARGS.decode:
         import rawpy
         from spektrafilm.utils.raw_file_processor import load_and_process_raw_file

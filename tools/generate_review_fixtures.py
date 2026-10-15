@@ -44,7 +44,8 @@ def case(name, config, image, policy='strict', taps=TAPS, glare=False):
     print(name, flush=True)
 
 
-small = crop[119:136, 118:137].copy()
+stress = crop[96:160,96:160].copy() if crop.shape[0] > 64 else crop.copy()
+small = stress[23:40,22:41].copy()
 for i, family in enumerate(('black_pro_mist', 'pro_mist', 'glimmerglass', 'cinebloom')):
     for j, sigma in enumerate((2.999999, 3., 3.000001)):
         stock = ('kodak_portra_400', 'kodak_doublex', 'fujifilm_provia_100f')[(i+j) % 3]
@@ -58,7 +59,7 @@ for sigma in (0., 1., 3.):
          halation=dict(active=False)), small)
 case('optical_stress64', dict(camera=dict(film_format_mm=.375, lens_blur_um=17.578125,
      diffusion_filter=dict(active=True, strength=1.)), halation=dict(active=False)),
-     crop[96:160,96:160].copy(), 'optical')
+     stress, 'optical')
 inverse = dict(workflow=dict(route='input > convert-film > print > scan'),
                debug=dict(deactivate_spatial_effects=True))
 matrix = [[1.07,-.03,.012],[.017,.94,-.021],[-.011,.025,1.04]]
@@ -115,3 +116,8 @@ for sigma in (0., .1666666, .1666667, .4999999, .5, 1., 2.999999, 3., 3.000001, 
         np.save(filters/f'{name}.npy', output.astype(np.float64))
         filter_cases.append(dict(name=name,sigma=sigma,float32=dtype==np.float32))
 (filters/'manifest.json').write_text(json.dumps(filter_cases,indent=2)+'\n')
+
+# Include every compact fixture in the final durable manifest.
+manifest['files'] = {str(p.relative_to(OUT)): hashlib.sha256(p.read_bytes()).hexdigest()
+                     for p in sorted(OUT.rglob('*')) if p.is_file() and p != OUT/'manifest.json'}
+(OUT/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')

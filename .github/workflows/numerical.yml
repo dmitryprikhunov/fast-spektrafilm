@@ -1,0 +1,72 @@
+name: Pinned Python differential
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 3 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pinned-python-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  RUSTUP_TOOLCHAIN: 1.93.1
+  RAYON_NUM_THREADS: 4
+  NUMBA_NUM_THREADS: 4
+  OPENBLAS_NUM_THREADS: 4
+  OPENBLAS_CORETYPE: Haswell
+  OMP_NUM_THREADS: 4
+
+jobs:
+  differential:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: tools/requirements-reference.txt
+      - name: Install runner build dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y liblcms2-dev
+      - name: Prepare reference environment (development tooling only)
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -r tools/requirements-reference.txt
+          git init .tools/reference-checkout
+          git -C .tools/reference-checkout remote add origin https://github.com/andreavolpato/spektrafilm.git
+          git -C .tools/reference-checkout fetch --depth=1 origin 28bf883e1672e884307edc75852549376e13644e
+          python tools/prepare_reference.py --source .tools/reference-checkout
+      - name: Install pinned Rust
+        run: rustup toolchain install 1.93.1 --profile minimal
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            target
+          key: ${{ runner.os }}-numerical-release-1.93.1-${{ hashFiles('Cargo.lock') }}
+      - name: Build using documented release LTO and codegen settings
+        run: cargo build --release --locked -j4
+      - name: Verify copied assets and committed fixtures
+        run: python tools/check_baseline.py --require-reference
+      - name: Rust regression gates
+        run: cargo test --release --locked -j4 -- --nocapture
+      - name: Full pinned stage sweep with committed decoded RAW crops
+        run: .venv/bin/python tools/validate.py --all-profiles --spatial --variants --grain --spectral --gamut --lut --framing --cached-crops tests/fixtures/raw_crops --crop-size 64
+      - name: Recheck interaction golden arrays against pinned Python
+        run: .venv/bin/python tools/check_review_fixtures.py
+      - name: Retain compact numerical reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pinned-numerical-evidence
+          path: |
+            artifacts/parity/report.json
+            artifacts/numerical-review/pinned-fixtures.json
+          retention-days: 30

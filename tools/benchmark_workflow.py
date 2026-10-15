@@ -52,8 +52,9 @@ def main(args):
     rust=json.loads((folder/'workflow.json').read_text()); rust['peak_rss_kib']=int((folder/'rust.rss').read_text())
     a=np.load(folder/'scan.npy'); b=np.load(folder/'scan-reference.npy')
     assert a.shape == b.shape and np.isfinite(a).all() and np.isfinite(b).all()
-    np.testing.assert_allclose(a,b,atol=2e-6 if args.mode=='diffusion' else 1e-9,rtol=1e-8)
-    report=dict(**provenance(),gui_test_sha256=hashlib.sha256(binary.read_bytes()).hexdigest(),input_sha256=hashlib.sha256(args.input.read_bytes()).hexdigest(),mode=args.mode,threads=args.threads,rust=rust,reference=reference,max_abs=float(np.abs(a-b).max()))
+    from numerical import require
+    comparison=require(a,b,args.mode,policy='optical' if args.mode=='diffusion' else 'strict')
+    report=dict(**provenance(),comparison=comparison,gui_test_sha256=hashlib.sha256(binary.read_bytes()).hexdigest(),input_sha256=hashlib.sha256(args.input.read_bytes()).hexdigest(),mode=args.mode,threads=args.threads,rust=rust,reference=reference,max_abs=float(np.abs(a-b).max()))
     (folder/'report.json').write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps(report))
 

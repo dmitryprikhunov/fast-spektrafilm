@@ -1,7 +1,6 @@
 """Reproduce the 2026-10 numerical review; uses cached RAW crops, never full RAW.
 
-This is diagnostic reference tooling, not a processing implementation. Known
-failures are recorded rather than asserted so every probe completes.
+Reference tooling only. Reports every probe before asserting named contracts.
 """
 import dataclasses
 import hashlib
@@ -18,6 +17,8 @@ from benchmark import provenance
 OUT = ROOT / "artifacts/numerical-review/probes"
 OUT.mkdir(parents=True, exist_ok=True)
 SOURCE = ROOT / "artifacts/crops/RAW_CANON_EOS_5DMARK3_256.npy"
+if not SOURCE.exists():
+    SOURCE = ROOT / "tests/fixtures/review/optical_stress64/input.npy"
 CLI = ROOT / "target/release/fast-spektrafilm"
 
 
@@ -81,7 +82,7 @@ def rust(folder, tap, suffix="rust", profiled=False):
 
 def main():
     crop = np.load(SOURCE)
-    image = crop[96:160, 96:160].copy()
+    image = crop[96:160, 96:160].copy() if crop.shape[0] > 64 else crop.copy()
     base = dict(camera=dict(auto_exposure=False, film_format_mm=0.375),
                 debug=dict(deactivate_stochastic_effects=True), io=dict(copy_metadata=False),
                 halation=dict(active=False))
@@ -117,19 +118,6 @@ def main():
             actual, timing = rust(folder, tap)
             record = dict(case=name, tap=tap, timing=timing,
                           comparison=metrics(actual, expected) if actual is not None else None)
-            if name.startswith("camera_both") and tap == "log_e_film":
-                # Causal diagnostic only: swap calls in memory, never edit reference
-                # files and never use this altered order as an expected fixture.
-                import spektrafilm.runtime.stages.filming as filming
-                blur, diffusion = filming.apply_gaussian_blur_um, filming.apply_diffusion_filter_um
-                try:
-                    filming.apply_gaussian_blur_um = lambda raw, *_: raw
-                    filming.apply_diffusion_filter_um = lambda raw, filt, pixel_size_um: diffusion(
-                        blur(raw, cfg["camera"]["lens_blur_um"], pixel_size_um), filt, pixel_size_um)
-                    swapped = sim.process(data, collect=tap)
-                    record["diagnostic_python_with_rust_order"] = metrics(actual, swapped)
-                finally:
-                    filming.apply_gaussian_blur_um, filming.apply_diffusion_filter_um = blur, diffusion
             records.append(record)
             print(json.dumps(record), flush=True)
     # Unseeded conversion should vary glare between calls, as forward processing does.
@@ -150,6 +138,15 @@ def main():
                   crop_slice="[96:160,96:160] from cached 256x256 Canon crop", results=records)
     (OUT / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(records[-1]), flush=True)
+    for record in records[:-1]:
+        m = record['comparison']
+        assert m and m['valid'], record
+        if record['case'].startswith('camera_') and 'blur_sigma' not in record['case']:
+            assert m['max_abs'] <= (3e-7 if record['tap']=='log_e_film' else 2e-6), record
+        else:
+            assert m['strict_failures'] == 0, record
+    assert records[-1]['rust_repeated']['max_abs'] > 0, records[-1]
+    assert records[-1]['reference_repeated']['max_abs'] > 0, records[-1]
 
 
 def inverse_grid():
@@ -176,6 +173,8 @@ def inverse_grid():
                   scalar=metrics(np.load(folder / "scalar.npy"), expected))
     (folder / "report.json").write_text(json.dumps(record, indent=2) + "\n")
     print(json.dumps(record))
+    assert record['batch']['valid'] and record['batch']['strict_failures']==0, record
+    assert record['bounds_max_abs'] <= 1e-12, record
 
 
 if __name__ == "__main__":

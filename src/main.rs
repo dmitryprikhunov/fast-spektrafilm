@@ -23,6 +23,8 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Command {
+    /// Compiler and profile metadata embedded in this binary.
+    BuildInfo,
     /// List the original film and print profiles.
     Profiles,
     /// Emit all supported configuration fields and defaults.
@@ -121,6 +123,7 @@ fn main() -> Result<()> {
             .build_global()?;
     }
     match cli.command {
+        Command::BuildInfo => println!("{}", fast_spektrafilm::build_info()),
         Command::Profiles => {
             let mut files = std::fs::read_dir(cli.data_dir.join("profiles"))?
                 .map(|v| v.map(|v| v.path()))
