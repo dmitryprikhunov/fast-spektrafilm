@@ -225,10 +225,13 @@ fn all_grain_classes_and_shapes_match_reference() -> anyhow::Result<()> {
                     .num_threads(threads)
                     .build()?
                     .install(|| sim.process(&image, Tap::CmyFilm))?;
-                assert_eq!(
-                    actual.data,
-                    fixture(&name).data,
-                    "{name}/{threads}: exact grain"
+                assert!(
+                    actual
+                        .data
+                        .iter()
+                        .zip(&fixture(&name).data)
+                        .all(|(a, b)| a.to_bits() == b.to_bits()),
+                    "{name}/{threads}: exact grain bits"
                 );
                 compare(
                     &actual,

@@ -34,7 +34,12 @@ fn interactions_match_reference_and_executors() -> anyhow::Result<()> {
                 let target = tap(name_tap.as_str().unwrap());
                 let expected = Image::read_npy(&dir.join(format!("{}.npy", target.name())))?;
                 let actual = sim.process(&input, target)?;
-                let report = numerical::compare(&actual, &expected, contract)?;
+                let stage_contract = if name.starts_with("optical_") && target == Tap::LogEFilm {
+                    numerical::contract("optical_log_exposure")
+                } else {
+                    contract
+                };
+                let report = numerical::compare(&actual, &expected, stage_contract)?;
                 eprintln!(
                     "{name}/{}: {}",
                     target.name(),
@@ -146,6 +151,15 @@ fn gaussian_sigma_sweep_and_threads_match_reference() -> anyhow::Result<()> {
                 "{} threads={threads}: {report:?}",
                 case["name"]
             );
+            if f32 {
+                assert!(
+                    actual
+                        .data
+                        .iter()
+                        .zip(&expected.data)
+                        .all(|(a, b)| a.to_bits() == b.to_bits())
+                );
+            }
         }
     }
     Ok(())

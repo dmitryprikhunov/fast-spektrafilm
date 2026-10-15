@@ -54,5 +54,12 @@
     "stage": "clear-base CMY/exposure fit coefficients",
     "range": "core and five debt fixtures",
     "reason": "Separate clear-base fit: measured max 8.22550e-7 across the six fixtures; distinct from device matrix fit (max 3.27283e-12)."
+  },
+  "optical_log_exposure": {
+    "atol": 3e-07,
+    "rtol": 0.0,
+    "stage": "camera diffusion plus lens blur, film log exposure",
+    "range": "all four families, sigma 2.999999/3/3.000001, BW/reversal and cached RAW edge highlights",
+    "reason": "Separate float32 FFT propagation budget; measured combined-stage max below 1.12e-7 across the five taps"
   }
 }
