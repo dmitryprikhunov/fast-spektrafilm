@@ -2,7 +2,6 @@
 import json
 from pathlib import Path
 import re
-import statistics
 ROOT=Path(__file__).resolve().parents[1]
 ART=ROOT/'artifacts/numerical-review'
 OUT=ROOT/'docs/reviews/numerical-implementation-2026-10-15-evidence.json'
@@ -54,6 +53,7 @@ def main():
         raw_preview=test_results(ART/'raw-preview.log'),
         clippy='Rust 1.93 Clippy, all targets + gui, -D warnings',
         baseline_assets_verified=235,
+        timings_note='Validation timings are diagnostic and may overlap builds. Only the separate benchmark sections support timing claims.',
         broad=broad,interactions=interactions,
         pinned_fixture_recheck=read(ART/'pinned-fixtures.json'),
         probes=read(ART/'probes/report.json'),
