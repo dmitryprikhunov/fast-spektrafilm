@@ -256,8 +256,7 @@ pub struct Compressor {
     lightness_bounds: [f64; 2],
     lightness_white: f64,
 }
-type GamutKey = (String, String, Vec<u64>);
-type GamutTables = Mutex<BTreeMap<GamutKey, Arc<Vec<f64>>>>;
+type GamutTables = Mutex<crate::cache::ByteCache<Vec<f64>>>;
 static GAMUT_TABLES: OnceLock<GamutTables> = OnceLock::new();
 impl Compressor {
     pub fn new(tables: &Tables, space: &str, spec: &OutputGamut) -> Result<Self> {
@@ -291,7 +290,7 @@ impl Compressor {
         } else {
             1.0
         };
-        let signature = [
+        let signature: Vec<_> = [
             result.space.to_xyz,
             result.space.from_xyz,
             result.m1,
@@ -304,9 +303,11 @@ impl Compressor {
         .flatten()
         .flatten()
         .map(f64::to_bits)
+        .chain(result.space.white.map(f64::to_bits))
         .collect();
-        let key = (space.to_owned(), spec.algorithm.clone(), signature);
-        let cache = GAMUT_TABLES.get_or_init(|| Mutex::new(BTreeMap::new()));
+        let key = serde_json::to_string(&(space, &spec.algorithm, signature))?;
+        let cache =
+            GAMUT_TABLES.get_or_init(|| Mutex::new(crate::cache::ByteCache::new(16 * 1024 * 1024)));
         if let Some(table) = cache.lock().unwrap().get(&key) {
             result.cmax = table.clone();
             return Ok(result);
@@ -344,7 +345,10 @@ impl Compressor {
             })
             .collect();
         result.cmax = Arc::new(table);
-        cache.lock().unwrap().insert(key, result.cmax.clone());
+        cache
+            .lock()
+            .unwrap()
+            .insert(key, result.cmax.len() * 8, result.cmax.clone());
         Ok(result)
     }
     fn lab_to_xyz(&self, lab: [f64; 3]) -> [f64; 3] {
@@ -415,4 +419,25 @@ fn lightness_to_rebased(l: f64) -> f64 {
 fn rebased_to_lightness(lr: f64) -> f64 {
     let k3 = (1.0 + 0.206) / (1.0 + 0.03);
     lr * (lr + 0.206) / (k3 * (lr + 0.03))
+}
+
+#[cfg(test)]
+mod asset_cache_tests {
+    use super::*;
+    #[test]
+    fn table_edits_invalidate_asset_identity() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("data/reference_tables.json");
+        let path = dir.path().join("reference_tables.json");
+        std::fs::copy(source, &path)?;
+        let first = Tables::shared(dir.path())?;
+        assert!(Arc::ptr_eq(&first, &Tables::shared(dir.path())?));
+        let mut value: serde_json::Value = serde_json::from_slice(&std::fs::read(&path)?)?;
+        value["cmfs"][0][0] = serde_json::json!(0.01234567);
+        std::fs::write(path, serde_json::to_vec(&value)?)?;
+        let edited = Tables::shared(dir.path())?;
+        assert!(!Arc::ptr_eq(&first, &edited));
+        assert_eq!(edited.cmfs[0][0], 0.01234567);
+        Ok(())
+    }
 }

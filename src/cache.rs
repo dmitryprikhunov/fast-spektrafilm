@@ -42,8 +42,15 @@ impl<T> ByteCache<T> {
 pub(crate) fn file_key(path: &Path) -> Result<String> {
     let path = path.canonicalize()?;
     let m = path.metadata()?;
+    #[cfg(unix)]
+    let identity = {
+        use std::os::unix::fs::MetadataExt;
+        format!("{}:{}:{}:{}", m.dev(), m.ino(), m.ctime(), m.ctime_nsec())
+    };
+    #[cfg(not(unix))]
+    let identity = format!("{:?}", m.created().ok());
     Ok(format!(
-        "{}:{}:{:?}",
+        "{}:{}:{:?}:{identity}",
         path.display(),
         m.len(),
         m.modified()?

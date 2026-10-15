@@ -161,6 +161,7 @@ impl CouplerModel {
 
 pub struct Simulator {
     params: Params,
+    resolved_params: Params,
     converter: Option<crate::convert::FilmConverter>,
     convert_lut: Option<std::sync::Arc<crate::density_lut::DensityLut>>,
     scan_profile: Profile,
@@ -188,6 +189,10 @@ impl Simulator {
     pub fn params(&self) -> &Params {
         &self.params
     }
+    /// Presets resolved before preview/debug deactivation, suitable for UI keys.
+    pub fn resolved_params(&self) -> &Params {
+        &self.resolved_params
+    }
     pub fn film(&self) -> &Profile {
         &self.film
     }
@@ -198,6 +203,7 @@ impl Simulator {
         let start = Instant::now();
         let PreparedParams {
             params,
+            resolved_params,
             tables,
             mut film,
             mut print,
@@ -455,6 +461,7 @@ impl Simulator {
             convert_lut,
             scan_profile,
             params,
+            resolved_params,
             film,
             print,
             response,
@@ -1404,6 +1411,7 @@ fn resolve_presets(data: &Path, film: &Profile, params: &mut Params) -> Result<(
 
 struct PreparedParams {
     params: Params,
+    resolved_params: Params,
     tables: std::sync::Arc<Tables>,
     film: Profile,
     print: Profile,
@@ -1522,6 +1530,8 @@ fn prepare_params(data: &Path, mut params: Params) -> Result<PreparedParams> {
         params.settings.preview_max_size > 0,
         "Preview size must be positive"
     );
+    let mut resolved_params = params.clone();
+    resolve_presets(data, &film, &mut resolved_params)?;
     if params.settings.preview_mode {
         params.enlarger.lens_blur = 0.;
         params.dir_couplers.diffusion_size_um = 0.;
@@ -1594,6 +1604,7 @@ fn prepare_params(data: &Path, mut params: Params) -> Result<PreparedParams> {
     }
     Ok(PreparedParams {
         params,
+        resolved_params,
         tables,
         film,
         print,
@@ -1630,7 +1641,7 @@ pub fn validate_params(data: &Path, params: &Params) -> Result<()> {
         "Unknown camera filter"
     );
     ensure!(
-        ["oklch", "oklrab", "jzazbz", "cam16ucs", "none"]
+        ["off", "oklch", "oklrab", "aces_rgc", "jzazbz", "cam16ucs"]
             .contains(&params.io.output_gamut_compress.algorithm.as_str()),
         "Unknown output gamut algorithm"
     );

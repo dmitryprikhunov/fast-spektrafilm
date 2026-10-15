@@ -274,7 +274,7 @@ impl Session {
         let path = source.path.clone();
         let sim = self.prepare(scan_params)?;
         let output = sim.process_owned(input, Tap::RgbOut)?;
-        let keys = Self::scan_keys(params, sim.params())?;
+        let keys = Self::scan_keys(params, sim.resolved_params())?;
         self.scan = Some(Scan { path, keys, output });
         Ok(())
     }
@@ -359,7 +359,7 @@ impl Session {
         let source_path = source.path.clone();
         let sim = self.prepare(render_params)?;
         let output = sim.process_owned(input, Tap::RgbOut)?;
-        let keys = Self::scan_keys(params, sim.params())?;
+        let keys = Self::scan_keys(params, sim.resolved_params())?;
         // Imported framing/upscale settings can enlarge the processed preview.
         let output = if full {
             output

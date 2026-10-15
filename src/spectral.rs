@@ -393,3 +393,50 @@ pub fn integrate(
         }
     }
 }
+
+#[cfg(test)]
+mod cache_tests {
+    use super::*;
+    #[test]
+    fn response_cache_uses_effective_spectral_settings() -> Result<()> {
+        let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("data");
+        let tables = Tables::load(&data)?;
+        let mut p = Params::default();
+        let mut film = Profile::load(&data, &p.film_profile)?;
+        let original = FilmResponse::shared(&data, &tables, &film, &p)?;
+        p.camera.exposure_compensation_ev = 0.5;
+        p.settings.random_seed = Some(19);
+        p.workflow.saving_color_space = Some("Display P3".into());
+        assert!(std::sync::Arc::ptr_eq(
+            &original,
+            &FilmResponse::shared(&data, &tables, &film, &p)?
+        ));
+        for which in 0..7 {
+            let mut p = p.clone();
+            match which {
+                0 => p.camera.color_filter = "UV".into(),
+                1 => p.settings.apply_hanatos2025_adaptation_window = false,
+                2 => p.settings.apply_hanatos2025_adaptation_surface = true,
+                3 => p.settings.spectral_gaussian_blur = 0.5,
+                4 => p.io.input_gamut_compress.active = false,
+                5 => p.io.input_gamut_compress.hull_detail = 6.,
+                _ => film.sensitivity[40][0] *= 1.01,
+            }
+            // Select an actual copied filter; no handmade measurement data.
+            if which == 0 {
+                p.camera.color_filter = tables
+                    .camera_filters
+                    .keys()
+                    .find(|k| k.as_str() != "none")
+                    .unwrap()
+                    .clone();
+            }
+            let shared = FilmResponse::shared(&data, &tables, &film, &p)?;
+            let fresh = FilmResponse::new(&data, &tables, &film, &p)?;
+            assert_eq!(shared.lut.data, fresh.lut.data);
+            assert_eq!(shared.projection_white, fresh.projection_white);
+            assert!(!std::sync::Arc::ptr_eq(&original, &shared));
+        }
+        Ok(())
+    }
+}
