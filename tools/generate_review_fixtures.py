@@ -92,8 +92,26 @@ case('scanner_base_lut', dict(debug=dict(deactivate_spatial_effects=True),
      scanner=dict(black_correction=True,white_correction=True,black_level=.02,white_level=.95),
      settings=dict(use_enlarger_lut=True,use_scanner_lut=True,lut_resolution=9)), small)
 case('framing_spacing', dict(io=dict(crop=True,crop_size=[.6,.5],upscale_factor=1.5)),small)
+for axis in (0,1):
+    image=small[:1,:9] if axis==0 else small[:9,:1]
+    case(f'framing_axis{axis}', dict(io=dict(upscale_factor=1.7)), image)
 manifest = dict(baseline_commit=BASELINE['commit'], source_sha256=hashlib.sha256(SOURCE.read_bytes()).hexdigest(),
                 source='cached Canon 256x256 center crop', cases=records)
 manifest['files'] = {str(p.relative_to(OUT)): hashlib.sha256(p.read_bytes()).hexdigest()
                      for p in sorted(OUT.rglob('*')) if p.is_file() and p.name != 'manifest.json'}
 (OUT / 'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+
+# Filter-only sweeps make scheduling and quantization regressions localizable.
+from spektrafilm.utils.fast_gaussian_filter import fast_gaussian_filter
+filters = OUT / 'filters'
+filters.mkdir(exist_ok=True)
+np.save(filters/'input.npy', small)
+filter_cases=[]
+for sigma in (0., .1666666, .1666667, .4999999, .5, 1., 2.999999, 3., 3.000001, 25.):
+    for dtype in (np.float64, np.float32):
+        image=small.astype(dtype)
+        output=fast_gaussian_filter(image, sigma)
+        name=f'{sigma:g}_{np.dtype(dtype).name}_{len(filter_cases)}'
+        np.save(filters/f'{name}.npy', output.astype(np.float64))
+        filter_cases.append(dict(name=name,sigma=sigma,float32=dtype==np.float32))
+(filters/'manifest.json').write_text(json.dumps(filter_cases,indent=2)+'\n')

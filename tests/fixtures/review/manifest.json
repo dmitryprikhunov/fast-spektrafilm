@@ -319,6 +319,28 @@
         "cmy_print",
         "rgb_out"
       ]
+    },
+    {
+      "name": "framing_axis0",
+      "policy": "strict",
+      "taps": [
+        "log_e_film",
+        "cmy_film",
+        "log_e_print",
+        "cmy_print",
+        "rgb_out"
+      ]
+    },
+    {
+      "name": "framing_axis1",
+      "policy": "strict",
+      "taps": [
+        "log_e_film",
+        "cmy_film",
+        "log_e_print",
+        "cmy_print",
+        "rgb_out"
+      ]
     }
   ],
   "files": {
@@ -347,6 +369,20 @@
     "convert_glare/config.json": "cedd3cd3d9dd9f9fd1cc790b8fde49ea2dfe94407a00434a46bc5a0840861c3d",
     "convert_glare/input.npy": "e6e2383de8ac63f88491900cc2131b3878ade76c4b4910a95c2c376f0fdfb2eb",
     "convert_glare/rgb_out.npy": "dbc720d5cd972af47587569b80663d3eeda6156195cf90bb0fcdaaecd4a6148b",
+    "framing_axis0/cmy_film.npy": "97656a00cf186bd37c88975e1926939eed508de6ab01d37fb22a5ad53131c6d6",
+    "framing_axis0/cmy_print.npy": "1e2751106bfc85a1ebf6398bf43308d9e6f0fdc3faa275993625345ac01130ef",
+    "framing_axis0/config.json": "953f9492f6d077bbaedd14c129526a432b4f188a6be432c32c3054f2e220613e",
+    "framing_axis0/input.npy": "1453148f1daccfa6cb92cce00629ee6e8dab2a9d5568d474f0788afed37823a6",
+    "framing_axis0/log_e_film.npy": "702b84252fe63f63e0fa4b0e1e8fee31799327f0dde21430cea2790a1c0e2d9e",
+    "framing_axis0/log_e_print.npy": "11f7e5e9fa9209cddfc031f155d4e32b7bcad078c5ca566c649836c6cf8c0180",
+    "framing_axis0/rgb_out.npy": "bef268828998ad9c8fd16139f5a3ff970adbbf77bbf8c4ded4079c4c6fb8bb4e",
+    "framing_axis1/cmy_film.npy": "5d7d7033a94517444c9c329dccee5182a5080416176bf656800adcdbb0b0d6ac",
+    "framing_axis1/cmy_print.npy": "755bfd558e448796ce4fbe5dba35fe41b645f81405ddc9eb6f9205d18898a020",
+    "framing_axis1/config.json": "953f9492f6d077bbaedd14c129526a432b4f188a6be432c32c3054f2e220613e",
+    "framing_axis1/input.npy": "9a7a80d50a74d502aa4069b0704e22bc4ade4120e02e02f79e9914dcfe01e2dd",
+    "framing_axis1/log_e_film.npy": "7761f9fda2e76f037b9d9b0b1950673a80f15bb943fc7081c3e30cb8c5cc2fcb",
+    "framing_axis1/log_e_print.npy": "bc41d0295299e25c5a5f94a4c577f574699b04b9072ab5f0fd6ef564b565d216",
+    "framing_axis1/rgb_out.npy": "b8e469d2eafc9d9d6c00a77fcdd16fd42a29579edb8045fc8bc9f9f8b0bf28fc",
     "framing_spacing/cmy_film.npy": "7015238053077a3328f710e92050192f064f5a71ab8c793e1d73dc0d8d1f7bdf",
     "framing_spacing/cmy_print.npy": "1b1d3580c90c921c4005dc474334514341bf6523a697ebd372894df725de8c4d",
     "framing_spacing/config.json": "3755d69ff34ca0a985b567076b8e711ae9b7d26e5ea9aecca8b34f68e0acde94",

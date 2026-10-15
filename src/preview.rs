@@ -48,46 +48,52 @@ pub(crate) fn sampled(
     let mut data = vec![0.; w * h * channels];
     data.par_chunks_exact_mut(w * channels)
         .enumerate()
-        .for_each(|(y, out)| {
-            let center = (y as f64 + 0.5) * fy - 0.5;
-            let y0 = center.floor() as isize;
-            let dy = center - y0 as f64;
-            let mut rows = vec![0.; 2 * width * channels];
-            for row in 0..2 {
-                for x in 0..width {
-                    for c in 0..channels {
-                        rows[(row * width + x) * channels + c] = ky
-                            .iter()
-                            .enumerate()
-                            .map(|(k, weight)| {
-                                sample(x, mirror(y0 + row as isize + k as isize - ry, height), c)
-                                    * weight
-                            })
-                            .sum();
+        .for_each_init(
+            || vec![0.; 2 * width * channels],
+            |rows, (y, out)| {
+                let center = (y as f64 + 0.5) * fy - 0.5;
+                let y0 = center.floor() as isize;
+                let dy = center - y0 as f64;
+                for row in 0..2 {
+                    for x in 0..width {
+                        for c in 0..channels {
+                            rows[(row * width + x) * channels + c] = ky
+                                .iter()
+                                .enumerate()
+                                .map(|(k, weight)| {
+                                    sample(
+                                        x,
+                                        mirror(y0 + row as isize + k as isize - ry, height),
+                                        c,
+                                    ) * weight
+                                })
+                                .sum();
+                        }
                     }
                 }
-            }
-            for x in 0..w {
-                let center = (x as f64 + 0.5) * fx - 0.5;
-                let x0 = center.floor() as isize;
-                let dx = center - x0 as f64;
-                for c in 0..channels {
-                    let filtered = |row: usize, xi: isize| {
-                        kx.iter()
-                            .enumerate()
-                            .map(|(k, weight)| {
-                                rows[(row * width + mirror(xi + k as isize - rx, width)) * channels
-                                    + c]
-                                    * weight
-                            })
-                            .sum::<f64>()
-                    };
-                    let a = filtered(0, x0) * (1. - dx) + filtered(0, x0 + 1) * dx;
-                    let b = filtered(1, x0) * (1. - dx) + filtered(1, x0 + 1) * dx;
-                    out[x * channels + c] = a * (1. - dy) + b * dy;
+                for x in 0..w {
+                    let center = (x as f64 + 0.5) * fx - 0.5;
+                    let x0 = center.floor() as isize;
+                    let dx = center - x0 as f64;
+                    for c in 0..channels {
+                        let filtered = |row: usize, xi: isize| {
+                            kx.iter()
+                                .enumerate()
+                                .map(|(k, weight)| {
+                                    rows[(row * width + mirror(xi + k as isize - rx, width))
+                                        * channels
+                                        + c]
+                                        * weight
+                                })
+                                .sum::<f64>()
+                        };
+                        let a = filtered(0, x0) * (1. - dx) + filtered(0, x0 + 1) * dx;
+                        let b = filtered(1, x0) * (1. - dx) + filtered(1, x0 + 1) * dx;
+                        out[x * channels + c] = a * (1. - dy) + b * dy;
+                    }
                 }
-            }
-        });
+            },
+        );
     Image::new(w, h, channels, data)
 }
 pub fn resize(image: &Image, edge: usize) -> Result<Image> {

@@ -113,10 +113,16 @@ fn filter_axis(image: &mut Image, axis: usize, spline: bool, sigma: f64) {
     }
     let mut line = vec![0.0; n];
     let mut filtered = vec![0.0; n];
-    for start in 0..image.data.len() {
-        if !(start / strides[axis]).is_multiple_of(n) {
-            continue;
-        }
+    let lines = image.data.len() / n;
+    for line_index in 0..lines {
+        let start = match axis {
+            0 => line_index,
+            1 => {
+                (line_index / image.channels) * image.width * image.channels
+                    + line_index % image.channels
+            }
+            _ => line_index * image.channels,
+        };
         for (i, v) in line.iter_mut().enumerate() {
             *v = image.data[start + i * strides[axis]];
         }
