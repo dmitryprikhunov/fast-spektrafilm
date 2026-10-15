@@ -34,7 +34,7 @@ def provenance():
         measured_at=time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),cpu=cpu,
         system=platform.platform(),rust_version=subprocess.check_output(['rustc','--version'],text=True).strip(),
         python_version=platform.python_version(), dependencies=versions, numpy_runtime=runtime.getvalue(),
-        thread_environment={k:os.environ.get(k) for k in ['OPENBLAS_CORETYPE','OPENBLAS_NUM_THREADS','OMP_NUM_THREADS','NUMBA_NUM_THREADS','RAYON_NUM_THREADS']},
+        thread_environment={k:os.environ.get(k) for k in ['OPENBLAS_CORETYPE','OPENBLAS_NUM_THREADS','OMP_NUM_THREADS','NUMBA_NUM_THREADS','NUMBA_CPU_NAME','NUMBA_CPU_FEATURES','RAYON_NUM_THREADS']},
         binary_sha256=digest(binary), binary_build=build, cargo_lock_sha256=digest(ROOT/'Cargo.lock'),
         rust_sources_sha256=hashlib.sha256(''.join(str(p.relative_to(ROOT))+digest(p) for p in sources).encode()).hexdigest(),
         assets_manifest_sha256=digest(ROOT/'BASELINE.json'), reference_manifest_sha256=digest(ROOT/'REFERENCE_MANIFEST.json'),

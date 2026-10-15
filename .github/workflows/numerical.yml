@@ -16,6 +16,7 @@ env:
   RUSTUP_TOOLCHAIN: 1.93.1
   RAYON_NUM_THREADS: 4
   NUMBA_NUM_THREADS: 4
+  NUMBA_CPU_NAME: haswell
   OPENBLAS_NUM_THREADS: 4
   OPENBLAS_CORETYPE: Haswell
   OMP_NUM_THREADS: 4
@@ -28,7 +29,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
-          python-version: '3.13'
+          python-version: '3.13.16'
           cache: pip
           cache-dependency-path: tools/requirements-reference.txt
       - name: Install runner build dependency
