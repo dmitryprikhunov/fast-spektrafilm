@@ -83,6 +83,24 @@ impl DensityLut {
             data,
         })
     }
+    pub fn inverse(converter: &crate::convert::FilmConverter, resolution: usize) -> Result<Self> {
+        let (lo, hi) = converter.gamut_bounds();
+        let mut lut = Self::new(lo.to_vec(), hi.to_vec(), 3, resolution, |v| {
+            [v[0], v[1], v[2]]
+        })?;
+        let grid = crate::Image::new(
+            lut.size * lut.size,
+            lut.size,
+            3,
+            std::mem::take(&mut lut.data),
+        )?;
+        lut.data = converter.invert_image(&grid).data;
+        ensure!(
+            lut.data.iter().all(|v| v.is_finite()),
+            "Nonfinite inverse LUT"
+        );
+        Ok(lut)
+    }
     pub fn apply(&self, values: &[f64]) -> [f64; 3] {
         let mut out = [0.0; 3];
         if !self.axis.is_empty() {

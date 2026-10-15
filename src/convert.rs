@@ -315,7 +315,7 @@ impl FilmConverter {
     pub fn pretransform(&self, rgb: [f64; 3]) -> [f64; 3] {
         self.pretransform_pixel(rgb, false)
     }
-    fn pretransform_pixel(&self, rgb: [f64; 3], batch: bool) -> [f64; 3] {
+    pub(crate) fn pretransform_pixel(&self, rgb: [f64; 3], batch: bool) -> [f64; 3] {
         let x = rgb.map(|v| v as f32);
         let v = if batch {
             Vector3::from_fn(|c, _| {
@@ -329,24 +329,38 @@ impl FilmConverter {
         };
         [v[0] as f64, v[1] as f64, v[2] as f64]
     }
-    pub fn convert(&self, image: &Image) -> Image {
+    /// Solve one logical batch without applying device calibration or gain.
+    /// LUT nodes must share convergence and total-batch BLAS classification.
+    pub fn invert_image(&self, image: &Image) -> Image {
         let y: Vec<_> = image
             .data
             .chunks_exact(3)
-            .map(|v| {
-                Vector3::from(
-                    self.pretransform_pixel([v[0], v[1], v[2]], image.width * image.height > 1)
-                        .map(|v| v as f32),
-                )
-            })
+            .map(|v| Vector3::new(v[0] as f32, v[1] as f32, v[2] as f32))
             .collect();
         let mut result = image.clone();
         for (out, x) in result.data.chunks_exact_mut(3).zip(self.invert_vectors(&y)) {
-            for c in 0..3 {
-                out[c] = x[c];
-            }
+            out.copy_from_slice(x.as_slice());
         }
         result
+    }
+    pub fn convert(&self, image: &Image) -> Image {
+        self.convert_owned(image.clone())
+    }
+    /// Reuse the source storage after the calibration pretransform.
+    pub fn convert_owned(&self, mut image: Image) -> Image {
+        let batch = image.width * image.height > 1;
+        for v in image.data.chunks_exact_mut(3) {
+            v.copy_from_slice(&self.pretransform_pixel([v[0], v[1], v[2]], batch));
+        }
+        let y: Vec<_> = image
+            .data
+            .chunks_exact(3)
+            .map(|v| Vector3::new(v[0] as f32, v[1] as f32, v[2] as f32))
+            .collect();
+        for (out, x) in image.data.chunks_exact_mut(3).zip(self.invert_vectors(&y)) {
+            out.copy_from_slice(x.as_slice());
+        }
+        image
     }
     pub fn gamut_bounds(&self) -> ([f64; 3], [f64; 3]) {
         let mut lo = [f64::INFINITY; 3];
@@ -354,9 +368,12 @@ impl FilmConverter {
         for a in 0..12 {
             for b in 0..12 {
                 for c in 0..12 {
-                    let v = self.scan(std::array::from_fn(|k| {
-                        [a, b, c][k] as f64 / 11. * self.maximum[k] as f64
-                    }));
+                    // np.linspace creates a float64 grid, multiplies by the
+                    // float32 maximum, then stores float32 before batch forward.
+                    let density = Vector3::from_fn(|k, _| {
+                        (([a, b, c][k] as f64 * (1. / 11.)) * self.maximum[k] as f64) as f32 as f64
+                    });
+                    let v = self.forward(density, true, 1).0;
                     for k in 0..3 {
                         lo[k] = lo[k].min(v[k]);
                         hi[k] = hi[k].max(v[k]);

@@ -595,13 +595,9 @@ impl Simulator {
         };
         let convert_lut = if params.settings.use_convert_lut {
             if let Some(converter) = &converter {
-                let (lo, hi) = converter.gamut_bounds();
-                Some(crate::density_lut::DensityLut::new(
-                    lo.to_vec(),
-                    hi.to_vec(),
-                    3,
+                Some(crate::density_lut::DensityLut::inverse(
+                    converter,
                     params.settings.convert_lut_resolution,
-                    |v| converter.invert([v[0], v[1], v[2]]),
                 )?)
             } else {
                 None
@@ -754,13 +750,16 @@ impl Simulator {
                             .for_each(|v| *v = decode(&self.params.io.input_color_space, *v));
                     }
                     if let Some(lut) = &self.convert_lut {
+                        let batch = image.width * image.height > 1;
                         image.data.par_chunks_exact_mut(3).for_each(|p| {
                             p.copy_from_slice(
-                                &lut.apply(&converter.pretransform([p[0], p[1], p[2]])),
+                                &lut.apply(
+                                    &converter.pretransform_pixel([p[0], p[1], p[2]], batch),
+                                ),
                             )
                         });
                     } else {
-                        image = converter.convert(&image);
+                        image = converter.convert_owned(image);
                     }
                     tap = Tap::CmyFilm;
                     record("converting.convert", from);
@@ -887,13 +886,14 @@ impl Simulator {
                     .for_each(|v| *v = decode(&self.params.io.input_color_space, *v));
             }
             let density = if let Some(lut) = &self.convert_lut {
+                let batch = image.width * image.height > 1;
                 image.data.par_chunks_exact_mut(3).for_each(|p| {
-                    let y = converter.pretransform([p[0], p[1], p[2]]);
+                    let y = converter.pretransform_pixel([p[0], p[1], p[2]], batch);
                     p.copy_from_slice(&lut.apply(&y));
                 });
                 image
             } else {
-                converter.convert(&image)
+                converter.convert_owned(image)
             };
             return self.finish_density(
                 density,
