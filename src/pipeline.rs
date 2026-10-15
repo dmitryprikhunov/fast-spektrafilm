@@ -871,7 +871,7 @@ impl Simulator {
         }
         // The pinned camera model diffuses before lens blur. Boundary rules and
         // float32 FFT stores make these operations noncommutative.
-        raw = crate::diffusion::apply(&raw, &self.params.camera.diffusion_filter, pixel_um)?;
+        raw = crate::diffusion::apply_owned(raw, &self.params.camera.diffusion_filter, pixel_um)?;
         if self.params.camera.lens_blur_um > 0.0 {
             raw = gaussian(&raw, &[self.params.camera.lens_blur_um / pixel_um]);
         }
@@ -1020,43 +1020,46 @@ impl Simulator {
             return Ok(density);
         }
         let (w, h, ch) = (density.width, density.height, density.channels);
-        let print_density = if !self.params.workflow.scan_film()
-            && self.params.enlarger.diffusion_filter.active
-        {
-            let mut raw = Image::new(
-                w,
-                h,
-                self.print.channels(),
-                vec![0.; w * h * self.print.channels()],
-            )?;
-            raw.data
-                .par_chunks_exact_mut(raw.channels)
-                .zip(density.data.par_chunks_exact(ch))
-                .for_each(|(out, d)| {
-                    let logs = self.after_film(d, Tap::LogEPrint, false, 0.);
-                    for c in 0..out.len() {
-                        out[c] = (10.0f64.powf(logs[c]) - 1e-10).max(0.);
-                    }
+        let print_density =
+            if !self.params.workflow.scan_film() && self.params.enlarger.diffusion_filter.active {
+                let mut raw = Image::new(
+                    w,
+                    h,
+                    self.print.channels(),
+                    vec![0.; w * h * self.print.channels()],
+                )?;
+                raw.data
+                    .par_chunks_exact_mut(raw.channels)
+                    .zip(density.data.par_chunks_exact(ch))
+                    .for_each(|(out, d)| {
+                        let logs = self.after_film(d, Tap::LogEPrint, false, 0.);
+                        for c in 0..out.len() {
+                            out[c] = (10.0f64.powf(logs[c]) - 1e-10).max(0.);
+                        }
+                    });
+                raw = crate::diffusion::apply_owned(
+                    raw,
+                    &self.params.enlarger.diffusion_filter,
+                    pixel_um,
+                )?;
+                raw.data
+                    .iter_mut()
+                    .for_each(|v| *v = (v.max(0.) + 1e-10).log10());
+                if collect == Tap::LogEPrint {
+                    return Ok(raw);
+                }
+                raw.data.par_chunks_exact_mut(raw.channels).for_each(|v| {
+                    let mut logs = [0.; 3];
+                    logs[..v.len()].copy_from_slice(v);
+                    self.print.density(&logs[..v.len()], v);
                 });
-            raw = crate::diffusion::apply(&raw, &self.params.enlarger.diffusion_filter, pixel_um)?;
-            raw.data
-                .iter_mut()
-                .for_each(|v| *v = (v.max(0.) + 1e-10).log10());
-            if collect == Tap::LogEPrint {
-                return Ok(raw);
-            }
-            raw.data.par_chunks_exact_mut(raw.channels).for_each(|v| {
-                let mut logs = [0.; 3];
-                logs[..v.len()].copy_from_slice(v);
-                self.print.density(&logs[..v.len()], v);
-            });
-            if collect == Tap::CmyPrint {
-                return Ok(raw);
-            }
-            Some(raw)
-        } else {
-            None
-        };
+                if collect == Tap::CmyPrint {
+                    return Ok(raw);
+                }
+                Some(raw)
+            } else {
+                None
+            };
         let out_ch = match collect {
             Tap::LogEPrint | Tap::CmyPrint => self.print.channels(),
             _ => 3,
