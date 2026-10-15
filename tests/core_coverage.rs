@@ -14,7 +14,7 @@ fn fixture(name: &str) -> Image {
     .unwrap()
 }
 mod common;
-use common::compare;
+use common::{compare, strict};
 #[test]
 fn optical_filters_match_reference() -> anyhow::Result<()> {
     for family in ["glimmerglass", "black_pro_mist", "pro_mist", "cinebloom"] {
@@ -24,7 +24,7 @@ fn optical_filters_match_reference() -> anyhow::Result<()> {
         compare(
             &diffusion::apply(&fixture("input"), &p, 55.)?,
             &fixture(&format!("diffusion_{family}")),
-            3e-7,
+            fast_spektrafilm::numerical::contract("diffusion").atol,
             family,
         );
     }
@@ -44,16 +44,14 @@ fn inverse_scan_and_routes_match_reference() -> anyhow::Result<()> {
     let data = root().join("data");
     let sim = Simulator::new(&data, p.clone())?;
     let converter = convert::FilmConverter::new(&Tables::load(&data)?, sim.film(), &p)?;
-    compare(
+    strict(
         &converter.convert(&fixture("captured")),
         &fixture("convert"),
-        2e-5,
         "inverse captured",
     );
-    compare(
+    strict(
         &converter.convert(&fixture("input")),
         &fixture("convert_arbitrary"),
-        2e-4,
         "inverse arbitrary",
     );
     for (route, name) in [
@@ -64,10 +62,9 @@ fn inverse_scan_and_routes_match_reference() -> anyhow::Result<()> {
         let mut p = params();
         p.workflow.route = route.into();
         let sim = Simulator::new(&data, p)?;
-        compare(
+        strict(
             &sim.process(&fixture("captured"), Tap::RgbOut)?,
             &fixture(name),
-            2e-5,
             route,
         );
         assert!(sim.process(&fixture("captured"), Tap::LogEFilm).is_err());
@@ -93,12 +90,16 @@ fn base_fit_matches_reference() -> anyhow::Result<()> {
         ("magenta", b.magenta),
         ("yellow", b.yellow),
     ] {
+        let error = (v - expected["base"][name].as_f64().unwrap()).abs();
+        eprintln!("base fit {name}: max_abs={error:e}");
         assert!(
-            (v - expected["base"][name].as_f64().unwrap()).abs() < 1e-4,
+            error < fast_spektrafilm::numerical::contract("base_fit_coefficients").atol,
             "{name}: {v}"
         );
     }
-    assert!((ev - expected["exposure"].as_f64().unwrap()).abs() < 1e-4);
+    let error = (ev - expected["exposure"].as_f64().unwrap()).abs();
+    eprintln!("base fit exposure: max_abs={error:e}");
+    assert!(error < fast_spektrafilm::numerical::contract("base_fit_coefficients").atol);
     Ok(())
 }
 #[test]
@@ -149,7 +150,7 @@ fn optical_filter_stage_order_matches_reference() -> anyhow::Result<()> {
                 compare(
                     &sim.process(&fixture("input"), tap)?,
                     &fixture(&format!("{stage}_{}", tap.name())),
-                    2e-6,
+                    fast_spektrafilm::numerical::contract("optical").atol,
                     &format!("{stage}/{}", tap.name()),
                 );
             }
@@ -224,10 +225,13 @@ fn all_grain_classes_and_shapes_match_reference() -> anyhow::Result<()> {
                     .num_threads(threads)
                     .build()?
                     .install(|| sim.process(&image, Tap::CmyFilm))?;
-                assert_eq!(
-                    actual.data,
-                    fixture(&name).data,
-                    "{name}/{threads}: exact grain"
+                assert!(
+                    actual
+                        .data
+                        .iter()
+                        .zip(&fixture(&name).data)
+                        .all(|(a, b)| a.to_bits() == b.to_bits()),
+                    "{name}/{threads}: exact grain bits"
                 );
                 compare(
                     &actual,
@@ -257,7 +261,10 @@ fn device_calibration_matches_reference_parameters() -> anyhow::Result<()> {
         .map(|(a, b)| (a - b).abs())
         .fold(0., f64::max);
     eprintln!("calibration matrix max_abs={error:e}, fit={fit:?}");
-    assert!(error < 1e-4, "Calibration coefficient error {error:e}");
+    assert!(
+        error < fast_spektrafilm::numerical::contract("calibration_coefficients").atol,
+        "Calibration coefficient error {error:e}"
+    );
     let target = c.scan([0.; 3]);
     let obs = convert::sample_base(&fixture("captured"), 99.)?;
     let before: f64 = (0..3).map(|i| (obs[i] - target[i]).powi(2)).sum();
@@ -277,10 +284,9 @@ fn inverse_lut_and_blackbody_match_reference() -> anyhow::Result<()> {
     let pool = rayon::ThreadPoolBuilder::new().num_threads(4).build()?;
     pool.install(|| -> anyhow::Result<()> {
         let sim = Simulator::new(&root().join("data"), p)?;
-        compare(
+        strict(
             &sim.process(&fixture("captured"), Tap::RgbOut)?,
             &fixture("convert_lut"),
-            2e-5,
             "inverse LUT",
         );
         Ok(())

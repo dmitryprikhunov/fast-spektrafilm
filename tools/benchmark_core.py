@@ -31,9 +31,10 @@ for mode in ['convert','diffusion']:
     rust=run([str(ROOT/'target/release/fast-spektrafilm'),'--threads','4','process',str(source),str(folder/f'{mode}-rust.npy'),'--config',str(path),'--repeat','3'],'rust')
     a=np.load(folder/f'{mode}-rust.npy');b=np.load(folder/f'{mode}-reference.npy')
     assert a.shape == b.shape and np.isfinite(a).all() and np.isfinite(b).all(), 'Invalid comparison shape/values'
-    np.testing.assert_allclose(a,b,atol=2e-5 if mode=='convert' else 2e-6,rtol=0)
+    from numerical import require
+    comparison=require(a,b,mode,policy='strict' if mode=='convert' else 'optical')
     profiled=run([str(ROOT/'target/release/fast-spektrafilm'),'--threads','4','process',str(source),str(folder/f'{mode}-profiled.npy'),'--config',str(path),'--stage-timings'],'profiled')
-    np.testing.assert_allclose(np.load(folder/f'{mode}-profiled.npy'),a,atol=1e-9,rtol=1e-8)
-    record=dict(profiled=profiled,mode=mode,shape=list(a.shape),threads=4,reference=reference,rust=rust,max_abs=float(abs(a-b).max()),rmse=float(np.sqrt(np.mean((a-b)**2))))
+    require(np.load(folder/f'{mode}-profiled.npy'),a,mode+' profiled')
+    record=dict(comparison=comparison,profiled=profiled,mode=mode,shape=list(a.shape),threads=4,reference=reference,rust=rust,max_abs=float(abs(a-b).max()),rmse=float(np.sqrt(np.mean((a-b)**2))))
     results.append(record);print(json.dumps(record),flush=True)
 (folder/'report.json').write_text(json.dumps(dict(**provenance(),threads=4,repeats=3,input_sha256=__import__('hashlib').sha256(source.read_bytes()).hexdigest(),results=results),indent=2)+'\n')

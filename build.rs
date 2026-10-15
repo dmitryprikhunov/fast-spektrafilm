@@ -15,6 +15,32 @@ fn sources(dir: &Path, build: &mut cc::Build) {
     }
 }
 fn main() {
+    for key in [
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "CARGO_PROFILE_RELEASE_LTO",
+        "CARGO_PROFILE_RELEASE_CODEGEN_UNITS",
+    ] {
+        println!("cargo:rerun-if-env-changed={key}");
+        println!(
+            "cargo:rustc-env=SPEKTRAFILM_BUILD_{key}={}",
+            std::env::var(key).unwrap_or_default()
+        );
+    }
+    for key in ["PROFILE", "OPT_LEVEL", "DEBUG", "TARGET", "HOST"] {
+        println!(
+            "cargo:rustc-env=SPEKTRAFILM_BUILD_{key}={}",
+            std::env::var(key).unwrap_or_default()
+        );
+    }
+    let compiler = std::process::Command::new(std::env::var_os("RUSTC").unwrap())
+        .arg("--version")
+        .output()
+        .unwrap();
+    println!(
+        "cargo:rustc-env=SPEKTRAFILM_BUILD_COMPILER={}",
+        String::from_utf8_lossy(&compiler.stdout).trim()
+    );
     println!("cargo:rerun-if-changed=ui/darkroom.slint");
     #[cfg(feature = "gui")]
     slint_build::compile_with_config(

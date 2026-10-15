@@ -12,6 +12,23 @@ pub(crate) struct DensityLut {
     data: Vec<f64>,
 }
 impl DensityLut {
+    pub(crate) fn shared(
+        key: String,
+        create: impl FnOnce() -> Result<Self>,
+    ) -> Result<std::sync::Arc<Self>> {
+        use std::sync::{Arc, Mutex, OnceLock};
+        static CACHE: OnceLock<Mutex<crate::cache::ByteCache<DensityLut>>> = OnceLock::new();
+        let cache =
+            CACHE.get_or_init(|| Mutex::new(crate::cache::ByteCache::new(64 * 1024 * 1024)));
+        if let Some(value) = cache.lock().unwrap().get(&key) {
+            return Ok(value);
+        }
+        let value = Arc::new(create()?);
+        let bytes =
+            (value.data.len() + value.axis.len() + value.minimum.len() + value.maximum.len()) * 8;
+        cache.lock().unwrap().insert(key, bytes, value.clone());
+        Ok(value)
+    }
     pub fn new(
         minimum: Vec<f64>,
         maximum: Vec<f64>,
@@ -82,6 +99,24 @@ impl DensityLut {
             axis,
             data,
         })
+    }
+    pub fn inverse(converter: &crate::convert::FilmConverter, resolution: usize) -> Result<Self> {
+        let (lo, hi) = converter.gamut_bounds();
+        let mut lut = Self::new(lo.to_vec(), hi.to_vec(), 3, resolution, |v| {
+            [v[0], v[1], v[2]]
+        })?;
+        let grid = crate::Image::new(
+            lut.size * lut.size,
+            lut.size,
+            3,
+            std::mem::take(&mut lut.data),
+        )?;
+        lut.data = converter.invert_image(&grid).data;
+        ensure!(
+            lut.data.iter().all(|v| v.is_finite()),
+            "Nonfinite inverse LUT"
+        );
+        Ok(lut)
     }
     pub fn apply(&self, values: &[f64]) -> [f64; 3] {
         let mut out = [0.0; 3];

@@ -1,6 +1,28 @@
 //! Same FIR / Young & van Vliet IIR dispatch and boundaries as experimental.
 use crate::Image;
 use rayon::prelude::*;
+const STRIP: usize = 16;
+const COLUMNS: usize = 32;
+trait Scalar: Copy + Default + Send + Sync {
+    fn get(self) -> f64;
+    fn put(value: f64) -> Self;
+}
+impl Scalar for f64 {
+    fn get(self) -> f64 {
+        self
+    }
+    fn put(value: f64) -> Self {
+        value
+    }
+}
+impl Scalar for f32 {
+    fn get(self) -> f64 {
+        self as f64
+    }
+    fn put(value: f64) -> Self {
+        value as f32
+    }
+}
 fn reflect(i: isize, n: usize) -> usize {
     let period = 2 * n as isize;
     let j = i.rem_euclid(period);
@@ -18,69 +40,99 @@ pub fn gaussian_f32(image: &Image, sigmas: &[f64]) -> Image {
     gaussian_working(image, sigmas, true)
 }
 fn gaussian_working(image: &Image, sigmas: &[f64], float32: bool) -> Image {
-    let store = |v: f64| if float32 { v as f32 as f64 } else { v };
-    let w = image.width;
-    let h = image.height;
-    let c = image.channels;
-    let mut output = vec![0.0; image.data.len()];
-    // One channel at a time bounds scratch memory independently of channel count.
+    Image {
+        width: image.width,
+        height: image.height,
+        channels: image.channels,
+        data: filter(
+            &image.data,
+            image.width,
+            image.height,
+            image.channels,
+            sigmas,
+            float32,
+        ),
+    }
+}
+pub(crate) fn gaussian_f32_data(
+    data: &[f32],
+    w: usize,
+    h: usize,
+    c: usize,
+    sigmas: &[f64],
+) -> Vec<f32> {
+    filter(data, w, h, c, sigmas, true)
+}
+// Keep the reference state[lag][column] layout explicit for contiguous SIMD.
+#[allow(clippy::needless_range_loop)]
+fn filter<T: Scalar>(
+    input: &[T],
+    w: usize,
+    h: usize,
+    c: usize,
+    sigmas: &[f64],
+    float32: bool,
+) -> Vec<T> {
+    let store = |v: f64| T::put(if float32 { v as f32 as f64 } else { v });
+    let mut output = vec![T::default(); input.len()];
     for ch in 0..c {
         let sigma = sigmas[ch.min(sigmas.len() - 1)];
-        // Small physical kernels round to one tap on preview/crop grids. Keep
-        // both reference stores, while avoiding planes and reflected indexing.
-        if sigma > 0.0 && sigma < 3.0 && (3.0 * sigma + 0.5) as isize == 0 {
+        if sigma <= 0. {
             for i in 0..w * h {
-                output[i * c + ch] = store(0.0 + store(0.0 + image.data[i * c + ch]));
+                output[i * c + ch] = input[i * c + ch];
             }
-            continue;
-        }
-        let mut plane = (0..w * h)
-            .map(|i| image.data[i * c + ch])
-            .collect::<Vec<_>>();
-        if sigma > 0.0 && sigma < 3.0 {
-            let radius = (3.0 * sigma + 0.5) as isize;
-            let mut kernel = (-radius..=radius)
+        } else if sigma < 3. && (3. * sigma + 0.5) as usize == 0 {
+            // A one-tap physical kernel needs both reference stores, but no
+            // strip scratch or parallel convolution scheduling.
+            for i in 0..w * h {
+                output[i * c + ch] = store(0. + store(0. + input[i * c + ch].get()).get());
+            }
+        } else if sigma < 3. {
+            let radius = (3. * sigma + 0.5) as isize;
+            let mut kernel: Vec<_> = (-radius..=radius)
                 .map(|i| (-0.5 * (i as f64 / sigma).powi(2)).exp())
-                .collect::<Vec<_>>();
+                .collect();
             let sum: f64 = kernel.iter().sum();
             for k in &mut kernel {
                 *k /= sum;
             }
-            let mut temp = vec![0.0; w * h];
-            // Reference FIR applies vertical convolution before horizontal.
-            temp.par_chunks_exact_mut(w)
+            output
+                .par_chunks_mut(STRIP * w * c)
                 .enumerate()
-                .for_each(|(y, row)| {
-                    // k stays in the same summation order for every pixel.
-                    // Its reflected row is shared across x and computed once.
-                    for (k, weight) in kernel.iter().enumerate() {
-                        let start = reflect(y as isize + k as isize - radius, h) * w;
-                        for (x, out) in row.iter_mut().enumerate() {
-                            *out += plane[start + x] * weight;
-                            *out = store(*out);
+                .for_each_init(
+                    || vec![T::default(); STRIP * w],
+                    |temp, (strip, out)| {
+                        let rows = out.len() / (w * c);
+                        temp[..rows * w].fill(T::default());
+                        for y in 0..rows {
+                            let y_global = strip * STRIP + y;
+                            // Reference FIR is vertical then horizontal; retain every
+                            // per-tap vertical f32 store, not just the final value.
+                            for (k, weight) in kernel.iter().enumerate() {
+                                let row = reflect(y_global as isize + k as isize - radius, h) * w;
+                                for x in 0..w {
+                                    temp[y * w + x] = store(
+                                        temp[y * w + x].get()
+                                            + input[(row + x) * c + ch].get() * weight,
+                                    );
+                                }
+                            }
+                            for x in 0..w {
+                                let mut value = 0.;
+                                for (k, weight) in kernel.iter().enumerate() {
+                                    let xi = if x >= radius as usize && x + (radius as usize) < w {
+                                        x + k - radius as usize
+                                    } else {
+                                        reflect(x as isize + k as isize - radius, w)
+                                    };
+                                    value += temp[y * w + xi].get() * weight;
+                                }
+                                out[(y * w + x) * c + ch] = store(value);
+                            }
                         }
-                    }
-                });
-            let horizontal: Vec<Vec<usize>> = (0..w)
-                .map(|x| {
-                    (0..kernel.len())
-                        .map(|k| reflect(x as isize + k as isize - radius, w))
-                        .collect()
-                })
-                .collect();
-            plane
-                .par_chunks_exact_mut(w)
-                .enumerate()
-                .for_each(|(y, row)| {
-                    for (x, out) in row.iter_mut().enumerate() {
-                        *out = 0.0;
-                        for (k, weight) in kernel.iter().enumerate() {
-                            *out += temp[y * w + horizontal[x][k]] * weight;
-                        }
-                        *out = store(*out);
-                    }
-                });
-        } else if sigma >= 3.0 {
+                    },
+                );
+        } else {
             let q = 0.98711 * sigma - 0.96330;
             let q2 = q * q;
             let q3 = q2 * q;
@@ -88,51 +140,98 @@ fn gaussian_working(image: &Image, sigmas: &[f64], float32: bool) -> Image {
             let rb1 = 2.44413 * q + 2.85619 * q2 + 1.26661 * q3;
             let rb2 = -(1.4281 * q2 + 1.26661 * q3);
             let rb3 = 0.422205 * q3;
-            let b = 1.0 - (rb1 + rb2 + rb3) / b0;
+            let b = 1. - (rb1 + rb2 + rb3) / b0;
             let b1 = rb1 / b0;
             let b2 = rb2 / b0;
             let b3 = rb3 / b0;
-            plane.par_chunks_exact_mut(w).for_each(|row| {
-                let mut state = [row[0]; 3];
-                for v in row.iter_mut() {
-                    let out = b * (*v) + b1 * state[0] + b2 * state[1] + b3 * state[2];
-                    *v = store(out);
-                    state = [out, state[0], state[1]];
-                }
-                let mut state = [row[w - 1]; 3];
-                for v in row.iter_mut().rev() {
-                    let out = b * (*v) + b1 * state[0] + b2 * state[1] + b3 * state[2];
-                    *v = store(out);
-                    state = [out, state[0], state[1]];
-                }
-            });
-            for x in 0..w {
-                let mut state = [plane[x]; 3];
-                for y in 0..h {
-                    let i = y * w + x;
-                    let out = b * plane[i] + b1 * state[0] + b2 * state[1] + b3 * state[2];
-                    plane[i] = store(out);
-                    state = [out, state[0], state[1]];
-                }
-                let mut state = [plane[(h - 1) * w + x]; 3];
-                for y in (0..h).rev() {
-                    let i = y * w + x;
-                    let out = b * plane[i] + b1 * state[0] + b2 * state[1] + b3 * state[2];
-                    plane[i] = store(out);
-                    state = [out, state[0], state[1]];
-                }
-            }
-        }
-        for (i, v) in plane.iter().enumerate() {
-            output[i * c + ch] = *v;
+            output
+                .par_chunks_mut(w * c)
+                .enumerate()
+                .for_each(|(y, row)| {
+                    let mut state = [input[y * w * c + ch].get(); 3];
+                    for x in 0..w {
+                        let value = b * input[(y * w + x) * c + ch].get()
+                            + b1 * state[0]
+                            + b2 * state[1]
+                            + b3 * state[2];
+                        row[x * c + ch] = store(value);
+                        state = [value, state[0], state[1]];
+                    }
+                    let mut state = [row[(w - 1) * c + ch].get(); 3];
+                    for x in (0..w).rev() {
+                        let value = b * row[x * c + ch].get()
+                            + b1 * state[0]
+                            + b2 * state[1]
+                            + b3 * state[2];
+                        row[x * c + ch] = store(value);
+                        state = [value, state[0], state[1]];
+                    }
+                });
+            // Use the output as horizontal storage, then gather independent
+            // contiguous column blocks. Scratch remains one scalar plane.
+            let mut columns = vec![T::default(); w * h];
+            columns
+                .par_chunks_mut(COLUMNS * h)
+                .enumerate()
+                .for_each(|(block, values)| {
+                    let x0 = block * COLUMNS;
+                    let width = COLUMNS.min(w - x0);
+                    for y in 0..h {
+                        for x in 0..width {
+                            values[y * width + x] = output[(y * w + x0 + x) * c + ch];
+                        }
+                    }
+                    let mut state = [[0.; COLUMNS]; 3];
+                    for lane in &mut state {
+                        for (x, value) in lane.iter_mut().enumerate().take(width) {
+                            *value = values[x].get();
+                        }
+                    }
+                    for y in 0..h {
+                        for x in 0..width {
+                            let i = y * width + x;
+                            let value = b * values[i].get()
+                                + b1 * state[0][x]
+                                + b2 * state[1][x]
+                                + b3 * state[2][x];
+                            values[i] = store(value);
+                            state[2][x] = state[1][x];
+                            state[1][x] = state[0][x];
+                            state[0][x] = value;
+                        }
+                    }
+                    for lane in &mut state {
+                        for (x, value) in lane.iter_mut().enumerate().take(width) {
+                            *value = values[(h - 1) * width + x].get();
+                        }
+                    }
+                    for y in (0..h).rev() {
+                        for x in 0..width {
+                            let i = y * width + x;
+                            let value = b * values[i].get()
+                                + b1 * state[0][x]
+                                + b2 * state[1][x]
+                                + b3 * state[2][x];
+                            values[i] = store(value);
+                            state[2][x] = state[1][x];
+                            state[1][x] = state[0][x];
+                            state[0][x] = value;
+                        }
+                    }
+                });
+            output
+                .par_chunks_mut(w * c)
+                .enumerate()
+                .for_each(|(y, row)| {
+                    for x in 0..w {
+                        let block = x / COLUMNS;
+                        let width = COLUMNS.min(w - block * COLUMNS);
+                        row[x * c + ch] = columns[block * COLUMNS * h + y * width + x % COLUMNS];
+                    }
+                });
         }
     }
-    Image {
-        width: w,
-        height: h,
-        channels: c,
-        data: output,
-    }
+    output
 }
 pub fn exponential(image: &Image, decays: &[f64]) -> Image {
     let mut out = Image {

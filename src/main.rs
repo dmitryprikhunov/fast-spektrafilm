@@ -23,6 +23,8 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Command {
+    /// Compiler and profile metadata embedded in this binary.
+    BuildInfo,
     /// List the original film and print profiles.
     Profiles,
     /// Emit all supported configuration fields and defaults.
@@ -70,6 +72,9 @@ enum Command {
         stage_timings: bool,
         #[arg(long, default_value_t = 1)]
         repeat: usize,
+        /// Untimed full-crop warmups using the selected executor.
+        #[arg(long, default_value_t = 0)]
+        warmup: usize,
     },
     /// Fit a scanned negative's clear base or device calibration and save settings.
     Calibrate {
@@ -118,6 +123,7 @@ fn main() -> Result<()> {
             .build_global()?;
     }
     match cli.command {
+        Command::BuildInfo => println!("{}", fast_spektrafilm::build_info()),
         Command::Profiles => {
             let mut files = std::fs::read_dir(cli.data_dir.join("profiles"))?
                 .map(|v| v.map(|v| v.path()))
@@ -187,6 +193,7 @@ fn main() -> Result<()> {
             collect,
             stage_timings,
             repeat,
+            warmup,
         } => {
             ensure!(repeat > 0, "repeat must be positive");
             let mut params = read_params(config)?;
@@ -209,25 +216,40 @@ fn main() -> Result<()> {
             let image = fast_spektrafilm::file_io::read(&input, &cli.data_dir, &params, crop_size)?;
             let decode_seconds = start.elapsed().as_secs_f64();
             let sim = Simulator::new(&cli.data_dir, params)?;
-            let mut times = Vec::new();
-            for _ in 1..repeat {
+            let executor = if stage_timings { "profiled" } else { "fused" };
+            let render = |input| -> Result<_> {
+                if stage_timings {
+                    let report = sim.process_profiled(input, Tap::RgbIn, collect, 1.)?;
+                    Ok((report.image, Some(report.stages)))
+                } else {
+                    Ok((sim.process_owned(input, collect)?, None))
+                }
+            };
+            let mut warmup_seconds = Vec::new();
+            for _ in 0..warmup {
                 let input = image.clone();
                 let start = Instant::now();
-                std::hint::black_box(sim.process_owned(input, collect)?);
-                times.push(start.elapsed().as_secs_f64());
+                std::hint::black_box(render(input)?);
+                warmup_seconds.push(start.elapsed().as_secs_f64());
             }
-            let start = Instant::now();
-            let (result, stages) = if stage_timings {
-                let report = sim.process_profiled(image, Tap::RgbIn, collect, 1.)?;
-                (report.image, Some(report.stages))
-            } else {
-                (sim.process_owned(image, collect)?, None)
-            };
-            times.push(start.elapsed().as_secs_f64());
+            let mut times = Vec::new();
+            let mut stage_samples = Vec::new();
+            let mut result = None;
+            for _ in 0..repeat {
+                drop(result.take());
+                let input = image.clone();
+                let start = Instant::now();
+                let (output, stages) = render(input)?;
+                times.push(start.elapsed().as_secs_f64());
+                stage_samples.push(stages);
+                result = Some(output);
+            }
+            let result = result.unwrap();
+            let stages = stage_samples.last().unwrap();
             fast_spektrafilm::file_io::save(&result, &input, &output, &cli.data_dir, sim.params())?;
             eprintln!(
                 "{}",
-                serde_json::json!({"stage_seconds":stages,"setup_seconds":sim.setup_seconds,"decode_seconds":decode_seconds,"process_seconds":times,"width":result.width,"height":result.height,"channels":result.channels,"tap":collect.name(),"threads":rayon::current_num_threads()})
+                serde_json::json!({"executor":executor,"warmup_seconds":warmup_seconds,"stage_samples_seconds":stage_samples,"stage_seconds":stages,"setup_seconds":sim.setup_seconds,"decode_seconds":decode_seconds,"process_seconds":times,"width":result.width,"height":result.height,"channels":result.channels,"tap":collect.name(),"threads":rayon::current_num_threads()})
             );
         }
         Command::Calibrate {

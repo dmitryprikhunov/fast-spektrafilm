@@ -1,0 +1,16 @@
+{
+  "camera": {
+    "auto_exposure": false,
+    "film_format_mm": 0.111328125
+  },
+  "debug": {
+    "deactivate_stochastic_effects": true
+  },
+  "io": {
+    "copy_metadata": false,
+    "upscale_factor": 1.7
+  },
+  "settings": {
+    "random_seed": 12345
+  }
+}

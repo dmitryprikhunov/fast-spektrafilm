@@ -1,0 +1,27 @@
+{
+  "camera": {
+    "auto_exposure": false,
+    "film_format_mm": 0.111328125
+  },
+  "debug": {
+    "deactivate_stochastic_effects": false,
+    "deactivate_spatial_effects": true
+  },
+  "io": {
+    "copy_metadata": false
+  },
+  "settings": {
+    "random_seed": 12345
+  },
+  "workflow": {
+    "route": "input > convert-film > print > scan"
+  },
+  "grain": {
+    "active": false
+  },
+  "print_glare": {
+    "active": true,
+    "percent": 10.0,
+    "roughness": 1.0
+  }
+}

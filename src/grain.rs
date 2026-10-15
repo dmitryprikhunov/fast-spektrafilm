@@ -5,22 +5,14 @@ use crate::{
     params::Grain,
     profile::Profile,
     random::RandomState,
-    spatial::{gaussian, gaussian_f32},
+    spatial::{gaussian, gaussian_f32_data},
 };
 use anyhow::{Result, ensure};
 
-fn plane(w: usize, h: usize, data: Vec<f64>) -> Image {
-    Image {
-        width: w,
-        height: h,
-        channels: 1,
-        data,
-    }
-}
 // NumPy's float32 reduction uses an eight-lane pairwise tree, including on
 // flattened strided channel views. A sequential sum moves the USM mass scale.
-fn pairwise(values: &[f64], channel: usize, stride: usize, start: usize, n: usize) -> f32 {
-    let value = |i: usize| values[(start + i) * stride + channel] as f32;
+fn pairwise(values: &[f32], channel: usize, stride: usize, start: usize, n: usize) -> f32 {
+    let value = |i: usize| values[(start + i) * stride + channel];
     if n < 8 {
         let mut sum = -0.0f32;
         for i in 0..n {
@@ -61,12 +53,7 @@ pub fn apply(
     }
     let ch = density.channels;
     let n = density.width * density.height;
-    let mut out = Image {
-        width: density.width,
-        height: density.height,
-        channels: ch,
-        data: vec![0.0; n * ch],
-    };
+    let mut out = vec![0.0f32; n * ch];
     let mut numpy_state = RandomState::new(0);
     for c in 0..ch {
         let single = vec![film.curves[c].clone()];
@@ -127,6 +114,9 @@ pub fn apply(
             .map(|v| if positive { -v } else { *v })
             .collect::<Vec<_>>();
         let mut channel = vec![0.0f32; n];
+        let mut probabilities = vec![0.0f32; n];
+        let mut saturation = vec![0.0f32; n];
+        let mut seeds = vec![0i64; n];
         for l in 0..count {
             let n_particles =
                 pixel_um * pixel_um * fractions[l] / (area * params.particle_scale_sublayers[l]);
@@ -138,9 +128,6 @@ pub fn apply(
             let od = maximum / n_particles;
             numpy_state = RandomState::new((c + l * 10) as u32);
             let mut fast_state = RandomState::new(seed.wrapping_add((c + l * 10) as u32));
-            let mut probabilities = Vec::with_capacity(n);
-            let mut saturation = Vec::with_capacity(n);
-            let mut seeds = Vec::with_capacity(n);
             for i in 0..n {
                 let d = density.data[i * ch + c];
                 let layer = linear(if positive { -d } else { d }, &axis, &layers[l]) as f32;
@@ -156,11 +143,10 @@ pub fn apply(
                 } else {
                     numpy_state.poisson(lambda)
                 };
-                probabilities.push(p);
-                saturation.push(sat);
-                seeds.push(draw);
+                probabilities[i] = p;
+                saturation[i] = sat;
+                seeds[i] = draw;
             }
-            let mut layer = Vec::with_capacity(n);
             for i in 0..n {
                 let draw = if fast {
                     fast_state.fast_binomial(seeds[i], probabilities[i] as f64)
@@ -168,26 +154,37 @@ pub fn apply(
                     numpy_state.binomial(seeds[i], probabilities[i] as f64)
                 };
                 let d = (draw as f32 * od as f32) * saturation[i];
-                layer.push(d as f64);
+                probabilities[i] = d;
             }
-            let mut layer = plane(density.width, density.height, layer);
+            // Reuse the probability plane as the completed float32 layer.
+            // The last layer no longer needs count/saturation scratch.
+            if l + 1 == count {
+                saturation = Vec::new();
+                seeds = Vec::new();
+            }
             if params.blur_dye_clouds_um > 0.0 {
-                layer = gaussian_f32(&layer, &[params.blur_dye_clouds_um * od.sqrt()]);
+                probabilities = gaussian_f32_data(
+                    &probabilities,
+                    density.width,
+                    density.height,
+                    1,
+                    &[params.blur_dye_clouds_um * od.sqrt()],
+                );
             }
-            for (v, d) in channel.iter_mut().zip(layer.data) {
-                *v += d as f32;
+            for (v, d) in channel.iter_mut().zip(&probabilities) {
+                *v += *d;
             }
         }
         for (i, v) in channel.iter().enumerate() {
-            out.data[i * ch + c] = *v as f64;
+            out[i * ch + c] = *v;
         }
     }
     let micro_sigma = params.micro_structure[1] * 0.001 / pixel_um;
     if micro_sigma > 0.05 {
         let sigma2 = (micro_sigma * micro_sigma).ln_1p();
         let mut clumps = Image {
-            width: out.width,
-            height: out.height,
+            width: density.width,
+            height: density.height,
             channels: ch,
             data: (0..n * ch)
                 .map(|_| (numpy_state.normal() * sigma2.sqrt() - 0.5 * sigma2).exp())
@@ -196,45 +193,50 @@ pub fn apply(
         if params.micro_structure[0] / pixel_um > 0.4 {
             clumps = gaussian(&clumps, &[params.micro_structure[0] / pixel_um]);
         }
-        for (v, c) in out.data.iter_mut().zip(clumps.data) {
-            *v = (*v * c) as f32 as f64;
+        for (v, c) in out.iter_mut().zip(clumps.data) {
+            *v = (*v as f64 * c) as f32;
         }
     }
     if params.blur > 0.0 {
-        out = gaussian_f32(&out, &[params.blur]);
+        out = gaussian_f32_data(&out, density.width, density.height, ch, &[params.blur]);
     }
     if params.mult_usm_sigma > 0.0 && params.mult_usm_amount > 0.0 {
-        let mut positive = out.clone();
-        for v in &mut positive.data {
-            *v = v.max(0.0);
-        }
-        let blurred = gaussian_f32(&positive, &[params.mult_usm_sigma]);
-        for (i, v) in out.data.iter_mut().enumerate() {
-            let d = positive.data[i] as f32;
-            let b = blurred.data[i].max(1e-6) as f32;
+        let positive: Vec<_> = out.iter().map(|v| v.max(0.)).collect();
+        let blurred = gaussian_f32_data(
+            &positive,
+            density.width,
+            density.height,
+            ch,
+            &[params.mult_usm_sigma],
+        );
+        for (i, v) in out.iter_mut().enumerate() {
+            let d = positive[i];
+            let b = blurred[i].max(1e-6);
             *v = if d <= 0.0 {
                 0.0
             } else {
-                (d.max(1e-6).powf((1.0 + params.mult_usm_amount) as f32)
-                    / b.powf(params.mult_usm_amount as f32)) as f64
+                d.max(1e-6).powf((1.0 + params.mult_usm_amount) as f32)
+                    / b.powf(params.mult_usm_amount as f32)
             };
         }
         for c in 0..ch {
             // NumPy's float32 strided reduction accumulates in float32.
-            let sum = pairwise(&out.data, c, ch, 0, n);
-            let original = pairwise(&positive.data, c, ch, 0, n);
+            let sum = pairwise(&out, c, ch, 0, n);
+            let original = pairwise(&positive, c, ch, 0, n);
             if sum > 0.0 {
                 let scale = original / sum;
-                for v in out.data.iter_mut().skip(c).step_by(ch) {
-                    *v = (*v as f32 * scale) as f64;
+                for v in out.iter_mut().skip(c).step_by(ch) {
+                    *v *= scale;
                 }
             }
         }
     }
-    for (i, v) in out.data.iter_mut().enumerate() {
-        *v = (*v - params.density_min[i % ch]) as f32 as f64;
-    }
-    Ok(out)
+    let data = out
+        .into_iter()
+        .enumerate()
+        .map(|(i, v)| (v as f64 - params.density_min[i % ch]) as f32 as f64)
+        .collect();
+    Image::new(density.width, density.height, ch, data)
 }
 
 pub fn apply_presets(data: &std::path::Path, film: &Profile, grain: &mut Grain) -> Result<()> {

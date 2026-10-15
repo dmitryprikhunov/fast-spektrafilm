@@ -16,13 +16,30 @@ import hashlib
 ROOT=Path(__file__).resolve().parents[1]
 
 def provenance():
+    import importlib.metadata
+    import contextlib
+    import io
+    import numpy as np
+    from check_baseline import verify
+    verify()
     cpu=next((line.split(':',1)[1].strip() for line in Path('/proc/cpuinfo').read_text().splitlines() if line.startswith('model name')),platform.processor())
+    digest=lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
+    runtime=io.StringIO()
+    with contextlib.redirect_stdout(runtime): np.show_runtime()
+    binary=ROOT/'target/release/fast-spektrafilm'
+    build=json.loads(subprocess.check_output([str(binary),'build-info'],text=True))
+    versions={name: importlib.metadata.version(name) for name in ['numpy','scipy','numba','colour-science','rawpy']}
+    sources=sorted((ROOT/'src').rglob('*.rs'))+[ROOT/'build.rs',ROOT/'Cargo.toml',ROOT/'Cargo.lock']
     return dict(baseline_commit=json.loads((ROOT/'BASELINE.json').read_text())['commit'],
         measured_at=time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),cpu=cpu,
         system=platform.platform(),rust_version=subprocess.check_output(['rustc','--version'],text=True).strip(),
-        python_version=platform.python_version(),
-        binary_sha256=hashlib.sha256((ROOT/'target/release/fast-spektrafilm').read_bytes()).hexdigest(),
-        cargo_lock_sha256=hashlib.sha256((ROOT/'Cargo.lock').read_bytes()).hexdigest())
+        python_version=platform.python_version(), dependencies=versions, numpy_runtime=runtime.getvalue(),
+        numpy_build=np.show_config(mode='dicts'),
+        thread_environment={k:os.environ.get(k) for k in ['OPENBLAS_CORETYPE','OPENBLAS_NUM_THREADS','OMP_NUM_THREADS','NUMBA_NUM_THREADS','NUMBA_CPU_NAME','NUMBA_CPU_FEATURES','RAYON_NUM_THREADS']},
+        binary_sha256=digest(binary), binary_build=build, cargo_lock_sha256=digest(ROOT/'Cargo.lock'),
+        rust_sources_sha256=hashlib.sha256(''.join(str(p.relative_to(ROOT))+digest(p) for p in sources).encode()).hexdigest(),
+        assets_manifest_sha256=digest(ROOT/'BASELINE.json'), reference_manifest_sha256=digest(ROOT/'REFERENCE_MANIFEST.json'),
+        numerical_contracts_sha256=digest(ROOT/'numerical-contracts.json'))
 
 def config_for_mode(mode,film_format_mm=35.0):
     config=dict(camera=dict(auto_exposure=False,film_format_mm=film_format_mm),debug=dict(deactivate_spatial_effects=mode=='deterministic',deactivate_stochastic_effects=mode!='legacy-grain'))
@@ -49,15 +66,18 @@ def reference_worker(input_path,output_path,repeats,mode,film_format_mm):
             params.print_render.glare.active=False
         sim=SimulationPipeline(digest_params(params))
     image=np.load(input_path)
-    # Warm all Numba paths and the output gamut table with a tiny crop.
-    sim.process(image[:8,:8])
+    # Same full cached-crop warmup as the Rust executor.
+    start=time.perf_counter()
+    sim.process(image)
+    warmup=time.perf_counter()-start
     times=[]
     for _ in range(repeats):
+        result=None
         start=time.perf_counter()
         result=sim.process(image)
         times.append(time.perf_counter()-start)
     np.save(output_path,result)
-    print(json.dumps(dict(process_seconds=times)))
+    print(json.dumps(dict(process_seconds=times,warmup_seconds=[warmup],executor='reference-staged')))
 
 def timed(command,rss_file,env):
     result=subprocess.run(['/usr/bin/time','-f','%M','-o',str(rss_file),*command],env=env,capture_output=True,text=True,check=True)
@@ -79,13 +99,14 @@ def main(args):
     results=[]
     for crop in sorted((ROOT/'artifacts/crops').glob('RAW*_256.npy')):
         reference=timed([sys.executable,str(Path(__file__).resolve()),'--worker','--mode',args.mode,'--film-format-mm',str(args.film_format_mm),'--input',str(crop),'--output',str(folder/'reference.npy'),'--repeat',str(args.repeat)],folder/'reference.rss',env)
-        rust=timed([str(ROOT/'target/release/fast-spektrafilm'),'--threads',str(args.threads),'process',str(crop),str(folder/'rust.npy'),'--config',str(config),'--repeat',str(args.repeat)],folder/'rust.rss',env)
+        rust=timed([str(ROOT/'target/release/fast-spektrafilm'),'--threads',str(args.threads),'process',str(crop),str(folder/'rust.npy'),'--config',str(config),'--repeat',str(args.repeat),'--warmup','1'],folder/'rust.rss',env)
         actual=np.load(folder/'rust.npy')
         expected=np.load(folder/'reference.npy')
-        np.testing.assert_allclose(actual,expected,rtol=1e-8,atol=1e-9)
+        from numerical import require
+        comparison=require(actual,expected,crop.name)
         ref_time=float(np.median(reference['process_seconds']))
         rust_time=float(np.median(rust['process_seconds']))
-        record=dict(crop=crop.name,shape=list(actual.shape),reference=reference,rust=rust,speedup=ref_time/rust_time,rss_reduction=reference['peak_rss_kib']/rust['peak_rss_kib'],max_abs=float(np.max(np.abs(actual-expected))))
+        record=dict(crop=crop.name,input_sha256=hashlib.sha256(crop.read_bytes()).hexdigest(),config_sha256=hashlib.sha256(config.read_bytes()).hexdigest(),comparison=comparison,shape=list(actual.shape),reference=reference,rust=rust,speedup=ref_time/rust_time,rss_reduction=reference['peak_rss_kib']/rust['peak_rss_kib'],max_abs=float(np.max(np.abs(actual-expected))))
         results.append(record)
         print(json.dumps(record),flush=True)
     assert results,'Run validate.py --samples first to cache sample crops'

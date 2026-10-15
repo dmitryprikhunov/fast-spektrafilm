@@ -1,26 +1,15 @@
-use fast_spektrafilm::Image;
+use fast_spektrafilm::{
+    Image,
+    numerical::{self, Contract},
+};
 pub fn compare(a: &Image, b: &Image, atol: f64, label: &str) {
-    a.validate().unwrap();
-    b.validate().unwrap();
-    assert_eq!(
-        (a.height, a.width, a.channels),
-        (b.height, b.width, b.channels),
-        "{label}: shape"
-    );
-    let max_abs = a
-        .data
-        .iter()
-        .zip(&b.data)
-        .map(|(a, b)| (a - b).abs())
-        .fold(0., f64::max);
-    let rmse = (a
-        .data
-        .iter()
-        .zip(&b.data)
-        .map(|(a, b)| (a - b).powi(2))
-        .sum::<f64>()
-        / a.data.len() as f64)
-        .sqrt();
-    eprintln!("{label}: max_abs={max_abs:e}, rmse={rmse:e}");
-    assert!(max_abs <= atol, "{label}: {max_abs:e} > {atol:e}");
+    check(a, b, &Contract { atol, rtol: 0. }, label);
+}
+pub fn strict(a: &Image, b: &Image, label: &str) {
+    check(a, b, numerical::contract("strict"), label);
+}
+fn check(a: &Image, b: &Image, contract: &Contract, label: &str) {
+    let report = numerical::compare(a, b, contract).unwrap();
+    eprintln!("{label}: {}", serde_json::to_string(&report).unwrap());
+    assert_eq!(report.failures, 0, "{label}: {report:?}");
 }

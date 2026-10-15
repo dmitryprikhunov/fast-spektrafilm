@@ -1,5 +1,5 @@
 mod common;
-use common::compare;
+use common::{compare, strict};
 use fast_spektrafilm::{
     Image, Params, Simulator, Tap, color::Tables, file_io, preview, print_balance,
 };
@@ -45,21 +45,23 @@ fn calibration_parameters_residuals_and_outputs_match_reference() -> anyhow::Res
             .map(|(a, b)| (a - b).abs())
             .fold(0., f64::max);
         eprintln!("calibration {i}: coefficient max_abs={error:e}");
-        assert!(error < 1e-4, "{i}: {error:e}");
+        assert!(
+            error < fast_spektrafilm::numerical::contract("calibration_coefficients").atol,
+            "{i}: {error:e}"
+        );
         let residual = converter.calibration_residual(&input, fit)?;
         compare(
             &Image::new(1, residual.len(), 1, residual)?,
             &fixture(&format!("calibration_{i}_residual")),
-            1e-5,
+            fast_spektrafilm::numerical::contract("calibration_residuals").atol,
             "full residual",
         );
         p.convert.calibration = fit;
         let calibrated = Simulator::new(&data, p.clone())?;
         for tap in [Tap::CmyFilm, Tap::RgbOut] {
-            compare(
+            strict(
                 &calibrated.process(&input, tap)?,
                 &fixture(&format!("calibration_{i}_{}", tap.name())),
-                1e-4,
                 tap.name(),
             );
         }
@@ -75,9 +77,13 @@ fn calibration_parameters_residuals_and_outputs_match_reference() -> anyhow::Res
             ("magenta", base.magenta),
             ("yellow", base.yellow),
         ] {
-            assert!((v - case["base"][key].as_f64().unwrap()).abs() < 1e-5);
+            let error = (v - case["base"][key].as_f64().unwrap()).abs();
+            eprintln!("base fit {i}/{key}: max_abs={error:e}");
+            assert!(error < fast_spektrafilm::numerical::contract("base_fit_coefficients").atol);
         }
-        assert!((ev - case["base_ev"].as_f64().unwrap()).abs() < 1e-5);
+        let error = (ev - case["base_ev"].as_f64().unwrap()).abs();
+        eprintln!("base fit {i}/exposure: max_abs={error:e}");
+        assert!(error < fast_spektrafilm::numerical::contract("base_fit_coefficients").atol);
         assert!(fast_spektrafilm::convert::fit_base(&tables, &stock, &p, [0.; 3]).is_err());
     }
     Ok(())

@@ -1,0 +1,41 @@
+{
+  "description": "Lossless crops of the decoded sample caches; no full-image Python simulation",
+  "crops": [
+    {
+      "path": "RAW_CANON_EOS_5DMARK3_64.npy",
+      "sha256": "68287d67a5ae827fc72c81a4b9efc55c352504d796cffa04883041b981289e50",
+      "cache_sha256": "0894a0f58cb39c97a8bcf99f4551fa5187d4374fa65ebcc141177fdf7399216d",
+      "source_cache": "RAW_CANON_EOS_5DMARK3_256.npy",
+      "crop": "[96:160,96:160]",
+      "input_color_space": "ProPhoto RGB",
+      "encoded": false
+    },
+    {
+      "path": "RAW_HASSELBLAD_H3D39II_64.npy",
+      "sha256": "13866aa96bb08c4a72c1f7a57bbbecc14345012dbea57010ee7f8eff47ba9693",
+      "cache_sha256": "65f811a55092ac1f5d948d2bb73f1e88a44740257fc724e8f5a1ad903ef59979",
+      "source_cache": "RAW_HASSELBLAD_H3D39II_256.npy",
+      "crop": "[96:160,96:160]",
+      "input_color_space": "ProPhoto RGB",
+      "encoded": false
+    },
+    {
+      "path": "RAW_MAMIYA_ZD_64.npy",
+      "sha256": "d1d1d737238f276f0b42c03005e72880554cd1d51598b9ae64377b6d2ecd1e08",
+      "cache_sha256": "8c1b1a8b7bae181210fb20908f7477b2fb6f9b4d11276899e54d66ebe1e41552",
+      "source_cache": "RAW_MAMIYA_ZD_256.npy",
+      "crop": "[96:160,96:160]",
+      "input_color_space": "ProPhoto RGB",
+      "encoded": false
+    },
+    {
+      "path": "RAW_NIKON_D750_64.npy",
+      "sha256": "e4b5f3ca8f6f68b82c1617bc39ecccbb0f39235cce6527ac17e763d1ca499545",
+      "cache_sha256": "1b661b53717bb8d0fd50eba9fad3322b69066a02f7faeb47013131f1abf90916",
+      "source_cache": "RAW_NIKON_D750_256.npy",
+      "crop": "[96:160,96:160]",
+      "input_color_space": "ProPhoto RGB",
+      "encoded": false
+    }
+  ]
+}

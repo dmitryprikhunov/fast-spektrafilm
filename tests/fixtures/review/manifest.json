@@ -1,0 +1,580 @@
+{
+  "baseline_commit": "28bf883e1672e884307edc75852549376e13644e",
+  "source_sha256": "0894a0f58cb39c97a8bcf99f4551fa5187d4374fa65ebcc141177fdf7399216d",
+  "source": "cached Canon 256x256 center crop",
+  "cases": [
+    {
+      "name": "optical_0_0",
+      "policy": "optical",
+      "taps": [
+        "log_e_film",
+        "cmy_film",
+        "log_e_print",
+        "cmy_print",
+        "rgb_out"
+      ],
+      "input": "inputs/canon_17x19_bright_corner.npy"
+    },
+    {
+      "name": "optical_0_1",
+      "policy": "optical",
+      "taps": [
+        "log_e_film",
+        "cmy_film",
+        "log_e_print",
+        "cmy_print",
+        "rgb_out"
+      ],
+      "input": "inputs/canon_17x19_bright_corner.npy"
+    },
+    {
+      "name": "optical_0_2",
+      "policy": "optical",
+      "taps": [
+        "log_e_film",
+        "cmy_film",
+        "log_e_print",
+        "cmy_print",
+        "rgb_out"
+      ],
+      "input": "inputs/canon_17x19_bright_corner.npy"
+    },
+    {
+      "name": "optical_1_0",
+      "policy": "optical",
+      "taps": [
+        "log_e_film",
+        "cmy_film",
+        "log_e_print",
+        "cmy_print",
+        "rgb_out"
+      ],
+      "input": "inputs/canon_17x19_bright_corner.npy"
+    },
+    {
+      "name": "optical_1_1",
+      "policy": "optical",
+      "taps": [
+        "log_e_film",
+        "cmy_film",
+        "log_e_print",
+        "cmy_print",
+        "rgb_out"
+      ],
+      "input": "inputs/canon_17x19_bright_corner.npy"
+    },
+    {
+      "name": "optical_1_2",
+      "policy": "optical",
+      "taps": [
+        "log_e_film",
+        "cmy_film",
+        "log_e_print",
+        "cmy_print",
+        "rgb_out"
+      ],
+      "input": "inputs/canon_17x19_bright_corner.npy"
+    },
+    {
+      "name": "optical_2_0",
+      "policy": "optical",
+      "taps": [
+        "log_e_film",
+        "cmy_film",
+        "log_e_print",
+        "cmy_print",
+        "rgb_out"
+      ],
+      "input": "inputs/canon_17x19_bright_corner.npy"
+    },
+    {
+      "name": "optical_2_1",
+      "policy": "optical",
+      "taps": [
+        "log_e_film",
+        "cmy_film",
+        "log_e_print",
+        "cmy_print",
+        "rgb_out"
+      ],
+      "input": "inputs/canon_17x19_bright_corner.npy"
+    },
+    {
+      "name": "optical_2_2",
+      "policy": "optical",
+      "taps": [
+        "log_e_film",
+        "cmy_film",
+        "log_e_print",
+        "cmy_print",
+        "rgb_out"
+      ],
+      "input": "inputs/canon_17x19_bright_corner.npy"
+    },
+    {
+      "name": "optical_3_0",
+      "policy": "optical",
+      "taps": [
+        "log_e_film",
+        "cmy_film",
+        "log_e_print",
+        "cmy_print",
+        "rgb_out"
+      ],
+      "input": "inputs/canon_17x19_bright_corner.npy"
+    },
+    {
+      "name": "optical_3_1",
+      "policy": "optical",
+      "taps": [
+        "log_e_film",
+        "cmy_film",
+        "log_e_print",
+        "cmy_print",
+        "rgb_out"
+      ],
+      "input": "inputs/canon_17x19_bright_corner.npy"
+    },
+    {
+      "name": "optical_3_2",
+      "policy": "optical",
+      "taps": [
+        "log_e_film",
+        "cmy_film",
+        "log_e_print",
+        "cmy_print",
+        "rgb_out"
+      ],
+      "input": "inputs/canon_17x19_bright_corner.npy"
+    },
+    {
+      "name": "blur_0",
+      "policy": "strict",
+      "taps": [
+        "log_e_film",
+        "cmy_film",
+        "log_e_print",
+        "cmy_print",
+        "rgb_out"
+      ],
+      "input": "inputs/canon_17x19.npy"
+    },
+    {
+      "name": "blur_1",
+      "policy": "strict",
+      "taps": [
+        "log_e_film",
+        "cmy_film",
+        "log_e_print",
+        "cmy_print",
+        "rgb_out"
+      ],
+      "input": "inputs/canon_17x19.npy"
+    },
+    {
+      "name": "blur_3",
+      "policy": "strict",
+      "taps": [
+        "log_e_film",
+        "cmy_film",
+        "log_e_print",
+        "cmy_print",
+        "rgb_out"
+      ],
+      "input": "inputs/canon_17x19.npy"
+    },
+    {
+      "name": "optical_stress64",
+      "policy": "optical",
+      "taps": [
+        "log_e_film",
+        "cmy_film",
+        "log_e_print",
+        "cmy_print",
+        "rgb_out"
+      ],
+      "input": "../raw_crops/RAW_CANON_EOS_5DMARK3_64.npy"
+    },
+    {
+      "name": "inverse_lut8",
+      "policy": "strict",
+      "taps": [
+        "cmy_film",
+        "rgb_out"
+      ],
+      "input": "inputs/canon_17x19.npy"
+    },
+    {
+      "name": "inverse_nodes8",
+      "policy": "strict",
+      "taps": [
+        "cmy_film"
+      ],
+      "input": "inputs/inverse_nodes8.npy"
+    },
+    {
+      "name": "inverse_lut9",
+      "policy": "strict",
+      "taps": [
+        "cmy_film",
+        "rgb_out"
+      ],
+      "input": "inputs/canon_17x19.npy"
+    },
+    {
+      "name": "inverse_nodes9",
+      "policy": "strict",
+      "taps": [
+        "cmy_film"
+      ],
+      "input": "inputs/inverse_nodes9.npy"
+    },
+    {
+      "name": "inverse_lut17",
+      "policy": "strict",
+      "taps": [
+        "cmy_film",
+        "rgb_out"
+      ],
+      "input": "inputs/canon_17x19.npy"
+    },
+    {
+      "name": "inverse_nodes17",
+      "policy": "strict",
+      "taps": [
+        "cmy_film"
+      ],
+      "input": "inputs/inverse_nodes17.npy"
+    },
+    {
+      "name": "inverse_lut32",
+      "policy": "strict",
+      "taps": [
+        "cmy_film",
+        "rgb_out"
+      ],
+      "input": "inputs/canon_17x19.npy"
+    },
+    {
+      "name": "inverse_nodes32",
+      "policy": "strict",
+      "taps": [
+        "cmy_film"
+      ],
+      "input": "inputs/inverse_nodes32.npy"
+    },
+    {
+      "name": "inverse_batch1",
+      "policy": "strict",
+      "taps": [
+        "cmy_film",
+        "rgb_out"
+      ],
+      "input": "inputs/inverse_batch1.npy"
+    },
+    {
+      "name": "inverse_batch2",
+      "policy": "strict",
+      "taps": [
+        "cmy_film",
+        "rgb_out"
+      ],
+      "input": "inputs/inverse_batch2.npy"
+    },
+    {
+      "name": "inverse_batch3",
+      "policy": "strict",
+      "taps": [
+        "cmy_film",
+        "rgb_out"
+      ],
+      "input": "inputs/inverse_batch3.npy"
+    },
+    {
+      "name": "inverse_batch4",
+      "policy": "strict",
+      "taps": [
+        "cmy_film",
+        "rgb_out"
+      ],
+      "input": "inputs/inverse_batch4.npy"
+    },
+    {
+      "name": "inverse_base_lamp",
+      "policy": "strict",
+      "taps": [
+        "cmy_film",
+        "rgb_out"
+      ],
+      "input": "inputs/canon_17x19.npy"
+    },
+    {
+      "name": "convert_glare",
+      "policy": "strict",
+      "taps": [
+        "cmy_film",
+        "rgb_out"
+      ],
+      "input": "inputs/canon_17x19.npy"
+    },
+    {
+      "name": "grain_chemistry",
+      "policy": "strict",
+      "taps": [
+        "log_e_film",
+        "cmy_film",
+        "log_e_print",
+        "cmy_print",
+        "rgb_out"
+      ],
+      "input": "inputs/canon_17x19.npy"
+    },
+    {
+      "name": "scanner_base_lut",
+      "policy": "strict",
+      "taps": [
+        "log_e_film",
+        "cmy_film",
+        "log_e_print",
+        "cmy_print",
+        "rgb_out"
+      ],
+      "input": "inputs/canon_17x19.npy"
+    },
+    {
+      "name": "framing_spacing",
+      "policy": "strict",
+      "taps": [
+        "log_e_film",
+        "cmy_film",
+        "log_e_print",
+        "cmy_print",
+        "rgb_out"
+      ],
+      "input": "inputs/canon_17x19.npy"
+    },
+    {
+      "name": "framing_axis0",
+      "policy": "strict",
+      "taps": [
+        "log_e_film",
+        "cmy_film",
+        "log_e_print",
+        "cmy_print",
+        "rgb_out"
+      ],
+      "input": "inputs/framing_axis0.npy"
+    },
+    {
+      "name": "framing_axis1",
+      "policy": "strict",
+      "taps": [
+        "log_e_film",
+        "cmy_film",
+        "log_e_print",
+        "cmy_print",
+        "rgb_out"
+      ],
+      "input": "inputs/framing_axis1.npy"
+    }
+  ],
+  "files": {
+    "blur_0/cmy_film.npy": "59c31f366de2be941c595c1be640ba9722212b5716f2b32e20f414c699f2a072",
+    "blur_0/cmy_print.npy": "78369af3089432a68584fb6e9c57c34d5a52c7a2f337945cee048b3440d42d94",
+    "blur_0/config.json": "eb6c3c6b86d8482065ee34f814d538db73fe0aaf75dc106115c15fe8378cfbe4",
+    "blur_0/log_e_film.npy": "469468fbd64963293d551c9727a29aceb1e258083894815746422173050f466d",
+    "blur_0/log_e_print.npy": "cacfc6d31d0b13f68041444670827faf90fd469d1a6dd3f172dddc10f3323b19",
+    "blur_0/rgb_out.npy": "fdd03c9cc0ed249a8428309894530f15fa85f1cd7daebc3b9f130b76ace2c3bc",
+    "blur_1/cmy_film.npy": "9ae69f951cbdeaf8951c064004ba13d62e55481abdb917712b367b2cfc5158fd",
+    "blur_1/cmy_print.npy": "7ce3e403894be49439f0dcc5847a807c05c675d2f420b0d41bf21be6528adb0b",
+    "blur_1/config.json": "663e5e6532f6ca7ee5475f1c37816dc64fefc274062a7ea4012204e3a5138c67",
+    "blur_1/log_e_film.npy": "865dbb3e7fdd4a9fc159899865cfe5905e3a4f693fdce0ae997fe2eee84b1d9e",
+    "blur_1/log_e_print.npy": "66f984415588492192e026b6b48c2522434917d10ef2422d3c2d8b3fe81fa323",
+    "blur_1/rgb_out.npy": "031b39b43e584f0fe6b631382b838a3899db165acfdc0c9168b658d74c623640",
+    "blur_3/cmy_film.npy": "16e9391e2bb853cc190fbcf46b70b15ed57f7ca9de362deb67414dd7698585af",
+    "blur_3/cmy_print.npy": "4376fb864eccfd9652f4b2d5451e4d4ff0b30b1d5fc5f96ce7f51c538a6783cd",
+    "blur_3/config.json": "75a4b4e4cc8dcc46dd3d45983c6af328e5dcef4ceab37ada0ddb32365b14a188",
+    "blur_3/log_e_film.npy": "6f98f71373259991e19b454a0ea3a6cf3e0a251571b823db6180c417d7e78772",
+    "blur_3/log_e_print.npy": "45f93ddd3c9b0a0a9998fa10bbe20233c3df65ee50e99d63a009c59f1e1def37",
+    "blur_3/rgb_out.npy": "880740e3fa27c5232f78102bf78d00210bfef176788f51167a71936a5dee9e54",
+    "convert_glare/cmy_film.npy": "bf626349ac8c41c22b85ef09c639bd5037ec2250d5b9c4463b1345b5211d17ca",
+    "convert_glare/config.json": "cedd3cd3d9dd9f9fd1cc790b8fde49ea2dfe94407a00434a46bc5a0840861c3d",
+    "convert_glare/rgb_out.npy": "dbc720d5cd972af47587569b80663d3eeda6156195cf90bb0fcdaaecd4a6148b",
+    "filters/0.166667_float32_3.npy": "f0eb565003141d9be525921960503faca8d6a530f0de2699d36c52c11cca271f",
+    "filters/0.166667_float32_5.npy": "b06c4a47c0e4c1ce6b36d558da82f5fdf5bc2dd8e9c47a3ced563b9c52c1be7f",
+    "filters/0.166667_float64_2.npy": "e6e2383de8ac63f88491900cc2131b3878ade76c4b4910a95c2c376f0fdfb2eb",
+    "filters/0.166667_float64_4.npy": "1c8eb6342f7e81620f3359e7ce2983aec3a83d346274655c6ff24ecdaee16978",
+    "filters/0.5_float32_7.npy": "daa940bc63d7530bc468ecba59917a132cf8fb8bcfebb015ac58b608f946d180",
+    "filters/0.5_float32_9.npy": "93c3833837f72039dfb64a70d9673be741df68363ed6757392cbdbb7fb75a148",
+    "filters/0.5_float64_6.npy": "63a09cb3ee0122cbfcb6b9ad03e8ae6a774aaa44b9d5b86c716e016fbd9c9a86",
+    "filters/0.5_float64_8.npy": "0e513e2fc7125edd6548b4d2aef9c462587dfdb07ab5fdf5bbd5839d51c0ddd6",
+    "filters/0_float32_1.npy": "f0eb565003141d9be525921960503faca8d6a530f0de2699d36c52c11cca271f",
+    "filters/0_float64_0.npy": "e6e2383de8ac63f88491900cc2131b3878ade76c4b4910a95c2c376f0fdfb2eb",
+    "filters/1_float32_11.npy": "8489f7c6c45f854cc17aaff730323cbf75de3c586769a098288aa8fe32ac68a8",
+    "filters/1_float64_10.npy": "1811cda8e3dcc9110fe78b559f33bea4080166592ff9114d238e243635e33178",
+    "filters/25_float32_19.npy": "fc15496ab13d594cdfb4c4450b65b1fd4fdfbeec403546ff06573a2503ace9e8",
+    "filters/25_float64_18.npy": "7a22ccc1f112bfaf54b96bfd98bd88dc0a677bd28b2c22447128bdd47595f7ff",
+    "filters/3_float32_13.npy": "fdbe00b62440dddd60ad9bfeeed017e6f20a69920e1c6d5b7ac7361ffb18ca8a",
+    "filters/3_float32_15.npy": "33e9bd72b9cfe3c6252bcc62db4a6e2a3fc0ab95499496fde6b87381c64f6c8e",
+    "filters/3_float32_17.npy": "f0179e99f39a1be83458ace0ebbb94575a91583527dbcea934948aa5e86fa83e",
+    "filters/3_float64_12.npy": "ec0047eb0ef60008bce91abb83e9f273f9d9ad07a40e8cf3babb2c13375dfd09",
+    "filters/3_float64_14.npy": "473568f845eedd1205680adf1383841ce2b842148ab5a0613dbab14561c8ca32",
+    "filters/3_float64_16.npy": "fa36d8d45fa72461fe26582a204ce7cc2f6da6cb248b86b9f1274f69ab948b1f",
+    "filters/manifest.json": "56794ce91a34b1ac80aa9cad798ba7a1239f49a530810219416292613072a30a",
+    "framing_axis0/cmy_film.npy": "97656a00cf186bd37c88975e1926939eed508de6ab01d37fb22a5ad53131c6d6",
+    "framing_axis0/cmy_print.npy": "1e2751106bfc85a1ebf6398bf43308d9e6f0fdc3faa275993625345ac01130ef",
+    "framing_axis0/config.json": "953f9492f6d077bbaedd14c129526a432b4f188a6be432c32c3054f2e220613e",
+    "framing_axis0/log_e_film.npy": "702b84252fe63f63e0fa4b0e1e8fee31799327f0dde21430cea2790a1c0e2d9e",
+    "framing_axis0/log_e_print.npy": "11f7e5e9fa9209cddfc031f155d4e32b7bcad078c5ca566c649836c6cf8c0180",
+    "framing_axis0/rgb_out.npy": "bef268828998ad9c8fd16139f5a3ff970adbbf77bbf8c4ded4079c4c6fb8bb4e",
+    "framing_axis1/cmy_film.npy": "5d7d7033a94517444c9c329dccee5182a5080416176bf656800adcdbb0b0d6ac",
+    "framing_axis1/cmy_print.npy": "755bfd558e448796ce4fbe5dba35fe41b645f81405ddc9eb6f9205d18898a020",
+    "framing_axis1/config.json": "953f9492f6d077bbaedd14c129526a432b4f188a6be432c32c3054f2e220613e",
+    "framing_axis1/log_e_film.npy": "7761f9fda2e76f037b9d9b0b1950673a80f15bb943fc7081c3e30cb8c5cc2fcb",
+    "framing_axis1/log_e_print.npy": "bc41d0295299e25c5a5f94a4c577f574699b04b9072ab5f0fd6ef564b565d216",
+    "framing_axis1/rgb_out.npy": "b8e469d2eafc9d9d6c00a77fcdd16fd42a29579edb8045fc8bc9f9f8b0bf28fc",
+    "framing_spacing/cmy_film.npy": "7015238053077a3328f710e92050192f064f5a71ab8c793e1d73dc0d8d1f7bdf",
+    "framing_spacing/cmy_print.npy": "1b1d3580c90c921c4005dc474334514341bf6523a697ebd372894df725de8c4d",
+    "framing_spacing/config.json": "3755d69ff34ca0a985b567076b8e711ae9b7d26e5ea9aecca8b34f68e0acde94",
+    "framing_spacing/log_e_film.npy": "b26823bc8cc22619cbb008cfaaba4d645aff7b73e6f2c0daeb7baf4ef9ba6ed2",
+    "framing_spacing/log_e_print.npy": "ca0963909cedd08825202e56af1c7d9024b58c4364d9fb5ca35c10f51c317012",
+    "framing_spacing/rgb_out.npy": "ebdb195ee463bef902b189f32b22145ad6271ec4cd35d9e52909b526b5f6638c",
+    "grain_chemistry/cmy_film.npy": "5c0cec0ae51901961a957d9cb04450086fda9b456a293fd0c78b6efc9ad1c48e",
+    "grain_chemistry/cmy_print.npy": "e13067f5d5cb9b655df42223e80e0dc83c2433f257e55c1b47c1ac1b19181a16",
+    "grain_chemistry/config.json": "06284ff188e234401da257fba0467b1c6b3de6c971fac8bfbc2f322fccc96b36",
+    "grain_chemistry/log_e_film.npy": "f4b1344a0966480d47f1b2eb7cf59334796c1e12f25f16d3b2c3cc38f39fa07f",
+    "grain_chemistry/log_e_print.npy": "3f79bc8accfc79466fba1e689794c69c5023e11fa9e8960bb866530e702980fb",
+    "grain_chemistry/rgb_out.npy": "693287f72d62ad6b355c47a6bddac88ff71a52a08bb5be67d3c020bd5d5f51b0",
+    "inputs/canon_17x19.npy": "e6e2383de8ac63f88491900cc2131b3878ade76c4b4910a95c2c376f0fdfb2eb",
+    "inputs/canon_17x19_bright_corner.npy": "ed5ada3e180cdda9cf49b42c9f16e0023a5e5810f3eb7b6ff49a98417ce3ec6f",
+    "inputs/framing_axis0.npy": "1453148f1daccfa6cb92cce00629ee6e8dab2a9d5568d474f0788afed37823a6",
+    "inputs/framing_axis1.npy": "9a7a80d50a74d502aa4069b0704e22bc4ade4120e02e02f79e9914dcfe01e2dd",
+    "inputs/inverse_batch1.npy": "665c3e6da1f6a28be175953ebb2a97152a4ece65adb2fa9fdc9f240eab31d837",
+    "inputs/inverse_batch2.npy": "4555b74f6d89837ecb278a1928e6ed1f0ce2e5ea45687843faa669a009b7c547",
+    "inputs/inverse_batch3.npy": "92d0a1d1482eed4f35d54f41318e67bb07cf430abfc4df7341ddf39c1b7a59eb",
+    "inputs/inverse_batch4.npy": "bcfe03150a23965b27a75483a797189c622ae6e6c9c1a182e47be74ecf2926c5",
+    "inputs/inverse_nodes17.npy": "8a422575ed84fb644d57e03b28ea604322bd0144bbfb121f4f4a0978053ee821",
+    "inputs/inverse_nodes32.npy": "72574f76e09697383c91cfbd7e3a47fc83c417567e4d7645c554a5474df05b72",
+    "inputs/inverse_nodes8.npy": "1c344b71472861959bafe661e484599780324d1937d0804f31fce6f5934b4808",
+    "inputs/inverse_nodes9.npy": "09f76f168647e79533079c51e77037460edf65662d1ac576b316da3953fa6334",
+    "inverse_base_lamp/cmy_film.npy": "70336c87abb662dde142bd68d6bb221fca2deffbf710606284ba5d35c9984350",
+    "inverse_base_lamp/config.json": "318db1a02116f86bd184b0853decc655a4c60ab19e96e6269c95c597d789c8f2",
+    "inverse_base_lamp/rgb_out.npy": "fbfbf8d965d25da5e23adfe629c0bd04b282b51404683af2eb115c85d2a3f132",
+    "inverse_batch1/cmy_film.npy": "7b56d030f0948aca466181132e4a92d635b1a8e9659670545d796bd39d4311eb",
+    "inverse_batch1/config.json": "7a9b89cc915545098568cc580e399aab55c4eeeae04619b0a2fd34d6b4ba8a32",
+    "inverse_batch1/rgb_out.npy": "001e6e91b88b007ea0e77b0b0dc3bbb57f28fc85790f4e841a55031d4d6776c8",
+    "inverse_batch2/cmy_film.npy": "f93bb1a2dd40f4ee6b06ec7cb109b46b548dff44aa46b2f84437095dc31f5974",
+    "inverse_batch2/config.json": "7a9b89cc915545098568cc580e399aab55c4eeeae04619b0a2fd34d6b4ba8a32",
+    "inverse_batch2/rgb_out.npy": "08c37bcb356ef3c9a16e5f244b93cd230292bda5f91ab808331250d7b2be9293",
+    "inverse_batch3/cmy_film.npy": "fe73f0eb5fb32244c5e7e1798c7cb6134a47273208d657ed86763446cf4e0dc0",
+    "inverse_batch3/config.json": "7a9b89cc915545098568cc580e399aab55c4eeeae04619b0a2fd34d6b4ba8a32",
+    "inverse_batch3/rgb_out.npy": "35218ecd2d98775b84c494bab163084c290649df0662e101355d3cd9a415b788",
+    "inverse_batch4/cmy_film.npy": "8a2ad9bab568210ee79af1911cfd336d4a64e011034d051468ff2979669baaae",
+    "inverse_batch4/config.json": "7a9b89cc915545098568cc580e399aab55c4eeeae04619b0a2fd34d6b4ba8a32",
+    "inverse_batch4/rgb_out.npy": "8f4656b6ca9f5b8f497e7c849a12c48087f16719770564b2aab59c02e80d71b5",
+    "inverse_lut17/cmy_film.npy": "550a471e56653bb81c6ae697c5678918289e1c4b358acb71f52b57fc7fb008e5",
+    "inverse_lut17/config.json": "75c5c276655d47c354a795d0eb28db4439039c82e633e8a5d8bd1edacb7ac5c8",
+    "inverse_lut17/rgb_out.npy": "0d4487b0c871479b912d3e28af5d19c80ad5108487ba7edc009531aad7e843c4",
+    "inverse_lut32/cmy_film.npy": "2c7f169dc1a900a157e175768733b9b3aa35ed08107254c94416f802d0c4c426",
+    "inverse_lut32/config.json": "9028e3ff2c6cfa73655d6874cb93a3d87fad709b05d8e0372db0ba7fc54dc3f9",
+    "inverse_lut32/rgb_out.npy": "8d0127d9c910576b02fc3d8800ccb136df8c5306c4432f70900d7220047e25b5",
+    "inverse_lut8/cmy_film.npy": "61a4800a66231f368100b21c4b317a987fc213344102d6222469546fa59c0a61",
+    "inverse_lut8/config.json": "39c78b3e5def95cca7f9c8fb00deea3d858cde23f60404685aa00c76227832e3",
+    "inverse_lut8/rgb_out.npy": "a99ed206a90470ff38680ede576e7f9aa63f8767a4e7eae0e91a6979034bd49c",
+    "inverse_lut9/cmy_film.npy": "0b56857b208b99840d3e7b6b3b94b41a401114beb0ae0351540512a4cbe5f260",
+    "inverse_lut9/config.json": "c2747f2a08e52e49e11a658a9bc8b8011b25ada6bfcfa8869e69fc568ee493d1",
+    "inverse_lut9/rgb_out.npy": "7094c044506478a91bb28e05bdbc2ec6648547bdef2bce59f86bd235850f63fb",
+    "inverse_nodes17/cmy_film.npy": "e2d724bc9d2c9fbd6df98e7c2cb3f22d828bf989df0e8d866dcfbca90ef23553",
+    "inverse_nodes17/config.json": "19380931e9d8ab66d0e3a55bd213d49bf3de3663f36bde7ee6329ee3bd31aa67",
+    "inverse_nodes32/cmy_film.npy": "9ee04c3b8d43631b0b9007c84d1e2b12aee915983ff359b4640834e9f54e869c",
+    "inverse_nodes32/config.json": "9f4a1b4a324d829ee638698519a173679fff0839ca8caf4462b503bc1c289168",
+    "inverse_nodes8/cmy_film.npy": "be814db510300a4b406426a865bdd9aaa034c04d06c1f95702c212aa5f4019ad",
+    "inverse_nodes8/config.json": "46c60eb6422475bc8a07fa41fdf6816f684ca483980113f8ce69524ec90c5841",
+    "inverse_nodes9/cmy_film.npy": "143880df0a673b21761ae913a59db643453fca3c6b65ff27204b581595abff04",
+    "inverse_nodes9/config.json": "c2b7943dde67715e0ad3ef2abe35e2c5e927fa27a97e6d813aff44463b94fd16",
+    "optical_0_0/cmy_film.npy": "69b89a5b9533316feb8694bac89b75a787d0fa3cc230fb16459ac25faa3f00a7",
+    "optical_0_0/cmy_print.npy": "13905a1aec351f05ec1e3a13bab2173a4573613fc2495f6f17284cd223fa333a",
+    "optical_0_0/config.json": "6d1f83cf81a99115c1049b1dfe25b02f570d7050145aa801e4d44623d0033224",
+    "optical_0_0/log_e_film.npy": "05b5b6a2db3e21e7d1dfb101c1ed6cdef97448e4a35e67ec22cb036450f96d53",
+    "optical_0_0/log_e_print.npy": "9652c3cf1a4c86ea974c2b7f2f46dcd57c347c265c406ffe30f1306efbc0e2b8",
+    "optical_0_0/rgb_out.npy": "76c282dde81ed8f954ec8cd29b05b7c8c788f8a39a6b28df6e378b93e7ea35c2",
+    "optical_0_1/cmy_film.npy": "06e001d6ce621e36d0ca6326e9a41dbb898bb4bd1ca8c8732d583e1abae6e192",
+    "optical_0_1/cmy_print.npy": "7ac49506a809241dcb2dfdeebeaa1cb4d1a336969327a1d4af7debae7b9a152a",
+    "optical_0_1/config.json": "aa5dbd75a217627c9eb6aef4bdeb647abb0c620a36eb9b258eeafdda30c4ac47",
+    "optical_0_1/log_e_film.npy": "77530edb0e72afc044bd3d4be569c410f50e5db04047f1acd5274e595c7b4c07",
+    "optical_0_1/log_e_print.npy": "6eedb22dde2aaa460aa54e5f997efed943c74980c66ec74b9bb9f6d3feafdfd8",
+    "optical_0_1/rgb_out.npy": "f297b437fd58eaa324eaea93dd4b7e474ec02abbe30ebfd374842401ed280b5d",
+    "optical_0_2/cmy_film.npy": "263c86a07369c172ce24091c99f752df513b5104c89ab159887bb0257df9942d",
+    "optical_0_2/cmy_print.npy": "ffff076b7dd7c03ee1b958e66cb21c80845e9a11d7785377b4984e70d88e48f9",
+    "optical_0_2/config.json": "beaed4f14fe3d55de8e2c4798b8e6180e27362d4812ab747f185c36dea5fef8b",
+    "optical_0_2/log_e_film.npy": "94bd3d05df8aa65921b9d4bb3fe8c3853dd85609a76fad87c0c03d1405177f79",
+    "optical_0_2/log_e_print.npy": "167910746d418f80277c8551a5a51690b9080de6fd2705cd721dc3666f6442c8",
+    "optical_0_2/rgb_out.npy": "90507408a9c5eec89e6e353bab27e263aff68de87fb78555b50752034e9800e3",
+    "optical_1_0/cmy_film.npy": "889ac77232667d9bd8bac8bdff47dc67b798377aefd73e40ebac15003719e1f7",
+    "optical_1_0/cmy_print.npy": "8e2d72f39f4484d7db54ebd9e90e96d4eb9c08c7d67c977ba502172600c20f43",
+    "optical_1_0/config.json": "9b0b4c9a15d742fa0d949ca4e7e2d8fcdde0abffc1cdca37c11211b86cb78454",
+    "optical_1_0/log_e_film.npy": "98c69d3a3961d592a76859282ba3a7eb4a461f958ad5a61ab569579d28d0f929",
+    "optical_1_0/log_e_print.npy": "e796df4530e1276735ace72c479ece0796ef68760d6bb11d253fc06034619b28",
+    "optical_1_0/rgb_out.npy": "8664d7281ae1b6f48ab2facf3f7cbdf27ab98cc14f86e1a10ce4cfa3b6e4deb7",
+    "optical_1_1/cmy_film.npy": "aa330e17d212ebba4c64fcb9fa8d0869ed31db524ea8990bf46eb0fff55262bf",
+    "optical_1_1/cmy_print.npy": "18a83eb97675fb52f9c2749cb2da20a21c8849663d7e604f6e2bc42af92d08a6",
+    "optical_1_1/config.json": "e5414ad200f848b6dbefd00e2af7971d3338f181cc44fd0f123ba76aed533c1a",
+    "optical_1_1/log_e_film.npy": "e599058d50216cf87ca52018e6e42f69106a26f0a2288bfc0c5233f6f2ab00cc",
+    "optical_1_1/log_e_print.npy": "f0da3eda705e6ffc915ee0ebc917a3ed3eb2840229532be836bc477b892ded76",
+    "optical_1_1/rgb_out.npy": "19b3766e318cf56cfbd87a2eff26bb2b53e039c798bb1d158df8fa47e821a2a2",
+    "optical_1_2/cmy_film.npy": "45b895c85fcd22ce65df1f97967bafbfa8fa027a47d0645c701ca0bb8d2b1414",
+    "optical_1_2/cmy_print.npy": "ed12baa8d6242b7e62e6046e522773810450f3a07da4846dbe13140bff85a217",
+    "optical_1_2/config.json": "e8650b10e0968527dfa4a4bcde506834f8e89eeaf5204539518729a16824209c",
+    "optical_1_2/log_e_film.npy": "9a6f9604043d6e3c8acfb83ea3ffa463cd2d8689d3b7d345c4473017aaf61b85",
+    "optical_1_2/log_e_print.npy": "73ee3cefa07069f03934144e90d6722ecfca9f1115b505071bd635e9873c7d9d",
+    "optical_1_2/rgb_out.npy": "f0a5d625d91689ad02fcb9c0b41192134cb6efc991c9c7e93581447e7855edb3",
+    "optical_2_0/cmy_film.npy": "da7ddff125524785267de52ce123e838a17c01f16888b51ff68707ddfc4894aa",
+    "optical_2_0/cmy_print.npy": "7ba289718b9d336bd325cdedc814a393a117f1f131630a5bfcf80a462bb4a33f",
+    "optical_2_0/config.json": "342e18c3d18484701dcc14a111595412cdf24e227a90d47f6901e700a397fcb5",
+    "optical_2_0/log_e_film.npy": "eb1434c659ed6aa6f0ce98031c4941da4b9f7d7a204fb9d6161c3eacf0a0fd45",
+    "optical_2_0/log_e_print.npy": "30ca9debfbb5362144156fc9b14d67e988d0973042c1975725a5e2ee3e92f207",
+    "optical_2_0/rgb_out.npy": "d14a498aa5857e4f2e1f5b85ee101f852fe1a21c39e55b3396367b0c2f1b5acc",
+    "optical_2_1/cmy_film.npy": "405efb8fdc45a62b4ec0f5ea8c01f4bd219b4c3f05bc28e50b1e1423fbddf00e",
+    "optical_2_1/cmy_print.npy": "db006373c4dc9891b06f9dff1e1b50c58cf20822c0133f31c53d15b355a3256b",
+    "optical_2_1/config.json": "b64c020f07bb609ee4c07da596baae4b9c90e68a244d368f10e34900fceeb93f",
+    "optical_2_1/log_e_film.npy": "b7efe01033efd00d69693c1a3a49900cd9e4b5ed45c501455855b5cd20123730",
+    "optical_2_1/log_e_print.npy": "12224f1d086c665b2dd0f82b18ccd47490fa8d854deb80ebb6b702ae0d25506e",
+    "optical_2_1/rgb_out.npy": "41e5d5ba22961f652af19896ac388140f3da5f02cb762eb5188b1bbcd8b2b371",
+    "optical_2_2/cmy_film.npy": "f15e66ac77a393dd48895d35d5445cc0f94787237d8c29d420a6d1d37a469e3f",
+    "optical_2_2/cmy_print.npy": "d3fa4b4378a30d0b7a1f3d1d9b21e974649a8b1ecf016395762be5fa1c4a5d1a",
+    "optical_2_2/config.json": "1dcef44893c1eacf03596a3473bc5c1682aeb32636799fcadb5f95f56bbb4f69",
+    "optical_2_2/log_e_film.npy": "44d84518cbffc509b120bc3777a1389914086c8eb750a6d944887358f6ebf6af",
+    "optical_2_2/log_e_print.npy": "751febc9eaf84febbd2337d8ec810ca2ce83ca39ff491297d3a0872b9a2cfc35",
+    "optical_2_2/rgb_out.npy": "f00a734a19634d7ab3a76eaf4241b374814a19829c40f98097f38e5b36624e7f",
+    "optical_3_0/cmy_film.npy": "145fbb8699615ff1b1b60c84cac131ec16312fe2b35ff4ebcef4455abe9a0f67",
+    "optical_3_0/cmy_print.npy": "bcd8c95ee2fa97401c01cfac46e58ac6f51826104a093ec74072022e54b66068",
+    "optical_3_0/config.json": "327ec888bfca88ff09122f3ebb20acfa03c04ca6878ff44145a591ed51c71c2e",
+    "optical_3_0/log_e_film.npy": "8e1ca6ec92e9c6854dfe1d03898462523efb3c843c2199fd5eeb620e39dd6d47",
+    "optical_3_0/log_e_print.npy": "60e458694bb9295e6694e072184adfab5a3fa22ed08ac7866001cbbd079ba30d",
+    "optical_3_0/rgb_out.npy": "cf9ddc9f38eac09a70e7d717a3439980c8a66c9dbeb4087696d8ad1902583d5d",
+    "optical_3_1/cmy_film.npy": "bd4671a0c6c230af18a0de82afd064b1eb658298516c435b0980d6e9aa984e5b",
+    "optical_3_1/cmy_print.npy": "fad44d18da5f5df7180c98e2f94ab1cceb0f35cd00dbc64c4149b6732c29f67e",
+    "optical_3_1/config.json": "e4a2b1665851616c1b6a5f2b677b0ea00d50f0764f20ee49c4996b5a4a369725",
+    "optical_3_1/log_e_film.npy": "398773077c6062bb8611c132a6918f60f7cad4c579af162fb76da904217e2e29",
+    "optical_3_1/log_e_print.npy": "98cf258fad5ba07de3017015bc38d74dd107f45a5d2465cdd8bf7bb7c0cd5d0a",
+    "optical_3_1/rgb_out.npy": "2483150dec2003c1b2b8ad52ba6f4a34712d50a5f4cfe244a8ec03738ae258b9",
+    "optical_3_2/cmy_film.npy": "fce1acb9f712b98bc53248504f2c705a3f9626b7ecbe34fc27ae1dfea5fa55f6",
+    "optical_3_2/cmy_print.npy": "bd9459be4a7318112d3159e4b2703767cce61e76dca922ad914abfdd1d9fe58a",
+    "optical_3_2/config.json": "d5c55a032a7d973bef3ecbd1d98666139d5b474d0d6100f0494ae97f5562e525",
+    "optical_3_2/log_e_film.npy": "6d725c0218f9ccb64aa88f013aa7aafbdcad7ef429bc10048b5371db1c906a5e",
+    "optical_3_2/log_e_print.npy": "a34635400ac8a3d889253e77a394e9033a111504b1926e9bb910b00f0374e58f",
+    "optical_3_2/rgb_out.npy": "b0bc85609b57c49c7db46de0949d74e481fae6b2b4b5577ddebef0546a505317",
+    "optical_stress64/cmy_film.npy": "9960ab78f7b2513c55ad8916c289cddb1f52e6fe8c30bc6b44f6cf5d968f6097",
+    "optical_stress64/cmy_print.npy": "15b06ce815ae5658815c1ead66236a451579c4d28410d2ecd0f3d5902d8c960a",
+    "optical_stress64/config.json": "7b9876a63ee9a1dd873eff27c9791538ac951412dd4426072a77e1cfb16ec4a8",
+    "optical_stress64/log_e_film.npy": "f55434a0106bdc97465ecdd7bfeed66064bcf6e94ba5bddfdce87ea25d2e3c74",
+    "optical_stress64/log_e_print.npy": "a67e95ae2c4dcddf44c80fc48ba0eac3add62a26d2d5699b9b57c81c344628cc",
+    "optical_stress64/rgb_out.npy": "b480b16fb06c7b1450b9f9175275c1dfc2bcae2248a08f52869083c96395f0e6",
+    "scanner_base_lut/cmy_film.npy": "cf387fefb65a0d45468017f54328ab47f17a1675eb7ed3dc2b389b30a71b1e4e",
+    "scanner_base_lut/cmy_print.npy": "7973a5173ee93bb5662a2dafb5fe149d4280070c9535706718b5c92b178684ab",
+    "scanner_base_lut/config.json": "1bee5bfbbb7516d4d707c679acc3deb31b7c5eaa1d094a44fbb8151503aec1b3",
+    "scanner_base_lut/log_e_film.npy": "469468fbd64963293d551c9727a29aceb1e258083894815746422173050f466d",
+    "scanner_base_lut/log_e_print.npy": "8fa24a6c5846a4e2d4ce800568dce32aea93d25d8874b324271b8d04a5147e99",
+    "scanner_base_lut/rgb_out.npy": "3f67e7bbd6a2e2fe0fa0a15c9a75be412252801e1b7a9736c34350d91559e5f9"
+  }
+}

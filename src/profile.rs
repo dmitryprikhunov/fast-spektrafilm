@@ -92,6 +92,28 @@ impl Profile {
             !stock.contains('/') && !stock.contains('\\'),
             "Invalid profile name"
         );
+        use std::sync::{Arc, Mutex, OnceLock};
+        static CACHE: OnceLock<Mutex<crate::cache::ByteCache<Profile>>> = OnceLock::new();
+        let path = data_dir.join("profiles").join(format!("{stock}.json"));
+        let key = format!(
+            "{}:{:?}",
+            crate::cache::file_key(&path)?,
+            development.map(f64::to_bits)
+        );
+        let cache =
+            CACHE.get_or_init(|| Mutex::new(crate::cache::ByteCache::new(16 * 1024 * 1024)));
+        if let Some(profile) = cache.lock().unwrap().get(&key) {
+            return Ok((*profile).clone());
+        }
+        let profile = Self::load_uncached(data_dir, stock, development)?;
+        let bytes = path.metadata()?.len() as usize * 8;
+        cache
+            .lock()
+            .unwrap()
+            .insert(key, bytes, Arc::new(profile.clone()));
+        Ok(profile)
+    }
+    fn load_uncached(data_dir: &Path, stock: &str, development: Option<f64>) -> Result<Self> {
         #[derive(Deserialize)]
         struct Payload {
             info: Info,

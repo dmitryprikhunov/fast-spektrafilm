@@ -23,6 +23,17 @@ def verify(require_reference=False):
         assert actual == set(manifest['reference_python']), 'Reference module set changed'
         for name, expected in manifest['reference_python'].items():
             assert digest(reference / name) == expected, f'Pinned reference changed: {name}'
+    review = ROOT/'tests/fixtures/review'
+    if (review/'manifest.json').exists():
+        fixtures=json.loads((review/'manifest.json').read_text())
+        assert fixtures['baseline_commit']==baseline['commit']
+        assert set(fixtures['files'])=={str(p.relative_to(review)) for p in review.rglob('*') if p.is_file() and p!=review/'manifest.json'}, 'Review fixture set changed'
+        for name, expected in fixtures['files'].items():
+            assert digest(review/name)==expected, f'Review fixture changed: {name}'
+    crops=ROOT/'tests/fixtures/raw_crops'
+    if (crops/'manifest.json').exists():
+        for item in json.loads((crops/'manifest.json').read_text())['crops']:
+            assert digest(crops/item['path'])==item['sha256'], f'Cached RAW crop changed: {item}'
     return baseline
 
 if __name__ == '__main__':

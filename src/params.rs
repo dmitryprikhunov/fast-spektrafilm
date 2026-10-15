@@ -558,3 +558,52 @@ impl Default for Special {
         }
     }
 }
+
+impl Params {
+    /// Reject nonfinite public numeric settings before digestion can mask them.
+    pub fn validate_numeric(&self) -> anyhow::Result<()> {
+        use anyhow::{Context, ensure};
+        // JSON encodes nonfinite floats as null. Required numeric fields reject
+        // that representation; optional numeric fields need an explicit check.
+        let _: Self = serde_json::from_value(serde_json::to_value(self)?)
+            .context("Parameters must contain finite numeric values")?;
+        ensure!(
+            [
+                self.film_chemistry.development_time,
+                self.print_chemistry.development_time
+            ]
+            .into_iter()
+            .flatten()
+            .all(f64::is_finite),
+            "Development time must be finite"
+        );
+        ensure!(
+            [
+                self.camera.lens_blur_um,
+                self.enlarger.lens_blur,
+                self.scanner.lens_blur,
+                self.scanner.unsharp_mask[0],
+                self.print_glare.blur,
+                self.print_glare.roughness,
+                self.print_glare.percent,
+                self.enlarger.print_exposure,
+                self.enlarger.preflash_exposure
+            ]
+            .iter()
+            .all(|v| *v >= 0.),
+            "Blur, glare and print exposure must be nonnegative"
+        );
+        ensure!(
+            2.0f64
+                .powf(self.camera.exposure_compensation_ev)
+                .is_finite()
+                && (2.0f64.powf(self.convert.exposure_compensation_ev) as f32).is_finite(),
+            "Exposure gain overflows its working precision"
+        );
+        ensure!(
+            (0.0..=1.0).contains(&self.halation.boost_range) && self.halation.protect_ev >= 0.,
+            "Invalid highlight boost range or protection"
+        );
+        Ok(())
+    }
+}
