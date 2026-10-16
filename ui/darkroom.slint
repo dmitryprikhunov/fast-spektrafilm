@@ -1,25 +1,93 @@
 import { Button, ComboBox, CheckBox, ScrollView, LineEdit, Palette } from "std-widgets.slint";
 
-export struct Field { key: string, label: string, value: string, kind: int, checked: bool, options: [string], hint: string }
+export struct Field { key: string, label: string, value: string, kind: int, checked: bool, options: [string], hint: string, tooltip: string, wheel: bool, depth: int }
 
 component ImagePanel inherits Rectangle {
     in property <image> photo;
-    in property <float> zoom;
+    in-out property <float> zoom;
+    in-out property <float> pan-x;
+    in-out property <float> pan-y;
+    private property <float> press-pan-x;
+    private property <float> press-pan-y;
+    private property <float> fit-scale: max(0.01, min((root.width - 64px) / (max(1, root.photo.width) * 1px), (root.height - 64px) / (max(1, root.photo.height) * 1px)));
+    private property <float> scale: root.zoom > 0 ? root.zoom : root.fit-scale;
     background: #777777;
     clip: true;
-    in property <float> aspect: max(1, root.photo.width) / max(1, root.photo.height);
-    in property <length> photo-width: root.zoom > 0 ? root.photo.width * root.zoom * 1px : min(root.width - 64px, (root.height - 64px) * root.aspect);
-    in property <length> photo-height: root.photo-width / root.aspect;
-    ScrollView {
-        content-width: max(self.visible-width, root.photo-width + 64px);
-        content-height: max(self.visible-height, root.photo-height + 64px);
-        Rectangle {
-            x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
-            width: root.photo-width + 32px; height: root.photo-height + 32px;
-            background: white;
-            Image { x: 16px; y: 16px; width: root.photo-width; height: root.photo-height; source: root.photo; image-fit: contain; }
+    Rectangle {
+        x: (root.width - self.width) / 2 + root.pan-x * 1px;
+        y: (root.height - self.height) / 2 + root.pan-y * 1px;
+        width: root.photo.width * root.scale * 1px + 32px;
+        height: root.photo.height * root.scale * 1px + 32px;
+        background: white;
+        Image { x: 16px; y: 16px; width: parent.width - 32px; height: parent.height - 32px; source: root.photo; image-fit: contain; }
+    }
+    area := TouchArea {
+        mouse-cursor: self.pressed ? grabbing : grab;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down {
+                root.press-pan-x = root.pan-x;
+                root.press-pan-y = root.pan-y;
+            }
+        }
+        moved => {
+            root.pan-x = root.press-pan-x + (self.mouse-x - self.pressed-x) / 1px;
+            root.pan-y = root.press-pan-y + (self.mouse-y - self.pressed-y) / 1px;
+        }
+        scroll-event(event) => {
+            if event.delta-y == 0px { return reject; }
+            let old-scale = root.scale;
+            let new-scale = clamp(old-scale * pow(1.2, event.delta-y / 60px), 0.01, 64);
+            let anchor-x = (self.mouse-x - root.width / 2) / 1px;
+            let anchor-y = (self.mouse-y - root.height / 2) / 1px;
+            root.pan-x = anchor-x - (anchor-x - root.pan-x) * new-scale / old-scale;
+            root.pan-y = anchor-y - (anchor-y - root.pan-y) * new-scale / old-scale;
+            root.zoom = new-scale;
+            accept
+        }
+        double-clicked => { root.zoom = 0; root.pan-x = 0; root.pan-y = 0; }
+    }
+}
+
+// A containing TouchArea receives wheel events rejected by the normal editor,
+// while clicks, text selection, keyboard editing and checkboxes stay native.
+component ParameterRow inherits Rectangle {
+    in property <Field> field;
+    in property <bool> enabled;
+    callback edited(string, string);
+    callback stepped(string, int);
+    private property <length> wheel-remainder: 0px;
+    height: 32px;
+    HorizontalLayout {
+        padding-left: root.field.depth * 12px;
+        spacing: 8px;
+        Text { text: root.field.label; width: root.field.key == "/workflow/route" ? 64px : 188px - max(0, root.field.depth - 1) * 12px; font-size: 12px; color: #dddddd; vertical-alignment: center; wrap: word-wrap; }
+        TouchArea {
+            enabled: root.enabled;
+            scroll-event(event) => {
+                if !root.field.wheel || event.delta-y == 0px { return reject; }
+                root.wheel-remainder += event.delta-y;
+                let steps = floor(abs(root.wheel-remainder) / 60px) * (root.wheel-remainder > 0px ? 1 : -1);
+                if steps != 0 {
+                    root.wheel-remainder -= steps * 60px;
+                    root.stepped(root.field.key, steps);
+                }
+                accept
+            }
+            if root.field.kind == 0: LineEdit {
+                x: 0px; y: 0px; width: parent.width; height: parent.height;
+                text: root.field.value;
+                placeholder-text: root.field.hint;
+                enabled: root.enabled;
+                accepted => { root.edited(root.field.key, self.text); }
+                changed has-focus => { if !self.has-focus && self.text != root.field.value { root.edited(root.field.key, self.text); } }
+            }
+            if root.field.kind == 1: CheckBox { x: 0px; y: 4px; width: 24px; height: 24px; checked: root.field.checked; enabled: root.enabled; toggled => { root.edited(root.field.key, self.checked ? "true" : "false"); } }
+            if root.field.kind == 2: ComboBox { x: 0px; y: 0px; width: parent.width; height: parent.height; model: root.field.options; current-value: root.field.value; enabled: root.enabled; selected(v) => { root.edited(root.field.key, v); } }
         }
     }
+    // Keep last so the hover observer runs before native editors handle input.
+    Tooltip { text: @markdown("\{root.field.tooltip}"); }
+
 }
 export component Darkroom inherits Window {
     title: "spektrafilm";
@@ -30,6 +98,8 @@ export component Darkroom inherits Window {
     default-font-size: 13px;
     init => { Palette.color-scheme = dark; }
     in property <[Field]> fields;
+    in property <Field> workflow-field;
+    in property <string> auto-preview-help;
     in property <image> before;
     in property <image> after;
     in property <bool> has-image;
@@ -42,15 +112,20 @@ export component Darkroom inherits Window {
     in property <string> dimensions;
     in property <string> status: "Select an image to begin.";
     in property <string> render-info;
+    in property <string> activity;
+    out property <string> display-status: root.busy ? root.activity + (root.error ? " · " + root.status : "") : root.status;
     in property <string> monitor-name: "sRGB";
     in-out property <bool> auto-preview: true;
     in-out property <int> view-mode: 1;
     in-out property <int> export-format: 1;
     in-out property <int> tab: 0;
     in-out property <float> zoom: 0;
+    in-out property <float> pan-x: 0;
+    in-out property <float> pan-y: 0;
+    public function reset-view(scale: float) { root.zoom = scale; root.pan-x = 0; root.pan-y = 0; }
     callback open-image(); callback load-settings(); callback save-settings(); callback save-default(); callback reset-settings();
     callback preview(); callback scan(); callback export-image();
-    callback field-edited(string,string); callback section-toggled(string); callback tab-selected(int);
+    callback field-edited(string,string); callback field-stepped(string,int); callback section-toggled(string); callback tab-selected(int);
     callback calibrate(bool); callback neutralize(); callback rotate(int); callback calibrated(string); callback resolved(string); callback monitor(bool);
     VerticalLayout {
         padding: 10px; spacing: 8px;
@@ -62,16 +137,34 @@ export component Darkroom inherits Window {
                     background: #777777;
                     if root.has-image: HorizontalLayout {
                         spacing: 4px;
-                        if root.view-mode != 1: ImagePanel { photo: root.before; zoom: root.zoom; }
-                        if root.view-mode != 0: ImagePanel { photo: root.after; zoom: root.zoom; }
+                        if root.view-mode != 1: ImagePanel { photo: root.before; zoom <=> root.zoom; pan-x <=> root.pan-x; pan-y <=> root.pan-y; }
+                        if root.view-mode != 0: ImagePanel { photo: root.after; zoom <=> root.zoom; pan-x <=> root.pan-x; pan-y <=> root.pan-y; }
                     }
                 }
                 HorizontalLayout {
                     height: 32px; spacing: 5px;
                     ComboBox { width: 130px; model: ["Original", "Processed", "Compare"]; current-index <=> root.view-mode; }
                     Text { text: root.stale ? "Preview needs updating" : root.render-info; color: #aaaaaa; overflow: elide; vertical-alignment: center; }
-                    for scale in [1,2,4]: Button { width: 56px; text: scale * 100 + "%"; clicked => { root.zoom = scale; } }
-                    Button { width: 60px; text: "Fit"; clicked => { root.zoom = 0; } }
+                    Button {
+                        width: 44px; icon: @image-url("icons/rotate-counterclockwise.svg"); colorize-icon: true;
+                        accessible-label: "Rotate counterclockwise";
+                        enabled: root.has-image && !root.busy && !root.dialog-open;
+                        Tooltip { text: @markdown("Rotate counterclockwise by 90°"); }
+                        clicked => { root.rotate(-1); }
+                    }
+                    Button {
+                        width: 44px; icon: @image-url("icons/rotate-clockwise.svg"); colorize-icon: true;
+                        accessible-label: "Rotate clockwise";
+                        enabled: root.has-image && !root.busy && !root.dialog-open;
+                        Tooltip { text: @markdown("Rotate clockwise by 90°"); }
+                        clicked => { root.rotate(1); }
+                    }
+                    for scale in [1,2,4]: Button {
+                        width: 52px; text: scale * 100 + "%"; enabled: root.has-image;
+                        Tooltip { text: @markdown("Set the preview pixel scale"); }
+                        clicked => { root.reset-view(scale); }
+                    }
+                    Button { width: 48px; text: "Fit"; enabled: root.has-image; Tooltip { text: @markdown("Fit and center the image. Wheel to zoom; drag to pan."); } clicked => { root.reset-view(0); } }
                 }
             }
             Rectangle {
@@ -93,10 +186,6 @@ export component Darkroom inherits Window {
                         Button { width: 110px; text: "Select file…"; enabled: !root.exporting && !root.dialog-open; clicked => { root.open-image(); } }
                     }
                     if root.tab == 0: Text { text: root.dimensions; color: #999999; height: 20px; }
-                    if root.tab == 0: HorizontalLayout {
-                        Button { text: "↶ Rotate"; enabled: root.has-image && !root.busy && !root.dialog-open; clicked => { root.rotate(-1); } }
-                        Button { text: "Rotate ↷"; enabled: root.has-image && !root.busy && !root.dialog-open; clicked => { root.rotate(1); } }
-                    }
                     if root.tab == 3: Button { text: "Neutralize print filters"; enabled: !root.busy && !root.dialog-open; clicked => { root.neutralize(); } }
                     if root.tab == 4: VerticalLayout {
                         spacing: 5px;
@@ -111,7 +200,6 @@ export component Darkroom inherits Window {
                             Button { text: "Monitor ICC…"; enabled: !root.exporting && !root.dialog-open; clicked => { root.monitor(true); } }
                             Button { text: "sRGB"; enabled: !root.exporting && !root.dialog-open; clicked => { root.monitor(false); } }
                         }
-                        CheckBox { text: "Automatic preview"; checked <=> root.auto-preview; enabled: !root.exporting && !root.dialog-open; }
                         ComboBox { model: ["TIFF", "PNG", "NPY · float", "JPEG", "EXR"]; current-index <=> root.export-format; enabled: !root.exporting && !root.dialog-open; }
                     }
                     if root.tab == 3: HorizontalLayout {
@@ -124,19 +212,26 @@ export component Darkroom inherits Window {
                             for field in root.fields: Rectangle {
                                 height: field.kind == 3 ? 34px : 32px;
                                 if field.kind == 3: Rectangle {
-                                    x: 0px; width: parent.width; height: parent.height;
+                                    x: field.depth * 12px; width: parent.width - self.x; height: parent.height;
                                     Text { x: 0px; width: parent.width; text: (field.checked ? "⌄  " : "›  ") + field.label; color: #ff985a; horizontal-alignment: left; vertical-alignment: center; }
                                     TouchArea { clicked => { root.section-toggled(field.key); } }
                                 }
-                                if field.kind != 3: HorizontalLayout {
-                                    spacing: 8px;
-                                    Text { text: field.label; width: 200px; font-size: 12px; color: #dddddd; vertical-alignment: center; wrap: word-wrap; }
-                                    if field.kind == 0: LineEdit { text: field.value; placeholder-text: field.hint; enabled: !root.exporting && !root.dialog-open; accepted => { root.field-edited(field.key, self.text); } changed has-focus => { if !self.has-focus && self.text != field.value { root.field-edited(field.key, self.text); } } }
-                                    if field.kind == 1: CheckBox { checked: field.checked; enabled: !root.exporting && !root.dialog-open; toggled => { root.field-edited(field.key, self.checked ? "true" : "false"); } }
-                                    if field.kind == 2: ComboBox { model: field.options; current-value: field.value; enabled: !root.exporting && !root.dialog-open; selected(v) => { root.field-edited(field.key,v); } }
+                                if field.kind != 3: ParameterRow {
+                                    field: field; enabled: !root.exporting && !root.dialog-open;
+                                    edited(key, value) => { root.field-edited(key, value); }
+                                    stepped(key, steps) => { root.field-stepped(key, steps); }
                                 }
                             }
                         }
+                    }
+                    CheckBox {
+                        text: "Automatic preview"; checked <=> root.auto-preview; enabled: !root.exporting && !root.dialog-open;
+                        Tooltip { text: @markdown("\{root.auto-preview-help}"); }
+                    }
+                    ParameterRow {
+                        field: root.workflow-field; enabled: !root.exporting && !root.dialog-open;
+                        edited(key, value) => { root.field-edited(key, value); }
+                        stepped(key, steps) => { root.field-stepped(key, steps); }
                     }
                     HorizontalLayout {
                         height: 38px; spacing: 5px;
@@ -147,6 +242,6 @@ export component Darkroom inherits Window {
                 }
             }
         }
-        Text { height: 24px; text: root.status; color: root.error ? #ff9c8c : #aaaaaa; overflow: elide; vertical-alignment: center; }
+        Text { height: 24px; text: root.display-status; color: root.error ? #ff9c8c : #aaaaaa; overflow: elide; vertical-alignment: center; }
     }
 }

@@ -87,3 +87,58 @@ startup and preparation. Maximum absolute output error was 2.1202e-14. These
 measurements cover the core crop transform; they do not measure GUI scan-cache
 memory or full-resolution RAW throughput. Detailed logs and benchmark provenance
 remain under ignored `artifacts/`.
+
+## Preview and parameter controls, 2026-10-16
+
+Review target: `refactor/gui-preview-controls`, based on `develop` (`0ac296d`).
+The pinned reference GUI and supplied screenshots guided the layout and help.
+
+- Mouse-wheel zoom keeps the image point under the pointer fixed. Dragging pans
+  the image; Original, Processed and Compare share navigation. Fit, pixel-scale
+  presets and double-click reset the view without processing another image.
+- Rotation uses two 44 × 32 pixel native buttons with 20-pixel SVG symbols in
+  the preview footer, beside the zoom presets. Pointer checks exercise both
+  directions at 1240 × 850 and 980 × 700, including from the Print tab.
+- Numeric wheels use the reference's steps and bounds; dropdowns and checkboxes
+  accept wheels as well. Small deltas accumulate, and unchanged edits preserve
+  active work and custom lightness-compression knees. Output depth has discrete
+  Automatic/8/16/32 choices. Text entry retains float64 precision.
+- Delayed help covers labels, input fields and checkboxes. Help and numeric
+  metadata are copied from the pinned Python manifests into embedded JSON,
+  with source hashes and GPL attribution. The extraction script reproduces
+  the JSON byte-for-byte. Native tooltip popups wrap long explanations; their
+  hover observer precedes native editor input handling.
+- Main/Film/Print follow the reference's group order, including nested Grain
+  sections. Spectral upsampling and experimental illuminant/dye controls live
+  in Advanced. Automatic preview and all six workflows remain in the footer.
+- Queued previews immediately show their pending status. Active previews,
+  scans, calibration and saves retain their processing message when settings
+  notifications arrive. Invalid entries remain visible alongside that message;
+  obsolete worker results cannot replace the current operation's status.
+
+The cached-crop benchmark used Portra 400 → Endura → sRGB, four threads, three
+timed repetitions after warmup, with autoexposure and spatial/stochastic effects
+disabled identically in Rust and the pinned reference. All comparisons passed
+the strict float64 contract.
+
+| Cached 256 × 256 crop | Rust median | Reference median | Rust peak RSS | Reference peak RSS | Maximum absolute error |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Canon EOS 5D Mark III | 60.43 ms | 457.59 ms | 36.68 MiB | 468.20 MiB | 2.1202e-14 |
+| Hasselblad H3D-39 II | 61.13 ms | 448.10 ms | 36.47 MiB | 468.28 MiB | 1.3993e-14 |
+| Mamiya ZD | 60.82 ms | 452.79 ms | 36.42 MiB | 455.98 MiB | 1.8735e-15 |
+| Nikon D750 | 60.66 ms | 448.20 ms | 36.30 MiB | 456.06 MiB | 1.5266e-15 |
+
+RSS includes startup and preparation in both processes. These measurements cover
+the core crop transform. GUI interaction checks use Slint's software renderer;
+the table does not measure GUI resident memory or full-frame RAW throughput.
+Run `.venv/bin/python tools/benchmark.py --threads 4 --repeat 3` to reproduce;
+full provenance and per-run numbers are in ignored
+`artifacts/benchmark/deterministic/report.json`. Interaction screenshots and
+validation logs are under ignored `artifacts/gui-refactor/`.
+
+Validation passed: 54 release tests (four optional/benchmark tests ignored),
+strict all-target release Clippy with GUI enabled, formatting, all 235 asset
+hashes and byte-for-byte regeneration of the GUI metadata. Release checks used
+the CI settings: LTO disabled, 16 codegen units and four processing threads.
+The offscreen GUI regression also passed in debug mode. The original sibling
+checkout remains clean at the pinned commit.
