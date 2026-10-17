@@ -1,12 +1,15 @@
 //! Native Slint GUI. All simulation and decoding run on one background worker.
 mod backend;
 mod inspector;
+mod presentation;
 #[cfg(test)]
 mod tests;
 use crate::Params;
 use anyhow::{Context, Result};
 use backend::{Preview, Session, Source, Stock, profiles, read_params, save_params};
-use slint::{ComponentHandle, ModelRc, Rgb8Pixel, SharedPixelBuffer, Timer, TimerMode, VecModel};
+use slint::{
+    ComponentHandle, Model, ModelRc, Rgb8Pixel, SharedPixelBuffer, Timer, TimerMode, VecModel,
+};
 use std::{
     cell::RefCell,
     collections::HashSet,
@@ -86,7 +89,25 @@ fn model(values: impl Iterator<Item = String>) -> ModelRc<slint::SharedString> {
     Rc::new(VecModel::from(values.map(Into::into).collect::<Vec<_>>())).into()
 }
 fn sync(ui: &Darkroom, state: &State) {
-    ui.set_fields(Rc::new(VecModel::from(inspector::fields(state, ui.get_tab()))).into());
+    let fields = inspector::fields(state, ui.get_tab());
+    let current = ui.get_fields();
+    if let Some(model) = current.as_any().downcast_ref::<VecModel<Field>>()
+        && model.row_count() == fields.len()
+        && fields
+            .iter()
+            .enumerate()
+            .all(|(i, field)| model.row_data(i).is_some_and(|old| old.key == field.key))
+    {
+        // Keep editor instances (and their partial wheel input) while the same
+        // parameters are visible. Tab/section changes still rebuild the rows.
+        for (i, field) in fields.into_iter().enumerate() {
+            model.set_row_data(i, field);
+        }
+    } else {
+        ui.set_fields(Rc::new(VecModel::from(fields)).into());
+    }
+    ui.set_workflow_field(inspector::workflow(state));
+    ui.set_auto_preview_help(presentation::wrapped_tooltip("/workflow/auto_preview").into());
     ui.set_monitor_name(
         state
             .params
@@ -102,8 +123,8 @@ fn initial_sections() -> HashSet<String> {
         "0:Profiles",
         "0:Camera",
         "0:Enlarger",
-        "1:Development",
-        "2:Development",
+        "1:Chemistry",
+        "2:Chemistry",
         "3:Negative conversion",
         "4:Processing",
     ]
@@ -114,6 +135,12 @@ fn initial_sections() -> HashSet<String> {
 fn error(ui: &Darkroom, message: impl Into<slint::SharedString>) {
     ui.set_error(true);
     ui.set_status(message.into());
+}
+fn begin(ui: &Darkroom, message: &str) {
+    ui.set_activity(message.into());
+    ui.set_status(message.into());
+    ui.set_busy(true);
+    ui.set_error(false);
 }
 fn pixels(data: &[u8], size: [u32; 2]) -> slint::Image {
     slint::Image::from_rgb8(SharedPixelBuffer::<Rgb8Pixel>::clone_from_slice(
@@ -126,6 +153,14 @@ fn changed(ui: &Darkroom, state: &Rc<RefCell<State>>) {
     sync(ui, &s);
     ui.set_stale(s.path.is_some());
     if ui.get_auto_preview() || ui.get_busy() || s.path.is_none() {
+        begin(
+            ui,
+            if s.path.is_some() {
+                "Preview queued…"
+            } else {
+                "Checking settings…"
+            },
+        );
         let weak = ui.as_weak();
         let state = Rc::downgrade(state);
         s.debounce.start(
@@ -158,9 +193,8 @@ fn submit_request(ui: &Darkroom, state: &Rc<RefCell<State>>, full: bool, reload:
     }
     s.debounce.stop();
     let revision = s.revision.fetch_add(1, Ordering::SeqCst) + 1;
-    ui.set_busy(true);
-    ui.set_error(false);
-    ui.set_status(
+    begin(
+        ui,
         if s.path.is_some() {
             if full {
                 "Scanning at full resolution…"
@@ -169,8 +203,7 @@ fn submit_request(ui: &Darkroom, state: &Rc<RefCell<State>>, full: bool, reload:
             }
         } else {
             "Checking settings…"
-        }
-        .into(),
+        },
     );
     if s.sender
         .send(Request {
@@ -514,6 +547,7 @@ fn bind_callbacks(ui: &Darkroom, state: &Rc<RefCell<State>>) {
                         .into_owned()
                         .into(),
                 );
+                ui.invoke_reset_view(0.);
                 ui.set_has_image(false);
                 ui.set_stale(true);
                 submit_request(ui, s, false, true);
@@ -524,14 +558,38 @@ fn bind_callbacks(ui: &Darkroom, state: &Rc<RefCell<State>>) {
     let s = state.clone();
     ui.on_field_edited(move |key, value| {
         let Some(ui) = weak.upgrade() else {
-            return;
+            return false;
         };
         if ui.get_exporting() {
-            return;
+            return false;
         }
         let result = inspector::edit(&mut s.borrow_mut(), &key, &value);
         match result {
-            Ok(()) => changed(&ui, &s),
+            Ok(edited) => {
+                if edited {
+                    changed(&ui, &s);
+                }
+                true
+            }
+            Err(e) => {
+                error(&ui, format!("{e:#}"));
+                false
+            }
+        }
+    });
+    let weak = ui.as_weak();
+    let s = state.clone();
+    ui.on_field_stepped(move |key, steps| {
+        let Some(ui) = weak.upgrade() else {
+            return;
+        };
+        if ui.get_exporting() || ui.get_dialog_open() {
+            return;
+        }
+        let result = inspector::step(&mut s.borrow_mut(), &key, steps);
+        match result {
+            Ok(true) => changed(&ui, &s),
+            Ok(false) => {}
             Err(e) => error(&ui, format!("{e:#}")),
         }
     });
@@ -596,6 +654,7 @@ fn bind_callbacks(ui: &Darkroom, state: &Rc<RefCell<State>>) {
                 state.params.io.input_rotation =
                     (state.params.io.input_rotation as i32 + direction).rem_euclid(4) as u8;
             }
+            ui.invoke_reset_view(0.);
             changed(&ui, &s);
         }
     });
@@ -610,9 +669,8 @@ fn bind_callbacks(ui: &Darkroom, state: &Rc<RefCell<State>>) {
         }
         let state = s.borrow();
         state.debounce.stop();
-        ui.set_busy(true);
+        begin(&ui, "Balancing neutral print filters…");
         ui.set_exporting(true);
-        ui.set_status("Balancing neutral print filters…".into());
         let revision = state.revision.fetch_add(1, Ordering::SeqCst) + 1;
         if state
             .sender
@@ -640,9 +698,8 @@ fn bind_callbacks(ui: &Darkroom, state: &Rc<RefCell<State>>) {
         }
         let s = s.borrow();
         s.debounce.stop();
-        ui.set_busy(true);
+        begin(&ui, "Fitting scan calibration…");
         ui.set_exporting(true);
-        ui.set_status("Fitting scan calibration…".into());
         let revision = s.revision.fetch_add(1, Ordering::SeqCst) + 1;
         if s.sender
             .send(Request {
@@ -832,10 +889,8 @@ fn bind_callbacks(ui: &Darkroom, state: &Rc<RefCell<State>>) {
                 }
                 let s = s.borrow();
                 s.debounce.stop();
-                ui.set_busy(true);
+                begin(ui, "Saving full-resolution image…");
                 ui.set_exporting(true);
-                ui.set_error(false);
-                ui.set_status("Saving full-resolution image…".into());
                 let revision = s.revision.fetch_add(1, Ordering::SeqCst) + 1;
                 if s.sender
                     .send(Request {

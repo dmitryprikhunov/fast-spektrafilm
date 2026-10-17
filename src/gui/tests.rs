@@ -535,17 +535,31 @@ fn offscreen_darkroom_callbacks_and_layout() -> Result<()> {
 
     // Open every section and require one editor for every photo parameter.
     for tab in 0..5 {
-        let headers = inspector::fields(&state.borrow(), tab);
-        for f in headers {
-            if f.kind == 3 {
-                state.borrow_mut().sections.insert(f.key.to_string());
+        loop {
+            let mut opened = false;
+            let headers = inspector::fields(&state.borrow(), tab);
+            for f in headers {
+                if f.kind == 3 {
+                    opened |= state.borrow_mut().sections.insert(f.key.to_string());
+                }
+            }
+            if !opened {
+                break;
             }
         }
     }
     let mut keys = HashSet::new();
+    let mut missing_help = Vec::new();
     for tab in 0..5 {
-        for field in inspector::fields(&state.borrow(), tab) {
+        let mut fields = inspector::fields(&state.borrow(), tab);
+        if tab == 0 {
+            fields.push(inspector::workflow(&state.borrow()));
+        }
+        for field in fields {
             if field.kind != 3 {
+                if field.tooltip.is_empty() {
+                    missing_help.push(field.key.to_string());
+                }
                 assert!(
                     keys.insert(field.key.to_string()),
                     "Duplicate control {}",
@@ -554,6 +568,7 @@ fn offscreen_darkroom_callbacks_and_layout() -> Result<()> {
             }
         }
     }
+    assert!(missing_help.is_empty(), "Missing help for {missing_help:?}");
     fn leaves(v: &serde_json::Value, path: &str, out: &mut Vec<String>) {
         if path.starts_with("/special/") {
             out.push(path.into());
@@ -592,6 +607,80 @@ fn offscreen_darkroom_callbacks_and_layout() -> Result<()> {
             assert!(keys.contains(&key), "Missing editor for {key}");
         }
     }
+    let advanced = inspector::fields(&state.borrow(), 3);
+    assert_eq!(
+        advanced
+            .iter()
+            .filter(|f| f.kind == 3)
+            .map(|f| f.label.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "Spectral upsampling",
+            "Input gamut compress",
+            "Output gamut compress",
+            "Experimental",
+            "Negative conversion"
+        ]
+    );
+    assert!(
+        advanced
+            .iter()
+            .any(|f| f.key == "/settings/rgb_to_raw_method")
+    );
+    assert!(advanced.iter().any(|f| f.key == "/enlarger/illuminant"));
+    assert!(
+        !inspector::fields(&state.borrow(), 4)
+            .iter()
+            .any(|f| f.key == "/settings/rgb_to_raw_method")
+    );
+    assert_eq!(
+        presentation::tooltip("/camera/exposure_compensation_ev"),
+        "Add a bias to the auto-exposure of the camera."
+    );
+    assert!(
+        presentation::tooltip("/io/input_gamut_compress/hull_detail")
+            .contains("larger means LESS smoothing")
+    );
+    assert_eq!(
+        presentation::tooltip("/convert/calibration/0/1"),
+        presentation::tooltip("/convert/calibration")
+    );
+    // Wheel editing follows the reference increments, clamps its editor bounds,
+    // and resolves choices without losing precision in direct text entry.
+    ui.invoke_field_stepped("/camera/exposure_compensation_ev".into(), 1);
+    assert_eq!(state.borrow().params.camera.exposure_compensation_ev, 0.25);
+    ui.invoke_field_stepped("/raw/temperature".into(), 1);
+    assert_eq!(state.borrow().params.raw.temperature, 5600.);
+    ui.invoke_field_stepped("/io/crop_center/0".into(), 1000);
+    assert_eq!(state.borrow().params.io.crop_center[0], 1.);
+    ui.invoke_field_stepped("/camera/auto_exposure".into(), -1);
+    assert!(!state.borrow().params.camera.auto_exposure);
+    ui.invoke_field_stepped("/raw/white_balance".into(), -1);
+    assert_eq!(state.borrow().params.raw.white_balance, "daylight");
+    let revision = state.borrow().revision.load(Ordering::SeqCst);
+    ui.invoke_field_edited("/raw/temperature".into(), "5600".into());
+    assert_eq!(state.borrow().revision.load(Ordering::SeqCst), revision);
+    state
+        .borrow_mut()
+        .params
+        .io
+        .output_gamut_compress
+        .lightness_compression = Some([0.8, 1.2, 2.]);
+    ui.invoke_field_stepped(
+        "/io/output_gamut_compress/lightness_compression/enabled".into(),
+        1,
+    );
+    assert_eq!(
+        state
+            .borrow()
+            .params
+            .io
+            .output_gamut_compress
+            .lightness_compression,
+        Some([0.8, 1.2, 2.])
+    );
+    assert_eq!(state.borrow().revision.load(Ordering::SeqCst), revision);
+    state.borrow_mut().params = deterministic();
     state.borrow_mut().sections = initial_sections();
     ui.invoke_field_edited("/camera/exposure_compensation_ev".into(), "1.25".into());
     assert_eq!(state.borrow().params.camera.exposure_compensation_ev, 1.25);
@@ -611,6 +700,13 @@ fn offscreen_darkroom_callbacks_and_layout() -> Result<()> {
         state.borrow().revision.load(Ordering::SeqCst)
     );
     assert!(matches!(request.job, Job::Preview { .. }));
+    assert_eq!(ui.get_display_status(), "Developing preview…");
+    ui.invoke_field_edited("/camera/exposure_compensation_ev".into(), "bad".into());
+    assert!(ui.get_display_status().starts_with("Developing preview…"));
+    assert!(ui.get_display_status().contains("Enter a number"));
+    ui.set_error(false);
+    ui.set_status("Startup settings saved.".into());
+    assert_eq!(ui.get_display_status(), "Developing preview…");
     ui.set_busy(false);
     ui.invoke_calibrated(serde_json::to_string(&deterministic())?.into());
     assert!(!ui.get_error());
@@ -639,6 +735,23 @@ fn offscreen_darkroom_callbacks_and_layout() -> Result<()> {
     assert!(!ui.get_error());
     assert!(ui.get_has_image());
     assert!(!ui.get_stale());
+    assert_eq!(ui.get_display_status(), "Ready");
+    ui.invoke_scan();
+    assert!(ui.get_busy());
+    assert_eq!(ui.get_display_status(), "Scanning at full resolution…");
+    ui.set_status("Ready".into());
+    assert_eq!(ui.get_display_status(), "Scanning at full resolution…");
+    event_receiver.recv_timeout(Duration::from_secs(60))?();
+    assert!(!ui.get_busy());
+    assert_eq!(ui.get_display_status(), "Ready");
+    ui.set_auto_preview(true);
+    ui.invoke_field_stepped("/camera/exposure_compensation_ev".into(), 1);
+    assert!(ui.get_busy());
+    assert_eq!(ui.get_display_status(), "Preview queued…");
+    // Submit immediately to avoid waiting for the debounce in this worker test.
+    submit(&ui, &state);
+    event_receiver.recv_timeout(Duration::from_secs(60))?();
+    ui.set_auto_preview(false);
     // Reopening the same path must reload it even when a newer preview makes
     // the opening request obsolete before the worker can process it.
     let reload_dir = tempfile::tempdir()?;
@@ -719,7 +832,8 @@ fn offscreen_darkroom_callbacks_and_layout() -> Result<()> {
             .into_owned()
             .into(),
     );
-    ui.set_dimensions("768 × 512".into());
+    let original = session.source.as_ref().unwrap().original;
+    ui.set_dimensions(format!("{} × {}", original[0], original[1]).into());
     ui.set_status("Ready".into());
     ui.set_render_info(
         format!(
@@ -733,6 +847,314 @@ fn offscreen_darkroom_callbacks_and_layout() -> Result<()> {
     if let Some(dir) = &qa_dir {
         std::fs::create_dir_all(dir)?;
     }
+    use slint::platform::{PointerEventButton, WindowEvent};
+    fn move_to(window: &MinimalSoftwareWindow, x: f32, y: f32) {
+        window.dispatch_event(WindowEvent::PointerMoved {
+            position: slint::LogicalPosition::new(x, y),
+        });
+    }
+    fn scroll(window: &MinimalSoftwareWindow, x: f32, y: f32, delta: f32) {
+        move_to(window, x, y);
+        window.dispatch_event(WindowEvent::PointerScrolled {
+            position: slint::LogicalPosition::new(x, y),
+            delta_x: 0.,
+            delta_y: delta,
+        });
+    }
+    // Real input events, including zoom from Fit, pointer anchoring, drag and
+    // shared Compare navigation. Navigation never submits a processing request.
+    window.set_size(slint::PhysicalSize::new(1240, 850));
+    let navigation_photo = pixels(&vec![100; 400 * 300 * 3], [400, 300]);
+    ui.set_before(navigation_photo.clone());
+    ui.set_after(navigation_photo);
+    ui.set_view_mode(1);
+    ui.invoke_reset_view(1.);
+    let _ = ui.window().take_snapshot()?;
+    let revision = state.borrow().revision.load(Ordering::SeqCst);
+    scroll(&window, 200., 200., 60.);
+    assert!((ui.get_zoom() - 1.2).abs() < 1e-5);
+    // Canvas center is (403,389); the same image point remains under (200,200).
+    assert!((ui.get_pan_x() - 40.6).abs() < 0.1);
+    assert!((ui.get_pan_y() - 37.8).abs() < 0.1);
+    scroll(&window, 200., 200., -60.);
+    assert!((ui.get_zoom() - 1.).abs() < 1e-5);
+    assert!(ui.get_pan_x().abs() < 0.01 && ui.get_pan_y().abs() < 0.01);
+    window.dispatch_event(WindowEvent::PointerPressed {
+        position: slint::LogicalPosition::new(200., 200.),
+        button: PointerEventButton::Left,
+    });
+    move_to(&window, 245., 225.);
+    window.dispatch_event(WindowEvent::PointerReleased {
+        position: slint::LogicalPosition::new(245., 225.),
+        button: PointerEventButton::Left,
+    });
+    assert!((ui.get_pan_x() - 45.).abs() < 0.01);
+    assert!((ui.get_pan_y() - 25.).abs() < 0.01);
+    // Slint only initializes pressed-x/y for the left button. Other button
+    // grabs must not use the coordinates left over from the preceding drag.
+    let pan = (ui.get_pan_x(), ui.get_pan_y());
+    for button in [PointerEventButton::Middle, PointerEventButton::Right] {
+        window.dispatch_event(WindowEvent::PointerPressed {
+            position: slint::LogicalPosition::new(300., 300.),
+            button,
+        });
+        move_to(&window, 345., 325.);
+        window.dispatch_event(WindowEvent::PointerReleased {
+            position: slint::LogicalPosition::new(345., 325.),
+            button,
+        });
+        assert_eq!((ui.get_pan_x(), ui.get_pan_y()), pan);
+    }
+    ui.set_view_mode(2);
+    let _ = ui.window().take_snapshot()?;
+    scroll(&window, 600., 200., 60.);
+    assert!((ui.get_zoom() - 1.2).abs() < 1e-5);
+    ui.invoke_reset_view(0.);
+    assert_eq!((ui.get_pan_x(), ui.get_pan_y()), (0., 0.));
+    ui.set_view_mode(1);
+    let _ = ui.window().take_snapshot()?;
+    scroll(&window, 200., 200., 60.);
+    let fit_zoom = ui.get_zoom();
+    assert!(fit_zoom > 0.);
+    scroll(&window, 200., 200., -60.);
+    assert!((ui.get_zoom() - fit_zoom / 1.2).abs() < 1e-5);
+    assert_eq!(state.borrow().revision.load(Ordering::SeqCst), revision);
+    ui.invoke_reset_view(0.);
+
+    // Exercise real MAIN rows so successful edits refresh the same inspector.
+    // Fractional wheel input must survive those refreshes, in both directions
+    // and when another parameter is edited between events.
+    ui.set_tab(0);
+    state.borrow_mut().params = deterministic();
+    state.borrow_mut().sections = initial_sections();
+    sync(&ui, &state.borrow());
+    let _ = ui.window().take_snapshot()?;
+    scroll(&window, 1100., 280., 100.);
+    let _ = ui.window().take_snapshot()?;
+    assert_eq!(state.borrow().params.camera.exposure_compensation_ev, 0.25);
+    scroll(&window, 1100., 280., 20.);
+    let _ = ui.window().take_snapshot()?;
+    assert_eq!(state.borrow().params.camera.exposure_compensation_ev, 0.5);
+    scroll(&window, 1100., 280., -100.);
+    let _ = ui.window().take_snapshot()?;
+    scroll(&window, 1100., 280., -20.);
+    let _ = ui.window().take_snapshot()?;
+    assert_eq!(state.borrow().params.camera.exposure_compensation_ev, 0.);
+    scroll(&window, 1100., 280., 20.);
+    scroll(&window, 1100., 350., 60.);
+    let _ = ui.window().take_snapshot()?;
+    assert_eq!(state.borrow().params.camera.film_format_mm, 36.);
+    scroll(&window, 1100., 280., 40.);
+    let _ = ui.window().take_snapshot()?;
+    assert_eq!(state.borrow().params.camera.exposure_compensation_ev, 0.25);
+
+    fn replace_editor_text(window: &MinimalSoftwareWindow, text: &str) {
+        let position = slint::LogicalPosition::new(1100., 280.);
+        move_to(window, position.x, position.y);
+        window.dispatch_event(WindowEvent::PointerPressed {
+            position,
+            button: PointerEventButton::Left,
+        });
+        window.dispatch_event(WindowEvent::PointerReleased {
+            position,
+            button: PointerEventButton::Left,
+        });
+        window.dispatch_event(WindowEvent::KeyPressed {
+            text: slint::platform::Key::Control.into(),
+        });
+        window.dispatch_event(WindowEvent::KeyPressed { text: "a".into() });
+        window.dispatch_event(WindowEvent::KeyReleased { text: "a".into() });
+        window.dispatch_event(WindowEvent::KeyReleased {
+            text: slint::platform::Key::Control.into(),
+        });
+        window.dispatch_event(WindowEvent::KeyPressed { text: text.into() });
+        window.dispatch_event(WindowEvent::KeyReleased { text: text.into() });
+    }
+    assert!(ui.invoke_field_edited("/camera/exposure_compensation_ev".into(), "1.25".into()));
+    let _ = ui.window().take_snapshot()?;
+    replace_editor_text(&window, "2.75");
+    assert_eq!(state.borrow().params.camera.exposure_compensation_ev, 1.25);
+    scroll(&window, 1100., 280., 60.);
+    let _ = ui.window().take_snapshot()?;
+    assert_eq!(state.borrow().params.camera.exposure_compensation_ev, 3.);
+    scroll(&window, 1100., 280., 60.);
+    let _ = ui.window().take_snapshot()?;
+    assert_eq!(state.borrow().params.camera.exposure_compensation_ev, 3.25);
+    // Invalid pending text stays editable and must not step the old value or
+    // submit processing. A corrected draft can be stepped immediately.
+    replace_editor_text(&window, "bad");
+    let revision = state.borrow().revision.load(Ordering::SeqCst);
+    scroll(&window, 1100., 280., 60.);
+    let _ = ui.window().take_snapshot()?;
+    assert_eq!(state.borrow().params.camera.exposure_compensation_ev, 3.25);
+    assert_eq!(state.borrow().revision.load(Ordering::SeqCst), revision);
+    assert!(ui.get_error());
+    assert!(ui.get_status().contains("Enter a number"));
+    replace_editor_text(&window, "4");
+    scroll(&window, 1100., 280., 60.);
+    let _ = ui.window().take_snapshot()?;
+    assert_eq!(state.borrow().params.camera.exposure_compensation_ev, 4.25);
+    assert!(!ui.get_error());
+
+    // Place one real editor at a known location to exercise wheel delivery and
+    // delayed help without relying on which sections the user has expanded.
+    ui.set_tab(1);
+    state.borrow_mut().params = deterministic();
+    state.borrow_mut().sections.insert("0:RAW".into());
+    let camera_field = inspector::fields(&state.borrow(), 0)
+        .into_iter()
+        .find(|f| f.key == "/camera/exposure_compensation_ev")
+        .unwrap();
+    ui.set_fields(Rc::new(VecModel::from(vec![camera_field.clone()])).into());
+    let _ = ui.window().take_snapshot()?;
+    scroll(&window, 1100., 68., 20.);
+    scroll(&window, 1100., 68., 20.);
+    assert_eq!(state.borrow().params.camera.exposure_compensation_ev, 0.);
+    scroll(&window, 1100., 68., 20.);
+    assert_eq!(state.borrow().params.camera.exposure_compensation_ev, 0.25);
+    let balance_field = inspector::fields(&state.borrow(), 0)
+        .into_iter()
+        .find(|f| f.key == "/raw/white_balance")
+        .unwrap();
+    ui.set_fields(Rc::new(VecModel::from(vec![balance_field])).into());
+    let _ = ui.window().take_snapshot()?;
+    scroll(&window, 1100., 68., -60.);
+    assert_eq!(state.borrow().params.raw.white_balance, "daylight");
+    let checkbox = inspector::fields(&state.borrow(), 0)
+        .into_iter()
+        .find(|f| f.key == "/camera/auto_exposure")
+        .unwrap();
+    ui.set_fields(Rc::new(VecModel::from(vec![checkbox])).into());
+    let _ = ui.window().take_snapshot()?;
+    if let Some(dir) = &qa_dir {
+        let snapshot = ui.window().take_snapshot()?;
+        image::save_buffer_with_format(
+            dir.join("checkbox-qa.png"),
+            snapshot.as_bytes(),
+            1240,
+            850,
+            image::ColorType::Rgba8,
+            image::ImageFormat::Png,
+        )?;
+    }
+    let check_position = slint::LogicalPosition::new(1030., 68.);
+    move_to(&window, check_position.x, check_position.y);
+    window.dispatch_event(WindowEvent::PointerPressed {
+        position: check_position,
+        button: PointerEventButton::Left,
+    });
+    window.dispatch_event(WindowEvent::PointerReleased {
+        position: check_position,
+        button: PointerEventButton::Left,
+    });
+    assert!(
+        !state.borrow().params.camera.auto_exposure,
+        "Normal checkbox clicks must pass through the wheel handler"
+    );
+    ui.set_fields(Rc::new(VecModel::from(vec![camera_field])).into());
+    let _ = ui.window().take_snapshot()?;
+    move_to(&window, 900., 68.);
+    let before_help = ui.window().take_snapshot()?;
+    std::thread::sleep(Duration::from_millis(550));
+    slint::platform::update_timers_and_animations();
+    let help = ui.window().take_snapshot()?;
+    let changed_pixels = |before: &SharedPixelBuffer<slint::Rgba8Pixel>,
+                          after: &SharedPixelBuffer<slint::Rgba8Pixel>| {
+        let points: Vec<_> = before
+            .as_slice()
+            .iter()
+            .zip(after.as_slice())
+            .enumerate()
+            .filter(|(_, (a, b))| a != b)
+            .map(|(i, _)| (i as u32 % after.width(), i as u32 / after.width()))
+            .collect();
+        let min_x = points.iter().map(|p| p.0).min().unwrap_or(0);
+        let max_x = points.iter().map(|p| p.0).max().unwrap_or(0);
+        assert!(
+            max_x - min_x < 500,
+            "Tooltip must stay within a readable width"
+        );
+        points.len()
+    };
+    let short_changes = changed_pixels(&before_help, &help);
+    assert!(short_changes > 200, "Tooltip must appear after hovering");
+    if let Some(dir) = &qa_dir {
+        image::save_buffer_with_format(
+            dir.join("tooltip.png"),
+            help.as_bytes(),
+            1240,
+            850,
+            image::ColorType::Rgba8,
+            image::ImageFormat::Png,
+        )?;
+    }
+    move_to(&window, 100., 100.);
+    let hull_field = Field {
+        key: "/io/input_gamut_compress/hull_detail".into(),
+        label: "Hull detail".into(),
+        value: "5.0".into(),
+        tooltip: presentation::wrapped_tooltip("/io/input_gamut_compress/hull_detail").into(),
+        wheel: true,
+        depth: 1,
+        ..Default::default()
+    };
+    ui.set_fields(Rc::new(VecModel::from(vec![hull_field])).into());
+    let _ = ui.window().take_snapshot()?;
+    move_to(&window, 1100., 68.);
+    let before_long_help = ui.window().take_snapshot()?;
+    std::thread::sleep(Duration::from_millis(550));
+    slint::platform::update_timers_and_animations();
+    let long_help = ui.window().take_snapshot()?;
+    if let Some(dir) = &qa_dir {
+        image::save_buffer_with_format(
+            dir.join("tooltip-long.png"),
+            long_help.as_bytes(),
+            1240,
+            850,
+            image::ColorType::Rgba8,
+            image::ImageFormat::Png,
+        )?;
+    }
+    assert!(
+        changed_pixels(&before_long_help, &long_help) > short_changes,
+        "Long help must wrap and grow vertically"
+    );
+    move_to(&window, 100., 100.);
+    ui.set_tab(0);
+    ui.invoke_tab_selected(0);
+    ui.set_before(pixels(&preview.before, preview.before_size));
+    ui.set_after(pixels(&preview.after, preview.after_size));
+    // Both compact rotation icons remain in the preview footer on every tab.
+    for (width, height, x, y) in [(1240, 850, 501., 792.), (980, 700, 241., 642.)] {
+        window.set_size(slint::PhysicalSize::new(width, height));
+        ui.set_tab(2);
+        ui.invoke_tab_selected(2);
+        let _ = ui.window().take_snapshot()?;
+        let position = slint::LogicalPosition::new(x, y);
+        window.dispatch_event(WindowEvent::PointerPressed {
+            position,
+            button: PointerEventButton::Left,
+        });
+        window.dispatch_event(WindowEvent::PointerReleased {
+            position,
+            button: PointerEventButton::Left,
+        });
+        assert_eq!(state.borrow().params.io.input_rotation, 3);
+        let position = slint::LogicalPosition::new(x + 49., y);
+        window.dispatch_event(WindowEvent::PointerPressed {
+            position,
+            button: PointerEventButton::Left,
+        });
+        window.dispatch_event(WindowEvent::PointerReleased {
+            position,
+            button: PointerEventButton::Left,
+        });
+        assert_eq!(state.borrow().params.io.input_rotation, 0);
+    }
+    assert_eq!(ui.get_zoom(), 0.);
+    state.borrow_mut().params = deterministic();
+    ui.set_stale(false);
+    ui.set_status("Ready".into());
     for (w, h, name, view, has_image, tab) in [
         (1240, 850, "developed", 1, true, 0),
         (1240, 850, "comparison", 2, true, 0),
