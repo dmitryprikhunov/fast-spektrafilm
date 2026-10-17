@@ -15,7 +15,7 @@ import hashlib
 
 ROOT=Path(__file__).resolve().parents[1]
 
-def provenance():
+def provenance(binary=None):
     import importlib.metadata
     import contextlib
     import io
@@ -26,7 +26,7 @@ def provenance():
     digest=lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
     runtime=io.StringIO()
     with contextlib.redirect_stdout(runtime): np.show_runtime()
-    binary=ROOT/'target/release/fast-spektrafilm'
+    binary=Path(binary or ROOT/'target/release/fast-spektrafilm').resolve()
     build=json.loads(subprocess.check_output([str(binary),'build-info'],text=True))
     versions={name: importlib.metadata.version(name) for name in ['numpy','scipy','numba','colour-science','rawpy']}
     sources=sorted((ROOT/'src').rglob('*.rs'))+[ROOT/'build.rs',ROOT/'Cargo.toml',ROOT/'Cargo.lock']
@@ -90,7 +90,8 @@ def main(args):
         reference_worker(args.input,args.output,args.repeat,args.mode,args.film_format_mm)
         return
     import numpy as np
-    folder=ROOT/'artifacts/benchmark'/(args.mode if args.film_format_mm==35.0 else f'{args.mode}-{args.film_format_mm:g}mm')
+    binary=args.binary.resolve()
+    folder=args.output_dir/(args.mode if args.film_format_mm==35.0 else f'{args.mode}-{args.film_format_mm:g}mm')
     folder.mkdir(parents=True,exist_ok=True)
     config=folder/'config.json'
     config.write_text(json.dumps(config_for_mode(args.mode,args.film_format_mm)))
@@ -99,7 +100,7 @@ def main(args):
     results=[]
     for crop in sorted((ROOT/'artifacts/crops').glob('RAW*_256.npy')):
         reference=timed([sys.executable,str(Path(__file__).resolve()),'--worker','--mode',args.mode,'--film-format-mm',str(args.film_format_mm),'--input',str(crop),'--output',str(folder/'reference.npy'),'--repeat',str(args.repeat)],folder/'reference.rss',env)
-        rust=timed([str(ROOT/'target/release/fast-spektrafilm'),'--threads',str(args.threads),'process',str(crop),str(folder/'rust.npy'),'--config',str(config),'--repeat',str(args.repeat),'--warmup','1'],folder/'rust.rss',env)
+        rust=timed([str(binary),'--threads',str(args.threads),'process',str(crop),str(folder/'rust.npy'),'--config',str(config),'--repeat',str(args.repeat),'--warmup','1'],folder/'rust.rss',env)
         actual=np.load(folder/'rust.npy')
         expected=np.load(folder/'reference.npy')
         from numerical import require
@@ -110,7 +111,7 @@ def main(args):
         results.append(record)
         print(json.dumps(record),flush=True)
     assert results,'Run validate.py --samples first to cache sample crops'
-    (folder/'report.json').write_text(json.dumps(dict(**provenance(),threads=args.threads,repeats=args.repeat,spatial=args.mode!='deterministic',stochastic=args.mode=='legacy-grain',auto_exposure=False,mode=args.mode,film_format_mm=args.film_format_mm,results=results),indent=2)+'\n')
+    (folder/'report.json').write_text(json.dumps(dict(**provenance(binary),threads=args.threads,repeats=args.repeat,spatial=args.mode!='deterministic',stochastic=args.mode=='legacy-grain',auto_exposure=False,mode=args.mode,film_format_mm=args.film_format_mm,results=results),indent=2)+'\n')
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser()
@@ -120,5 +121,7 @@ if __name__=='__main__':
     parser.add_argument('--output',type=Path)
     parser.add_argument('--repeat',type=int,default=3)
     parser.add_argument('--threads',type=int,default=4)
+    parser.add_argument('--binary',type=Path,default=ROOT/'target/release/fast-spektrafilm',help='CLI binary to measure, including an unpacked release')
+    parser.add_argument('--output-dir',type=Path,default=ROOT/'artifacts/benchmark')
     parser.add_argument('--film-format-mm',type=float,default=35.0,help='Physical long side represented by the cached crop; reduce this to retain fine physical pixel spacing')
     main(parser.parse_args())

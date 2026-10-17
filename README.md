@@ -2,6 +2,8 @@
 
 # fast-spektrafilm
 
+*(at least i think it's faster)*
+
 [![Release](https://img.shields.io/github/v/release/dmitryprikhunov/fast-spektrafilm?label=release&style=flat-square&color=b85c2b)](https://github.com/dmitryprikhunov/fast-spektrafilm/releases/latest)
 [![Linux x86_64](https://img.shields.io/badge/Linux-x86__64-b85c2b?style=flat-square)](RELEASES.md)
 [![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-b85c2b?style=flat-square)](LICENSE)
@@ -21,6 +23,17 @@ data and licenses are retained; this port is GPLv3.
 The photo shown in the preview comes from
 [Signature Edits' free RAW photo collection](https://www.signatureedits.com/free-raw-photos/).
 It belongs to its original photographer, not the fast-spektrafilm project.
+
+## Benchmarks
+
+<p>
+  <img src="docs/images/benchmarks/v0.1.2/speed.svg" alt="Processing time: fast-spektrafilm v0.1.2 versus spektrafilm" width="49%">
+  <img src="docs/images/benchmarks/v0.1.2/memory.svg" alt="Peak process RAM: fast-spektrafilm v0.1.2 versus spektrafilm" width="49%">
+</p>
+
+![Float64 accuracy of v0.1.2 against the pinned spektrafilm reference](docs/images/benchmarks/v0.1.2/accuracy.svg)
+
+256×256 crops · 4 threads · [Method & data](docs/benchmarks/v0.1.2/README.md)
 
 ## Get started
 

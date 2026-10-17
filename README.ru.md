@@ -2,6 +2,8 @@
 
 # fast-spektrafilm
 
+*(по крайней мере, мне кажется, что он быстрее)*
+
 [![Релиз](https://img.shields.io/github/v/release/dmitryprikhunov/fast-spektrafilm?label=release&style=flat-square&color=b85c2b)](https://github.com/dmitryprikhunov/fast-spektrafilm/releases/latest)
 [![Linux x86_64](https://img.shields.io/badge/Linux-x86__64-b85c2b?style=flat-square)](RELEASES.md)
 [![Лицензия: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-b85c2b?style=flat-square)](LICENSE)
@@ -23,6 +25,17 @@ CLI и десктопное приложение на Slint. Изображен�
 Фотография в превью взята из
 [коллекции бесплатных RAW-фотографий Signature Edits](https://www.signatureedits.com/free-raw-photos/).
 Она принадлежит её автору, а не проекту fast-spektrafilm.
+
+## Бенчмарки
+
+<p>
+  <img src="docs/images/benchmarks/v0.1.2/speed.svg" alt="Скорость обработки: fast-spektrafilm v0.1.2 и spektrafilm" width="49%">
+  <img src="docs/images/benchmarks/v0.1.2/memory.svg" alt="Пиковое использование RAM процессом: fast-spektrafilm v0.1.2 и spektrafilm" width="49%">
+</p>
+
+![Точность v0.1.2 относительно закреплённого оригинала spektrafilm, float64](docs/images/benchmarks/v0.1.2/accuracy.svg)
+
+Кропы 256×256 · 4 потока · [Методика и данные](docs/benchmarks/v0.1.2/README.md)
 
 ## Начало работы
 

@@ -1,0 +1,23 @@
+{
+  "version": "0.1.2",
+  "commit": "331f487a46cf87814e0f389c8dce248a8d68288d",
+  "build": {
+    "version": "0.1.2",
+    "commit": "331f487a46cf87814e0f389c8dce248a8d68288d",
+    "target": "x86_64-unknown-linux-gnu",
+    "features": [
+      "bundled-libraw",
+      "gui"
+    ],
+    "profile": "release",
+    "lto": "thin",
+    "codegen_units": 1,
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "build_libc": "glibc 2.39",
+    "runner": "ubuntu24"
+  },
+  "baseline_commit": "28bf883e1672e884307edc75852549376e13644e",
+  "archive": "fast-spektrafilm-0.1.2-linux-x86_64.tar.gz",
+  "archive_sha256": "0d1824fda6b1ff3b7432f996d4690891efad9ef72802c51d80941745f8e36277",
+  "binary_sha256": "56290a3a19d0c154ec7daf163a85affc9b54febb3af20e54691d6d1ae5708e49"
+}
