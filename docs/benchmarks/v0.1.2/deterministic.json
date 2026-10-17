@@ -1,0 +1,426 @@
+{
+  "baseline_commit": "28bf883e1672e884307edc75852549376e13644e",
+  "measured_at": "2026-10-17T07:18:19Z",
+  "cpu": "Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz",
+  "system": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+  "rust_version": "rustc 1.93.1 (01f6ddf75 2026-02-11) (built from a source tarball)",
+  "python_version": "3.13.16",
+  "dependencies": {
+    "numpy": "2.5.3",
+    "scipy": "1.18.1",
+    "numba": "0.68.0",
+    "colour-science": "0.4.7",
+    "rawpy": "0.26.1"
+  },
+  "numpy_runtime": "WARNING: `threadpoolctl` not found in system! Install it by `pip install threadpoolctl`. Once installed, try `np.show_runtime` again for more detailed build information\n[{'numpy_version': '2.5.3',\n  'python': '3.13.16 (main, Oct  9 2026, 15:23:36) [Clang 22.1.3 ]',\n  'uname': uname_result(system='Linux', node='ubuntu-pc', release='7.0.0-38-generic', version='#38-Ubuntu SMP PREEMPT_DYNAMIC Fri Sep  4 09:10:14 UTC 2026', machine='x86_64')},\n {'simd_extensions': {'baseline': ['X86_V2'],\n                      'found': ['X86_V3'],\n                      'not_found': ['X86_V4', 'AVX512_ICL', 'AVX512_SPR']}},\n {'ignore_floating_point_errors_in_matmul': False}]\n",
+  "numpy_build": {
+    "Compilers": {
+      "c": {
+        "name": "gcc",
+        "linker": "ld.bfd",
+        "version": "14.2.1",
+        "commands": "cc"
+      },
+      "cython": {
+        "name": "cython",
+        "linker": "cython",
+        "version": "3.3.0",
+        "commands": "cython"
+      },
+      "c++": {
+        "name": "gcc",
+        "linker": "ld.bfd",
+        "version": "14.2.1",
+        "commands": "c++"
+      }
+    },
+    "Machine Information": {
+      "host": {
+        "cpu": "x86_64",
+        "family": "x86_64",
+        "endian": "little",
+        "system": "linux"
+      },
+      "build": {
+        "cpu": "x86_64",
+        "family": "x86_64",
+        "endian": "little",
+        "system": "linux"
+      }
+    },
+    "Build Dependencies": {
+      "blas": {
+        "name": "scipy-openblas",
+        "found": true,
+        "version": "0.3.34.106.0",
+        "detection method": "pkgconfig",
+        "include directory": "/opt/_internal/cpython-3.13.14/lib/python3.13/site-packages/scipy_openblas64/include",
+        "lib directory": "/opt/_internal/cpython-3.13.14/lib/python3.13/site-packages/scipy_openblas64/lib",
+        "openblas configuration": "OpenBLAS 0.3.34.106.0  USE64BITINT DYNAMIC_ARCH NO_AFFINITY Haswell MAX_THREADS=64",
+        "pc file directory": "/project/.openblas"
+      },
+      "lapack": {
+        "name": "scipy-openblas",
+        "found": true,
+        "version": "0.3.34.106.0",
+        "detection method": "pkgconfig",
+        "include directory": "/opt/_internal/cpython-3.13.14/lib/python3.13/site-packages/scipy_openblas64/include",
+        "lib directory": "/opt/_internal/cpython-3.13.14/lib/python3.13/site-packages/scipy_openblas64/lib",
+        "openblas configuration": "OpenBLAS 0.3.34.106.0  USE64BITINT DYNAMIC_ARCH NO_AFFINITY Haswell MAX_THREADS=64",
+        "pc file directory": "/project/.openblas"
+      }
+    },
+    "Python Information": {
+      "path": "/tmp/build-env-h653xs07/bin/python",
+      "version": "3.13"
+    },
+    "SIMD Extensions": {
+      "baseline": [
+        "X86_V2"
+      ],
+      "found": [
+        "X86_V3"
+      ],
+      "not found": [
+        "X86_V4",
+        "AVX512_ICL",
+        "AVX512_SPR"
+      ]
+    }
+  },
+  "thread_environment": {
+    "OPENBLAS_CORETYPE": null,
+    "OPENBLAS_NUM_THREADS": null,
+    "OMP_NUM_THREADS": null,
+    "NUMBA_NUM_THREADS": null,
+    "NUMBA_CPU_NAME": null,
+    "NUMBA_CPU_FEATURES": null,
+    "RAYON_NUM_THREADS": null
+  },
+  "binary_sha256": "56290a3a19d0c154ec7daf163a85affc9b54febb3af20e54691d6d1ae5708e49",
+  "binary_build": {
+    "cargo_toml": "[package]\nname = \"fast-spektrafilm\"\nversion = \"0.1.2\"\nedition = \"2024\"\nrust-version = \"1.93\"\nlicense = \"GPL-3.0-only\"\ndescription = \"Memory-efficient Rust implementation of spektrafilm's experimental pipeline\"\ndefault-run = \"fast-spektrafilm\"\n\n[features]\ndefault = [\"bundled-libraw\"]\nbundled-libraw = []\ngui = [\"dep:slint\", \"dep:slint-build\", \"dep:rfd\"]\n\n[[bin]]\nname = \"fast-spektrafilm-gui\"\npath = \"src/bin/gui.rs\"\nrequired-features = [\"gui\"]\n\n[lib]\nname = \"fast_spektrafilm\"\n\n[dependencies]\nanyhow = \"1\"\nclap = { version = \"4\", features = [\"derive\"] }\nrayon = \"1\"\nserde = { version = \"1\", features = [\"derive\"] }\nserde_json = { version = \"1\", features = [\"float_roundtrip\"] }\ntoml = \"0.8\"\nlibm = \"0.2\"\nhalf = \"2\"\ntiff = \"0.10\"\nslint = { version = \"=1.18.1\", optional = true, default-features = false, features = [\"std\", \"backend-winit\", \"renderer-software\", \"compat-1-18\"] }\nrfd = { version = \"0.17.2\", optional = true }\ntempfile = \"3\"\nrustfft = \"6\"\nnalgebra = \"0.34\"\nexr = \"1\"\nimage = { version = \"0.25\", default-features = false, features = [\"png\", \"jpeg\", \"tiff\", \"webp\", \"exr\"] }\nlcms2 = \"6\"\nlibloading = \"0.8\"\n\n[build-dependencies]\ncc = { version = \"1\", features = [\"parallel\"] }\npkg-config = \"0.3\"\nslint-build = { version = \"=1.18.1\", optional = true }\n\n[profile.release]\nlto = \"thin\"\ncodegen-units = 1\n\n",
+    "compiler": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "debug": "false",
+    "encoded_rustflags": "",
+    "host": "x86_64-unknown-linux-gnu",
+    "opt_level": "3",
+    "profile": "release",
+    "release_codegen_units_override": "",
+    "release_lto_override": "",
+    "rustflags": "",
+    "target": "x86_64-unknown-linux-gnu"
+  },
+  "cargo_lock_sha256": "c52b9a38f70a70862ebfd785f1265eaeae2a5f2b6c5a480a81447deccd7603f6",
+  "rust_sources_sha256": "9526b14a7237a3ebcbc8dde0b71df8abd63e040d5a5e219b445a5f54ed3c7c21",
+  "assets_manifest_sha256": "86c5ed23131458bb02fafbb11d633bb7d5c712d6783d322bc1837c5eb0f969c7",
+  "reference_manifest_sha256": "a02570b2180e1891c821126e60db0b37e84a70b7fe4744088d5e9e33f64af674",
+  "numerical_contracts_sha256": "54f65289f3e828f930853cacc414af831810143d241b5e277f551462c3e376d4",
+  "threads": 4,
+  "repeats": 3,
+  "spatial": false,
+  "stochastic": false,
+  "auto_exposure": false,
+  "mode": "deterministic",
+  "film_format_mm": 35.0,
+  "results": [
+    {
+      "crop": "RAW_CANON_EOS_5DMARK3_256.npy",
+      "input_sha256": "0894a0f58cb39c97a8bcf99f4551fa5187d4374fa65ebcc141177fdf7399216d",
+      "config_sha256": "ad4fb92f3b020081b20237b74bc785915cc7b6ea57ca2429fef328ca81aaa99e",
+      "comparison": {
+        "valid": true,
+        "finite": true,
+        "shape": [
+          256,
+          256,
+          3
+        ],
+        "policy": "strict",
+        "max_abs": 2.1201790323388536e-14,
+        "rmse": 8.233325620122833e-16,
+        "failures": 0,
+        "strict_failures": 0,
+        "max_tolerance_ratio": 1.7339060934064226e-05,
+        "worst_index": [
+          252,
+          86,
+          2
+        ],
+        "actual": 0.022277615864028346,
+        "reference": 0.022277615864049548
+      },
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "reference": {
+        "process_seconds": [
+          0.45663194400003704,
+          0.44944154100085143,
+          0.45103028799894673
+        ],
+        "warmup_seconds": [
+          0.7907426890014904
+        ],
+        "executor": "reference-staged",
+        "peak_rss_kib": 472824
+      },
+      "rust": {
+        "channels": 3,
+        "decode_seconds": 0.003277509,
+        "executor": "fused",
+        "height": 256,
+        "process_seconds": [
+          0.063320067,
+          0.061892598,
+          0.062306695
+        ],
+        "setup_seconds": 0.412274412,
+        "stage_samples_seconds": [
+          null,
+          null,
+          null
+        ],
+        "stage_seconds": null,
+        "tap": "rgb_out",
+        "threads": 4,
+        "warmup_seconds": [
+          0.07226115
+        ],
+        "width": 256,
+        "peak_rss_kib": 36864
+      },
+      "speedup": 7.23887357528668,
+      "rss_reduction": 12.826171875,
+      "max_abs": 2.1201790323388536e-14
+    },
+    {
+      "crop": "RAW_HASSELBLAD_H3D39II_256.npy",
+      "input_sha256": "65f811a55092ac1f5d948d2bb73f1e88a44740257fc724e8f5a1ad903ef59979",
+      "config_sha256": "ad4fb92f3b020081b20237b74bc785915cc7b6ea57ca2429fef328ca81aaa99e",
+      "comparison": {
+        "valid": true,
+        "finite": true,
+        "shape": [
+          256,
+          256,
+          3
+        ],
+        "policy": "strict",
+        "max_abs": 1.3993146918966914e-14,
+        "rmse": 7.448275866494094e-16,
+        "failures": 0,
+        "strict_failures": 0,
+        "max_tolerance_ratio": 1.3718038304307119e-05,
+        "worst_index": [
+          194,
+          68,
+          0
+        ],
+        "actual": 0.0020054515708087606,
+        "reference": 0.0020054515708227538
+      },
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "reference": {
+        "process_seconds": [
+          0.45932698300021,
+          0.45793690500067896,
+          0.45803681399956986
+        ],
+        "warmup_seconds": [
+          0.7881603859987081
+        ],
+        "executor": "reference-staged",
+        "peak_rss_kib": 465556
+      },
+      "rust": {
+        "channels": 3,
+        "decode_seconds": 0.003350121,
+        "executor": "fused",
+        "height": 256,
+        "process_seconds": [
+          0.062190653,
+          0.059446608,
+          0.060136926
+        ],
+        "setup_seconds": 0.413781014,
+        "stage_samples_seconds": [
+          null,
+          null,
+          null
+        ],
+        "stage_seconds": null,
+        "tap": "rgb_out",
+        "threads": 4,
+        "warmup_seconds": [
+          0.071039155
+        ],
+        "width": 256,
+        "peak_rss_kib": 36904
+      },
+      "speedup": 7.616565136694381,
+      "rss_reduction": 12.615326251896814,
+      "max_abs": 1.3993146918966914e-14
+    },
+    {
+      "crop": "RAW_MAMIYA_ZD_256.npy",
+      "input_sha256": "8c1b1a8b7bae181210fb20908f7477b2fb6f9b4d11276899e54d66ebe1e41552",
+      "config_sha256": "ad4fb92f3b020081b20237b74bc785915cc7b6ea57ca2429fef328ca81aaa99e",
+      "comparison": {
+        "valid": true,
+        "finite": true,
+        "shape": [
+          256,
+          256,
+          3
+        ],
+        "policy": "strict",
+        "max_abs": 1.8735013540549517e-15,
+        "rmse": 3.690423952513106e-16,
+        "failures": 0,
+        "strict_failures": 0,
+        "max_tolerance_ratio": 1.3927573265419986e-06,
+        "worst_index": [
+          199,
+          203,
+          0
+        ],
+        "actual": 0.034997143403779636,
+        "reference": 0.03499714340377776
+      },
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "reference": {
+        "process_seconds": [
+          0.4579501389998768,
+          0.45621767599914165,
+          0.45126192799943965
+        ],
+        "warmup_seconds": [
+          0.7876602999986062
+        ],
+        "executor": "reference-staged",
+        "peak_rss_kib": 465384
+      },
+      "rust": {
+        "channels": 3,
+        "decode_seconds": 0.002476621,
+        "executor": "fused",
+        "height": 256,
+        "process_seconds": [
+          0.060939234,
+          0.060118391,
+          0.060167694
+        ],
+        "setup_seconds": 0.410840556,
+        "stage_samples_seconds": [
+          null,
+          null,
+          null
+        ],
+        "stage_seconds": null,
+        "tap": "rgb_out",
+        "threads": 4,
+        "warmup_seconds": [
+          0.070542644
+        ],
+        "width": 256,
+        "peak_rss_kib": 37056
+      },
+      "speedup": 7.582435783547591,
+      "rss_reduction": 12.558937823834198,
+      "max_abs": 1.8735013540549517e-15
+    },
+    {
+      "crop": "RAW_NIKON_D750_256.npy",
+      "input_sha256": "1b661b53717bb8d0fd50eba9fad3322b69066a02f7faeb47013131f1abf90916",
+      "config_sha256": "ad4fb92f3b020081b20237b74bc785915cc7b6ea57ca2429fef328ca81aaa99e",
+      "comparison": {
+        "valid": true,
+        "finite": true,
+        "shape": [
+          256,
+          256,
+          3
+        ],
+        "policy": "strict",
+        "max_abs": 1.5265566588595902e-15,
+        "rmse": 3.218858880820269e-16,
+        "failures": 0,
+        "strict_failures": 0,
+        "max_tolerance_ratio": 1.0059833064553003e-06,
+        "worst_index": [
+          5,
+          202,
+          0
+        ],
+        "actual": 0.05174771281628978,
+        "reference": 0.051747712816288254
+      },
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "reference": {
+        "process_seconds": [
+          0.4471115300002566,
+          0.44801766599994153,
+          0.44716176799920504
+        ],
+        "warmup_seconds": [
+          0.7720798290010862
+        ],
+        "executor": "reference-staged",
+        "peak_rss_kib": 465360
+      },
+      "rust": {
+        "channels": 3,
+        "decode_seconds": 0.0025825,
+        "executor": "fused",
+        "height": 256,
+        "process_seconds": [
+          0.058828779,
+          0.058788016,
+          0.059702974
+        ],
+        "setup_seconds": 0.406955539,
+        "stage_samples_seconds": [
+          null,
+          null,
+          null
+        ],
+        "stage_seconds": null,
+        "tap": "rgb_out",
+        "threads": 4,
+        "warmup_seconds": [
+          0.06812918
+        ],
+        "width": 256,
+        "peak_rss_kib": 36968
+      },
+      "speedup": 7.601071713543554,
+      "rss_reduction": 12.58818437567626,
+      "max_abs": 1.5265566588595902e-15
+    }
+  ],
+  "config": {
+    "camera": {
+      "auto_exposure": false,
+      "film_format_mm": 35.0
+    },
+    "debug": {
+      "deactivate_spatial_effects": true,
+      "deactivate_stochastic_effects": true
+    }
+  }
+}

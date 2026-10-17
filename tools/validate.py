@@ -12,6 +12,8 @@ import hashlib
 if __name__=='__main__':
     parser=argparse.ArgumentParser()
     parser.add_argument('--threads',type=int,default=4)
+    parser.add_argument('--binary',type=Path,default=Path(__file__).resolve().parents[1]/'target/release/fast-spektrafilm',help='CLI binary to validate, including an unpacked release')
+    parser.add_argument('--output-dir',type=Path,default=Path(__file__).resolve().parents[1]/'artifacts/parity')
     parser.add_argument('--spatial',action='store_true')
     parser.add_argument('--variants',action='store_true')
     parser.add_argument('--decode',action='store_true')
@@ -25,6 +27,7 @@ if __name__=='__main__':
     parser.add_argument('--cached-crops',type=Path,help='Already decoded NPY crops (no RAW files required)')
     parser.add_argument('--crop-size',type=int,default=256,dest='sample_size')
     ARGS=parser.parse_args()
+    ARGS.binary=ARGS.binary.resolve()
     os.environ['NUMBA_NUM_THREADS']=str(ARGS.threads)
     os.environ['OPENBLAS_NUM_THREADS']=str(ARGS.threads)
     os.environ['OMP_NUM_THREADS']=str(ARGS.threads)
@@ -42,7 +45,7 @@ from spektrafilm.runtime.pipeline import SimulationPipeline
 TAPS=['log_e_film','cmy_film','log_e_print','cmy_print','rgb_out']
 
 def rust(input_path,output_path,config,tap='rgb_out',repeat=1):
-    args=[str(ROOT/'target/release/fast-spektrafilm'),'--threads',str(ARGS.threads),'process',str(input_path),str(output_path),'--config',str(config),'--collect',tap.replace('_','-'),'--repeat',str(repeat)]
+    args=[str(ARGS.binary),'--threads',str(ARGS.threads),'process',str(input_path),str(output_path),'--config',str(config),'--collect',tap.replace('_','-'),'--repeat',str(repeat)]
     result=subprocess.run(args,capture_output=True,text=True)
     if result.returncode: raise RuntimeError(result.stderr)
     return json.loads(result.stderr.strip().splitlines()[-1])
@@ -60,7 +63,7 @@ def compare(actual,expected,label):
         bitwise=label.startswith('grain_') and label.endswith('/cmy_film')))
 
 def run_case(image,name,film,paper,options=None,taps=None,controlled_glare=False,controlled_grain=False):
-    folder=ROOT/'artifacts/parity'/name
+    folder=ARGS.output_dir/name
     folder.mkdir(parents=True,exist_ok=True)
     np.save(folder/'input.npy',image)
     config=dict(film_profile=film,print_profile=paper,debug=dict(deactivate_spatial_effects=True,deactivate_stochastic_effects=True),camera=dict(auto_exposure=False))
@@ -127,7 +130,7 @@ def run_case(image,name,film,paper,options=None,taps=None,controlled_glare=False
 
 def main():
     from benchmark import provenance
-    run_provenance=provenance()
+    run_provenance=provenance(ARGS.binary)
     results=[]
     ramp=np.broadcast_to(np.linspace(0.01,1.0,16)[None,:,None],(16,16,3)).copy()
     results+=run_case(ramp,'portra_ramp','kodak_portra_400','kodak_portra_endura')
@@ -236,6 +239,9 @@ def main():
         from spektrafilm.utils.raw_file_processor import load_and_process_raw_file
         
         for path in sorted((ROOT/'samples').iterdir()):
+            # Only the four supplied RAW formats; samples/ may also hold screenshots.
+            if path.suffix.lower() not in {'.cr2','.nef','.3fr','.mef'}:
+                continue
             print('Sample:',path.name,'rawpy LibRaw:',rawpy.libraw_version,flush=True)
             cache=ROOT/'artifacts/crops'/f'{path.stem}_{ARGS.sample_size}.npy'
             cache.parent.mkdir(parents=True,exist_ok=True)
@@ -254,14 +260,14 @@ def main():
                 np.save(cache,image)
             if ARGS.decode:
                 output=cache.parent/f'decoded_{path.stem}_{ARGS.sample_size}.npy'
-                decoded=subprocess.run([str(ROOT/'target/release/fast-spektrafilm'),'decode',str(path),str(output),'--crop-size',str(ARGS.sample_size)],capture_output=True,text=True,check=True)
+                decoded=subprocess.run([str(ARGS.binary),'decode',str(path),str(output),'--crop-size',str(ARGS.sample_size)],capture_output=True,text=True,check=True)
                 record=compare(np.load(output),image,f'{path.stem}/decode')
                 record.update(json.loads(decoded.stderr.strip().splitlines()[-1]),reference_libraw=list(rawpy.libraw_version))
                 results.append(record)
                 print(json.dumps(record),flush=True)
             if ARGS.samples: results+=run_case(image,path.stem,'kodak_portra_400','kodak_portra_endura')
-    report=ROOT/'artifacts/parity/report.json'
-    assert run_provenance['binary_sha256']==provenance()['binary_sha256'], 'Processor binary changed during validation'
+    report=ARGS.output_dir/'report.json'
+    assert run_provenance['binary_sha256']==provenance(ARGS.binary)['binary_sha256'], 'Processor binary changed during validation'
     report.write_text(json.dumps(dict(**run_provenance,rtol=1e-8,atol=1e-9,results=results),indent=2)+'\n')
     print('PASS:',len(results),'stage comparisons. Report:',report)
 
