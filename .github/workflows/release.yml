@@ -47,6 +47,7 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-release-rust-1.93.1-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-release-rust-1.93.1-
       - name: Resolve and validate version
         env:
           REF: ${{ github.ref }}

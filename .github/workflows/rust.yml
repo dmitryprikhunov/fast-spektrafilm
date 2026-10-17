@@ -50,6 +50,7 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-rust-1.93.1-${{ matrix.variant }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-rust-1.93.1-${{ matrix.variant }}-
       - name: Verify pinned measurement assets and derived tables
         run: python3 tools/check_baseline.py
       - name: Check formatting
