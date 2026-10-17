@@ -7,7 +7,9 @@ mod tests;
 use crate::Params;
 use anyhow::{Context, Result};
 use backend::{Preview, Session, Source, Stock, profiles, read_params, save_params};
-use slint::{ComponentHandle, ModelRc, Rgb8Pixel, SharedPixelBuffer, Timer, TimerMode, VecModel};
+use slint::{
+    ComponentHandle, Model, ModelRc, Rgb8Pixel, SharedPixelBuffer, Timer, TimerMode, VecModel,
+};
 use std::{
     cell::RefCell,
     collections::HashSet,
@@ -87,7 +89,23 @@ fn model(values: impl Iterator<Item = String>) -> ModelRc<slint::SharedString> {
     Rc::new(VecModel::from(values.map(Into::into).collect::<Vec<_>>())).into()
 }
 fn sync(ui: &Darkroom, state: &State) {
-    ui.set_fields(Rc::new(VecModel::from(inspector::fields(state, ui.get_tab()))).into());
+    let fields = inspector::fields(state, ui.get_tab());
+    let current = ui.get_fields();
+    if let Some(model) = current.as_any().downcast_ref::<VecModel<Field>>()
+        && model.row_count() == fields.len()
+        && fields
+            .iter()
+            .enumerate()
+            .all(|(i, field)| model.row_data(i).is_some_and(|old| old.key == field.key))
+    {
+        // Keep editor instances (and their partial wheel input) while the same
+        // parameters are visible. Tab/section changes still rebuild the rows.
+        for (i, field) in fields.into_iter().enumerate() {
+            model.set_row_data(i, field);
+        }
+    } else {
+        ui.set_fields(Rc::new(VecModel::from(fields)).into());
+    }
     ui.set_workflow_field(inspector::workflow(state));
     ui.set_auto_preview_help(presentation::wrapped_tooltip("/workflow/auto_preview").into());
     ui.set_monitor_name(
@@ -540,16 +558,23 @@ fn bind_callbacks(ui: &Darkroom, state: &Rc<RefCell<State>>) {
     let s = state.clone();
     ui.on_field_edited(move |key, value| {
         let Some(ui) = weak.upgrade() else {
-            return;
+            return false;
         };
         if ui.get_exporting() {
-            return;
+            return false;
         }
         let result = inspector::edit(&mut s.borrow_mut(), &key, &value);
         match result {
-            Ok(true) => changed(&ui, &s),
-            Ok(false) => {}
-            Err(e) => error(&ui, format!("{e:#}")),
+            Ok(edited) => {
+                if edited {
+                    changed(&ui, &s);
+                }
+                true
+            }
+            Err(e) => {
+                error(&ui, format!("{e:#}"));
+                false
+            }
         }
     });
     let weak = ui.as_weak();

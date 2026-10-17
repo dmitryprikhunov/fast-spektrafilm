@@ -24,14 +24,16 @@ component ImagePanel inherits Rectangle {
     area := TouchArea {
         mouse-cursor: self.pressed ? grabbing : grab;
         pointer-event(event) => {
-            if event.kind == PointerEventKind.down {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                 root.press-pan-x = root.pan-x;
                 root.press-pan-y = root.pan-y;
             }
         }
         moved => {
-            root.pan-x = root.press-pan-x + (self.mouse-x - self.pressed-x) / 1px;
-            root.pan-y = root.press-pan-y + (self.mouse-y - self.pressed-y) / 1px;
+            if self.pressed {
+                root.pan-x = root.press-pan-x + (self.mouse-x - self.pressed-x) / 1px;
+                root.pan-y = root.press-pan-y + (self.mouse-y - self.pressed-y) / 1px;
+            }
         }
         scroll-event(event) => {
             if event.delta-y == 0px { return reject; }
@@ -53,9 +55,11 @@ component ImagePanel inherits Rectangle {
 component ParameterRow inherits Rectangle {
     in property <Field> field;
     in property <bool> enabled;
-    callback edited(string, string);
+    callback edited(string, string) -> bool;
     callback stepped(string, int);
+    private property <string> draft: root.field.value;
     private property <length> wheel-remainder: 0px;
+    changed field => { root.draft = root.field.value; }
     height: 32px;
     HorizontalLayout {
         padding-left: root.field.depth * 12px;
@@ -69,13 +73,16 @@ component ParameterRow inherits Rectangle {
                 let steps = floor(abs(root.wheel-remainder) / 60px) * (root.wheel-remainder > 0px ? 1 : -1);
                 if steps != 0 {
                     root.wheel-remainder -= steps * 60px;
+                    if root.field.kind == 0 && root.draft != root.field.value && !root.edited(root.field.key, root.draft) {
+                        return accept;
+                    }
                     root.stepped(root.field.key, steps);
                 }
                 accept
             }
             if root.field.kind == 0: LineEdit {
                 x: 0px; y: 0px; width: parent.width; height: parent.height;
-                text: root.field.value;
+                text <=> root.draft;
                 placeholder-text: root.field.hint;
                 enabled: root.enabled;
                 accepted => { root.edited(root.field.key, self.text); }
@@ -125,7 +132,7 @@ export component Darkroom inherits Window {
     public function reset-view(scale: float) { root.zoom = scale; root.pan-x = 0; root.pan-y = 0; }
     callback open-image(); callback load-settings(); callback save-settings(); callback save-default(); callback reset-settings();
     callback preview(); callback scan(); callback export-image();
-    callback field-edited(string,string); callback field-stepped(string,int); callback section-toggled(string); callback tab-selected(int);
+    callback field-edited(string,string) -> bool; callback field-stepped(string,int); callback section-toggled(string); callback tab-selected(int);
     callback calibrate(bool); callback neutralize(); callback rotate(int); callback calibrated(string); callback resolved(string); callback monitor(bool);
     VerticalLayout {
         padding: 10px; spacing: 8px;
@@ -218,7 +225,7 @@ export component Darkroom inherits Window {
                                 }
                                 if field.kind != 3: ParameterRow {
                                     field: field; enabled: !root.exporting && !root.dialog-open;
-                                    edited(key, value) => { root.field-edited(key, value); }
+                                    edited(key, value) => { return root.field-edited(key, value); }
                                     stepped(key, steps) => { root.field-stepped(key, steps); }
                                 }
                             }
@@ -230,7 +237,7 @@ export component Darkroom inherits Window {
                     }
                     ParameterRow {
                         field: root.workflow-field; enabled: !root.exporting && !root.dialog-open;
-                        edited(key, value) => { root.field-edited(key, value); }
+                        edited(key, value) => { return root.field-edited(key, value); }
                         stepped(key, steps) => { root.field-stepped(key, steps); }
                     }
                     HorizontalLayout {

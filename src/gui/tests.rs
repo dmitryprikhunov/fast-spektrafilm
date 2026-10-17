@@ -890,6 +890,21 @@ fn offscreen_darkroom_callbacks_and_layout() -> Result<()> {
     });
     assert!((ui.get_pan_x() - 45.).abs() < 0.01);
     assert!((ui.get_pan_y() - 25.).abs() < 0.01);
+    // Slint only initializes pressed-x/y for the left button. Other button
+    // grabs must not use the coordinates left over from the preceding drag.
+    let pan = (ui.get_pan_x(), ui.get_pan_y());
+    for button in [PointerEventButton::Middle, PointerEventButton::Right] {
+        window.dispatch_event(WindowEvent::PointerPressed {
+            position: slint::LogicalPosition::new(300., 300.),
+            button,
+        });
+        move_to(&window, 345., 325.);
+        window.dispatch_event(WindowEvent::PointerReleased {
+            position: slint::LogicalPosition::new(345., 325.),
+            button,
+        });
+        assert_eq!((ui.get_pan_x(), ui.get_pan_y()), pan);
+    }
     ui.set_view_mode(2);
     let _ = ui.window().take_snapshot()?;
     scroll(&window, 600., 200., 60.);
@@ -905,6 +920,81 @@ fn offscreen_darkroom_callbacks_and_layout() -> Result<()> {
     assert!((ui.get_zoom() - fit_zoom / 1.2).abs() < 1e-5);
     assert_eq!(state.borrow().revision.load(Ordering::SeqCst), revision);
     ui.invoke_reset_view(0.);
+
+    // Exercise real MAIN rows so successful edits refresh the same inspector.
+    // Fractional wheel input must survive those refreshes, in both directions
+    // and when another parameter is edited between events.
+    ui.set_tab(0);
+    state.borrow_mut().params = deterministic();
+    state.borrow_mut().sections = initial_sections();
+    sync(&ui, &state.borrow());
+    let _ = ui.window().take_snapshot()?;
+    scroll(&window, 1100., 280., 100.);
+    let _ = ui.window().take_snapshot()?;
+    assert_eq!(state.borrow().params.camera.exposure_compensation_ev, 0.25);
+    scroll(&window, 1100., 280., 20.);
+    let _ = ui.window().take_snapshot()?;
+    assert_eq!(state.borrow().params.camera.exposure_compensation_ev, 0.5);
+    scroll(&window, 1100., 280., -100.);
+    let _ = ui.window().take_snapshot()?;
+    scroll(&window, 1100., 280., -20.);
+    let _ = ui.window().take_snapshot()?;
+    assert_eq!(state.borrow().params.camera.exposure_compensation_ev, 0.);
+    scroll(&window, 1100., 280., 20.);
+    scroll(&window, 1100., 350., 60.);
+    let _ = ui.window().take_snapshot()?;
+    assert_eq!(state.borrow().params.camera.film_format_mm, 36.);
+    scroll(&window, 1100., 280., 40.);
+    let _ = ui.window().take_snapshot()?;
+    assert_eq!(state.borrow().params.camera.exposure_compensation_ev, 0.25);
+
+    fn replace_editor_text(window: &MinimalSoftwareWindow, text: &str) {
+        let position = slint::LogicalPosition::new(1100., 280.);
+        move_to(window, position.x, position.y);
+        window.dispatch_event(WindowEvent::PointerPressed {
+            position,
+            button: PointerEventButton::Left,
+        });
+        window.dispatch_event(WindowEvent::PointerReleased {
+            position,
+            button: PointerEventButton::Left,
+        });
+        window.dispatch_event(WindowEvent::KeyPressed {
+            text: slint::platform::Key::Control.into(),
+        });
+        window.dispatch_event(WindowEvent::KeyPressed { text: "a".into() });
+        window.dispatch_event(WindowEvent::KeyReleased { text: "a".into() });
+        window.dispatch_event(WindowEvent::KeyReleased {
+            text: slint::platform::Key::Control.into(),
+        });
+        window.dispatch_event(WindowEvent::KeyPressed { text: text.into() });
+        window.dispatch_event(WindowEvent::KeyReleased { text: text.into() });
+    }
+    assert!(ui.invoke_field_edited("/camera/exposure_compensation_ev".into(), "1.25".into()));
+    let _ = ui.window().take_snapshot()?;
+    replace_editor_text(&window, "2.75");
+    assert_eq!(state.borrow().params.camera.exposure_compensation_ev, 1.25);
+    scroll(&window, 1100., 280., 60.);
+    let _ = ui.window().take_snapshot()?;
+    assert_eq!(state.borrow().params.camera.exposure_compensation_ev, 3.);
+    scroll(&window, 1100., 280., 60.);
+    let _ = ui.window().take_snapshot()?;
+    assert_eq!(state.borrow().params.camera.exposure_compensation_ev, 3.25);
+    // Invalid pending text stays editable and must not step the old value or
+    // submit processing. A corrected draft can be stepped immediately.
+    replace_editor_text(&window, "bad");
+    let revision = state.borrow().revision.load(Ordering::SeqCst);
+    scroll(&window, 1100., 280., 60.);
+    let _ = ui.window().take_snapshot()?;
+    assert_eq!(state.borrow().params.camera.exposure_compensation_ev, 3.25);
+    assert_eq!(state.borrow().revision.load(Ordering::SeqCst), revision);
+    assert!(ui.get_error());
+    assert!(ui.get_status().contains("Enter a number"));
+    replace_editor_text(&window, "4");
+    scroll(&window, 1100., 280., 60.);
+    let _ = ui.window().take_snapshot()?;
+    assert_eq!(state.borrow().params.camera.exposure_compensation_ev, 4.25);
+    assert!(!ui.get_error());
 
     // Place one real editor at a known location to exercise wheel delivery and
     // delayed help without relying on which sections the user has expanded.

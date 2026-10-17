@@ -9,7 +9,9 @@ its controls. There is one editor per parameter; no JSON editor or duplicated
 exposure/export controls. Numeric fields accept float64 values: press Enter or
 leave the field to apply. Scroll over an editor to change its value; numeric
 increments and wheel bounds come from the pinned reference GUI. Dropdowns and
-checkboxes also accept wheel input. Scroll over the labels to move through a
+checkboxes also accept wheel input. Numeric wheel edits first apply pending
+text; invalid text stays editable and reports an error. Small wheel movements
+accumulate across successive edits. Scroll over the labels to move through a
 long parameter panel. Hover over a label or editor for delayed, wrapped help.
 Invalid input appears in the status bar.
 
@@ -44,7 +46,8 @@ selected diffusion/blur operations exactly as source digestion does; halation
 and scattering remain enabled. **Scan** runs at original resolution with preview
 mode off. **Save** reuses a matching scan or processes the original if needed.
 Use the mouse wheel over the image to zoom toward or away from the pointer,
-and drag with the mouse to pan. Original/Processed/Compare share zoom and pan.
+and drag with the left mouse button to pan. Original/Processed/Compare share
+zoom and pan.
 Fit and the 100/200/400% buttons center the image; double-clicking the canvas
 also restores Fit. Navigation does not trigger processing. Use Scan to inspect
 full-resolution grain and detail. The status bar shows queued previews during
