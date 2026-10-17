@@ -32,8 +32,8 @@ library overrides. No Python interpreter is needed to run the release.
 ```sh
 # Keep both archives alongside SHA256SUMS to verify all release files.
 sha256sum -c SHA256SUMS
-tar -xzf fast-spektrafilm-0.1.1-linux-x86_64.tar.gz
-cd fast-spektrafilm-0.1.1-linux-x86_64
+tar -xzf fast-spektrafilm-0.1.2-linux-x86_64.tar.gz
+cd fast-spektrafilm-0.1.2-linux-x86_64
 ./fast-spektrafilm-gui
 ./fast-spektrafilm profiles
 ./fast-spektrafilm process /path/to/input.tiff /path/to/output.tiff
@@ -66,8 +66,8 @@ For another compiler installation, `SPEKTRAFILM_RUST_NOTICES` can
 point to its matching `share/doc/rust` notice directory.
 
 ```sh
-bash scripts/package-linux.sh v0.1.1
-bash scripts/smoke-release.sh artifacts/release/dist/fast-spektrafilm-0.1.1-linux-x86_64.tar.gz
+bash scripts/package-linux.sh v0.1.2
+bash scripts/smoke-release.sh artifacts/release/dist/fast-spektrafilm-0.1.2-linux-x86_64.tar.gz
 ```
 
 Local artifacts inherit the host's glibc requirements. Use the workflow artifacts
