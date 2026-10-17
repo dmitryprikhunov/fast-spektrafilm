@@ -2,9 +2,9 @@
 
 # fast-spektrafilm
 
-[![Release](https://img.shields.io/github/v/release/dmitryprikhunov/fast-spektrafilm?label=release&style=flat-square&color=ff985a)](https://github.com/dmitryprikhunov/fast-spektrafilm/releases/latest)
-[![Linux x86_64](https://img.shields.io/badge/Linux-x86__64-ff985a?style=flat-square)](RELEASES.md)
-[![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-ff985a?style=flat-square)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/dmitryprikhunov/fast-spektrafilm?label=release&style=flat-square&color=b85c2b)](https://github.com/dmitryprikhunov/fast-spektrafilm/releases/latest)
+[![Linux x86_64](https://img.shields.io/badge/Linux-x86__64-b85c2b?style=flat-square)](RELEASES.md)
+[![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-b85c2b?style=flat-square)](LICENSE)
 
 [🇷🇺 Русский](README.ru.md)
 
@@ -31,6 +31,8 @@ See [RELEASES.md](RELEASES.md) for installation and runtime requirements.
 To build from source, see the prerequisites in [DEVELOPMENT.md](DEVELOPMENT.md),
 then run from the repository root:
 
+<div align="left">
+
 ```sh
 # Desktop app
 cargo run --release --locked --features gui --bin fast-spektrafilm-gui
@@ -38,6 +40,8 @@ cargo run --release --locked --features gui --bin fast-spektrafilm-gui
 # Command line
 cargo run --release --locked -- process input.tiff output.tiff
 ```
+
+</div>
 
 Open an image, adjust settings with **Preview**, then **Scan** at full resolution.
 **Save** reuses the scan when settings match. CPU threads are selected automatically;

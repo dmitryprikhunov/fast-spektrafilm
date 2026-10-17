@@ -2,9 +2,9 @@
 
 # fast-spektrafilm
 
-[![Релиз](https://img.shields.io/github/v/release/dmitryprikhunov/fast-spektrafilm?label=release&style=flat-square&color=ff985a)](https://github.com/dmitryprikhunov/fast-spektrafilm/releases/latest)
-[![Linux x86_64](https://img.shields.io/badge/Linux-x86__64-ff985a?style=flat-square)](RELEASES.md)
-[![Лицензия: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-ff985a?style=flat-square)](LICENSE)
+[![Релиз](https://img.shields.io/github/v/release/dmitryprikhunov/fast-spektrafilm?label=release&style=flat-square&color=b85c2b)](https://github.com/dmitryprikhunov/fast-spektrafilm/releases/latest)
+[![Linux x86_64](https://img.shields.io/badge/Linux-x86__64-b85c2b?style=flat-square)](RELEASES.md)
+[![Лицензия: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-b85c2b?style=flat-square)](LICENSE)
 
 [🇬🇧 English](README.md)
 
@@ -33,6 +33,8 @@ CLI и десктопное приложение на Slint. Изображен�
 Для сборки из исходников ознакомьтесь с требованиями в
 [DEVELOPMENT.md](DEVELOPMENT.md), затем выполните из корня репозитория:
 
+<div align="left">
+
 ```sh
 # Десктопное приложение
 cargo run --release --locked --features gui --bin fast-spektrafilm-gui
@@ -40,6 +42,8 @@ cargo run --release --locked --features gui --bin fast-spektrafilm-gui
 # Командная строка
 cargo run --release --locked -- process input.tiff output.tiff
 ```
+
+</div>
 
 Откройте изображение, настройте обработку с помощью **Preview**, затем нажмите
 **Scan** для обработки в полном разрешении. **Save** использует готовый результат
